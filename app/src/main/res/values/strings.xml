@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Signup Log in Realtime</string>
+
+    <string name="full_name">Full Name</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="gender">Gender</string>
+    <string name="age">Age</string>
+    <string name="phone">Phone Number</string>
+
+    <string-array name="gender_options">
+        <item>Select Gender</item>
+        <item>Male</item>
+        <item>Female</item>
+    </string-array>
+
+    <string name="profile_image_desc">Profile picture</string>
+    <string name="water_icon_desc">Hydration reminder icon</string>
+    <string name="nav_home_desc">Home</string>
+    <string name="nav_activity_desc">My Activity</string>
+    <string name="nav_achievement_desc">Achievements</string>
+    <string name="nav_profile_desc">My Profile</string>
+</resources>

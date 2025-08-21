@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "360439499673",
+    "project_id": "fittrack-capstone",
+    "storage_bucket": "fittrack-capstone.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:360439499673:android:5a1f38658f2d1209e22108",
+        "android_client_info": {
+          "package_name": "com.example.signuploginrealtime"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHmS5UTdN8DoeohLUE3EL2XVsWaCzDmIg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

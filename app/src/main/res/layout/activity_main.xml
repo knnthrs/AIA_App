@@ -171,14 +171,17 @@
 
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Existing Membership Status Card -->
                     <androidx.cardview.widget.CardView
+                        android:id="@+id/membershipCard"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="20dp"
                         android:backgroundTint="#FFFFFF"
                         app:cardCornerRadius="24dp"
-                        app:cardElevation="0dp">
+                        app:cardElevation="0dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
 
                         <LinearLayout
                             android:layout_width="match_parent"
@@ -208,14 +211,14 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:padding="8dp"
-                                    android:text="ACTIVE"
-                                    android:textColor="#4CAF50"
+                                    android:text="INACTIVE"
+                                    android:textColor="#F44336"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
 
                             </LinearLayout>
 
-                            <!-- Plan + Expiry + Button -->
+                            <!-- Plan + Expiry -->
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
@@ -240,7 +243,7 @@
                                         android:id="@+id/planType"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Premium Annual"
+                                        android:text="No plan selected"
                                         android:textColor="#333333"
                                         android:textSize="16sp"
                                         android:textStyle="bold" />
@@ -265,25 +268,12 @@
                                         android:id="@+id/expiryDate"
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
-                                        android:text="Dec 31, 2025"
+                                        android:text="—"
                                         android:textColor="#333333"
                                         android:textSize="16sp"
                                         android:textStyle="bold" />
 
                                 </LinearLayout>
-
-                                <!-- Right: Pay Now Button -->
-                                <Button
-                                    android:id="@+id/pay_now_button"
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginLeft="8dp"
-                                    android:backgroundTint="@color/black"
-                                    android:text="Pay"
-                                    android:textColor="@android:color/white"
-                                    android:textStyle="bold"
-                                    android:paddingLeft="12dp"
-                                    android:paddingRight="12dp" />
 
                             </LinearLayout>
 

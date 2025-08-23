@@ -31,9 +31,6 @@
             android:name=".GenderSelection"
             android:exported="false" />
         <activity
-            android:name=".PickGender"
-            android:exported="false" />
-        <activity
             android:name=".SelectMembership"
             android:exported="false" />
         <activity

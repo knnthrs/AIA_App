@@ -54,10 +54,10 @@ public class LoginActivity extends AppCompatActivity {
                             // Show login success dialog
                             new AlertDialog.Builder(LoginActivity.this)
                                     .setTitle("Success")
-                                    .setMessage("Login Successful!")
+                                    .setMessage("Login Successful! Let's set up your profile.")
                                     .setPositiveButton("OK", (dialog, which) -> {
-                                        // Navigate to MainActivity after user clicks OK
-                                        Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                                        // Navigate to GenderSelection to start profile setup
+                                        Intent intent = new Intent(LoginActivity.this, GenderSelection.class);
                                         startActivity(intent);
                                         finish();
                                     })

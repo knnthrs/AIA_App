@@ -22,4 +22,19 @@
     <string name="nav_activity_desc">My Activity</string>
     <string name="nav_achievement_desc">Achievements</string>
     <string name="nav_profile_desc">My Profile</string>
+
+    <string-array name="fitness_levels">
+        <item>Beginner</item>
+        <item>Intermediate</item>
+        <item>Advanced</item>
+    </string-array>
+
+    <string-array name="fitness_goals">
+        <item>Weight Loss</item>
+        <item>Muscle Gain</item>
+        <item>Endurance</item>
+        <item>Strength</item>
+        <item>General Fitness</item>
+    </string-array>
 </resources>
+

@@ -42,6 +42,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth:22.3.0")
     implementation ("com.squareup.okhttp3:okhttp:4.11.0")
     implementation ("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation ("androidx.constraintlayout:constraintlayout:2.1.4")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

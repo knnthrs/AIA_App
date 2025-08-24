@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -36,6 +37,23 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // Initialize Firebase Auth
+        mAuth = FirebaseAuth.getInstance();
+
+        // Check if user is authenticated first
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            // User not logged in, redirect to login
+            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+            return;
+        }
+
+        // REMOVED the duplicate profile check since LoginActivity already handles it
+        // Users should only reach MainActivity if their profile is complete
+
         // Initialize views
         fab = findViewById(R.id.fab);
         greetingText = findViewById(R.id.greeting_text);
@@ -43,7 +61,6 @@ public class MainActivity extends AppCompatActivity {
         planType = findViewById(R.id.planType);
         expiryDate = findViewById(R.id.expiryDate);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
-        mAuth = FirebaseAuth.getInstance();
 
         // Membership card click → go to selection screen
         findViewById(R.id.membershipCard).setOnClickListener(v -> {
@@ -149,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateMembershipDisplay(DataSnapshot snapshot) {
-        // Check for membership data
+        // Check for actual membership plan selection - IGNORE membershipStatus field
         String planCode = null;
         String planLabel = null;
 
@@ -161,32 +178,36 @@ public class MainActivity extends AppCompatActivity {
             planLabel = snapshot.child("membershipPlanLabel").getValue(String.class);
         }
 
-        if (planCode != null && planLabel != null) {
-            // User has selected a membership
+        // Only show ACTIVE if user has actually selected a membership plan
+        boolean hasValidPlan = (planCode != null && !planCode.trim().isEmpty() && !planCode.equals("null")) ||
+                (planLabel != null && !planLabel.trim().isEmpty() && !planLabel.equals("null"));
+
+        if (hasValidPlan) {
+            // User has actually selected a membership plan
             membershipStatus.setText("ACTIVE");
             membershipStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
 
             // Set plan type - extract just the duration part
-            String planDisplay = extractPlanName(planLabel);
+            String planDisplay = extractPlanName(planLabel != null ? planLabel : planCode);
             planType.setText(planDisplay);
 
             // Calculate and set expiry date based on plan
-            String expiryDateStr = calculateExpiryDate(planCode);
+            String expiryDateStr = calculateExpiryDate(planCode != null ? planCode : "STANDARD_1M");
             expiryDate.setText(expiryDateStr);
 
         } else {
-            // No membership selected
+            // No membership plan selected - show inactive regardless of membershipStatus field
             setDefaultMembershipValues();
         }
     }
 
     private String extractPlanName(String planLabel) {
         // Extract plan name from full label
-        // Example: "1 Month — ₱1,500\nFull gym access • All equipment • Locker room"
+        // Example: "1 Month – ₱1,500\nFull gym access • All equipment • Locker room"
         // We want: "1 Month"
         if (planLabel != null) {
-            if (planLabel.contains(" — ")) {
-                return planLabel.split(" — ")[0];
+            if (planLabel.contains(" – ")) {
+                return planLabel.split(" – ")[0];
             } else if (planLabel.contains("\n")) {
                 return planLabel.split("\n")[0];
             }

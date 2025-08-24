@@ -3,6 +3,7 @@ package com.example.signuploginrealtime;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
@@ -16,6 +17,8 @@ public class SignupActivity extends AppCompatActivity {
     EditText signupFullname, signupEmail, signupPassword, signupConfirmPassword, signupPhone;
     Button signupButton;
     TextView loginRedirectText;
+    ProgressBar loadingProgressBar;
+    TextView loadingText;
     FirebaseAuth mAuth;
     FirebaseDatabase database;
     DatabaseReference reference;
@@ -32,6 +35,8 @@ public class SignupActivity extends AppCompatActivity {
         signupPhone = findViewById(R.id.signup_phone);
         signupButton = findViewById(R.id.signup_button);
         loginRedirectText = findViewById(R.id.loginRedirectText);
+        loadingProgressBar = findViewById(R.id.loadingProgressBar);
+        loadingText = findViewById(R.id.loadingText);
 
         mAuth = FirebaseAuth.getInstance();
         database = FirebaseDatabase.getInstance();
@@ -54,16 +59,31 @@ public class SignupActivity extends AppCompatActivity {
                 return;
             }
 
+            // Show loading indicator
+            showLoading();
+
             mAuth.createUserWithEmailAndPassword(email, password)
                     .addOnCompleteListener(task -> {
+                        // Hide loading indicator
+                        hideLoading();
+
                         if (task.isSuccessful()) {
                             FirebaseUser firebaseUser = mAuth.getCurrentUser();
                             if (firebaseUser != null) {
+                                // Show loading for database operation
+                                showLoading("Saving user data...");
+
                                 String userId = firebaseUser.getUid();
                                 HelperClass helperClass = new HelperClass(fullname, email, phone);
-                                reference.child(userId).setValue(helperClass);
-
-                                showSuccessDialog();
+                                reference.child(userId).setValue(helperClass)
+                                        .addOnCompleteListener(dbTask -> {
+                                            hideLoading();
+                                            if (dbTask.isSuccessful()) {
+                                                showSuccessDialog();
+                                            } else {
+                                                Toast.makeText(SignupActivity.this, "Failed to save user data", Toast.LENGTH_SHORT).show();
+                                            }
+                                        });
                             }
                         } else {
                             Toast.makeText(SignupActivity.this, "Sign up failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
@@ -75,6 +95,37 @@ public class SignupActivity extends AppCompatActivity {
             Intent intent = new Intent(SignupActivity.this, LoginActivity.class);
             startActivity(intent);
         });
+    }
+
+    private void showLoading() {
+        showLoading("Creating account...");
+    }
+
+    private void showLoading(String message) {
+        if (loadingProgressBar != null) {
+            loadingProgressBar.setVisibility(View.VISIBLE);
+        }
+        if (loadingText != null) {
+            loadingText.setVisibility(View.VISIBLE);
+            loadingText.setText(message);
+        }
+
+        // Disable the signup button to prevent multiple submissions
+        signupButton.setEnabled(false);
+        signupButton.setAlpha(0.5f);
+    }
+
+    private void hideLoading() {
+        if (loadingProgressBar != null) {
+            loadingProgressBar.setVisibility(View.GONE);
+        }
+        if (loadingText != null) {
+            loadingText.setVisibility(View.GONE);
+        }
+
+        // Re-enable the signup button
+        signupButton.setEnabled(true);
+        signupButton.setAlpha(1.0f);
     }
 
     private void showSuccessDialog() {

@@ -12,6 +12,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.card.MaterialCardView;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class GenderSelection extends AppCompatActivity {
 
@@ -52,9 +53,27 @@ public class GenderSelection extends AppCompatActivity {
                 Intent intent = new Intent(GenderSelection.this, AgeInput.class);
                 intent.putExtra("gender", selectedGender);
                 startActivity(intent);
-                finish();
+                // REMOVED finish(); to allow back navigation
             }
         });
+    }
+
+    @Override
+    public void onBackPressed() {
+        // If user tries to go back from profile setup, redirect to login
+        // This prevents them from getting stuck in the setup flow
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Exit Setup?")
+                .setMessage("Your profile setup is not complete. Do you want to exit to login?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    FirebaseAuth.getInstance().signOut();
+                    Intent intent = new Intent(GenderSelection.this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void updateCardSelection() {
@@ -73,4 +92,5 @@ public class GenderSelection extends AppCompatActivity {
         btnNext.setEnabled(true);
         btnNext.setAlpha(1.0f);
     }
+
 }

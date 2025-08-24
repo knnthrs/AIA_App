@@ -78,7 +78,7 @@ public class FitnessGoal extends AppCompatActivity {
                 intent.putExtra("fitnessLevel", fitnessLevel);
                 intent.putExtra("fitnessGoal", selectedFitnessGoal);
                 startActivity(intent);
-                finish();
+                // REMOVED finish(); to allow back navigation
             }
         });
     }

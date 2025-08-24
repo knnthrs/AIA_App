@@ -279,7 +279,7 @@
 
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Strength training Category -->
+                    <!-- muscle gain Category -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="110dp"
                         android:layout_height="120dp"
@@ -307,7 +307,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Strength training"
+                                android:text="Muscle Gain"
                                 android:textColor="#333333"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -316,7 +316,7 @@
 
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Cardiovascular endurance Category -->
+                    <!-- endurance Category -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="110dp"
                         android:layout_height="120dp"
@@ -344,7 +344,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Cardio"
+                                android:text="Endurance"
                                 android:textColor="#333333"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />
@@ -353,7 +353,7 @@
 
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Flexibility Category -->
+                    <!-- General Fitness Category -->
                     <androidx.cardview.widget.CardView
                         android:layout_width="110dp"
                         android:layout_height="120dp"
@@ -381,7 +381,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="Flexibility"
+                                android:text="General Fitness"
                                 android:textColor="#333333"
                                 android:textSize="14sp"
                                 android:textStyle="bold" />

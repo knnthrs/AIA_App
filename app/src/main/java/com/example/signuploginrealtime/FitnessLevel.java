@@ -70,7 +70,7 @@ public class FitnessLevel extends AppCompatActivity {
                 intent.putExtra("weight", weight);
                 intent.putExtra("fitnessLevel", selectedFitnessLevel);
                 startActivity(intent);
-                finish();
+                // REMOVED finish(); to allow back navigation
             }
         });
     }

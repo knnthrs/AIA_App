@@ -2,6 +2,8 @@ package com.example.signuploginrealtime;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.widget.Button;
 import android.widget.EditText;
 
@@ -11,9 +13,11 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.android.material.textfield.TextInputEditText;
+
 public class HeightWeightInput extends AppCompatActivity {
 
-    private EditText etHeight, etWeight;
+    private TextInputEditText etHeight, etWeight;
     private Button btnNext;
     private String gender;
     private int age;
@@ -38,6 +42,23 @@ public class HeightWeightInput extends AppCompatActivity {
         etWeight = findViewById(R.id.etWeight);
         btnNext = findViewById(R.id.btnNext);
 
+        // Add TextWatchers to both fields
+        TextWatcher inputWatcher = new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {}
+
+            @Override
+            public void afterTextChanged(Editable s) {
+                validateInputs();
+            }
+        };
+
+        etHeight.addTextChangedListener(inputWatcher);
+        etWeight.addTextChangedListener(inputWatcher);
+
         // Next button click listener
         btnNext.setOnClickListener(v -> {
             String heightText = etHeight.getText().toString().trim();
@@ -60,13 +81,13 @@ public class HeightWeightInput extends AppCompatActivity {
                 float weight = Float.parseFloat(weightText);
 
                 if (height <= 0 || height > 300) {
-                    etHeight.setError("Please enter a valid height");
+                    etHeight.setError("Please enter a valid height (1-300 cm)");
                     etHeight.requestFocus();
                     return;
                 }
 
                 if (weight <= 0 || weight > 500) {
-                    etWeight.setError("Please enter a valid weight");
+                    etWeight.setError("Please enter a valid weight (1-500 kg)");
                     etWeight.requestFocus();
                     return;
                 }
@@ -77,12 +98,42 @@ public class HeightWeightInput extends AppCompatActivity {
                 intent.putExtra("height", height);
                 intent.putExtra("weight", weight);
                 startActivity(intent);
-                finish();
+                // REMOVED finish(); to allow back navigation
 
             } catch (NumberFormatException e) {
                 etHeight.setError("Please enter valid numbers");
                 etWeight.setError("Please enter valid numbers");
             }
         });
+    }
+
+    private void validateInputs() {
+        String heightText = etHeight.getText().toString().trim();
+        String weightText = etWeight.getText().toString().trim();
+
+        boolean isValid = false;
+
+        if (!heightText.isEmpty() && !weightText.isEmpty()) {
+            try {
+                float height = Float.parseFloat(heightText);
+                float weight = Float.parseFloat(weightText);
+
+                // Check if both values are within valid ranges
+                if (height > 0 && height <= 300 && weight > 0 && weight <= 500) {
+                    isValid = true;
+                }
+            } catch (NumberFormatException e) {
+                isValid = false;
+            }
+        }
+
+        // Enable/disable button based on validation
+        if (isValid) {
+            btnNext.setEnabled(true);
+            btnNext.setAlpha(1.0f);
+        } else {
+            btnNext.setEnabled(false);
+            btnNext.setAlpha(0.5f);
+        }
     }
 }

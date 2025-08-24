@@ -100,22 +100,47 @@ public class QR extends AppCompatActivity {
                             userName = "Unknown User";
                         }
 
-                        // Get email for member ID generation
-                        String email = snapshot.child("email").getValue(String.class);
-                        userMemberId = generateMemberId(currentUser.getUid(), email);
+                        // Get member ID from database (same as Profile activity)
+                        String dbMemberId = snapshot.child("memberId").getValue(String.class);
+                        if (dbMemberId != null && !dbMemberId.isEmpty()) {
+                            userMemberId = dbMemberId;
+                        } else {
+                            // Generate and save member ID if not exists (same format as Profile)
+                            userMemberId = generateMemberId();
+                            userRef.child("memberId").setValue(userMemberId);
+                        }
 
-                        // Get membership information
-                        membershipType = snapshot.child("membershipType").getValue(String.class);
-                        if (membershipType == null) membershipType = "Basic";
+                        // Get actual membership plan information
+                        String membershipPlanCode = snapshot.child("membershipPlanCode").getValue(String.class);
+                        String membershipPlanLabel = snapshot.child("membershipPlanLabel").getValue(String.class);
 
-                        Boolean activeStatus = snapshot.child("membershipActive").getValue(Boolean.class);
-                        isActive = activeStatus != null ? activeStatus : false;
+                        if (membershipPlanCode != null && !membershipPlanCode.isEmpty()) {
+                            // User has selected a membership plan
+                            membershipType = getMembershipTypeFromCode(membershipPlanCode);
+                            isActive = true; // User with selected plan is active
 
-                        // Get membership expiry date if available
-                        String expiryDate = snapshot.child("membershipExpiry").getValue(String.class);
+                            if (membershipPlanLabel != null && !membershipPlanLabel.isEmpty()) {
+                                membershipStatusText = formatMembershipDisplay(membershipPlanLabel);
+                            } else {
+                                membershipStatusText = membershipType.toUpperCase() + " MEMBER";
+                            }
+                        } else {
+                            // Fallback: check old membership fields
+                            membershipType = snapshot.child("membershipType").getValue(String.class);
+                            if (membershipType == null) membershipType = "No Plan Selected";
 
-                        // Format membership status
-                        membershipStatusText = formatMembershipStatus(membershipType, isActive, expiryDate);
+                            Boolean activeStatus = snapshot.child("membershipActive").getValue(Boolean.class);
+                            isActive = activeStatus != null ? activeStatus : false;
+
+                            // Get membership status from database
+                            String dbMembershipStatus = snapshot.child("membershipStatus").getValue(String.class);
+                            if (dbMembershipStatus != null && !dbMembershipStatus.isEmpty()) {
+                                membershipStatusText = dbMembershipStatus.toUpperCase();
+                            } else {
+                                membershipStatusText = "NO PLAN SELECTED";
+                                isActive = false;
+                            }
+                        }
 
                         // Update UI with real-time data
                         updateUserInfoRealtime();
@@ -124,6 +149,9 @@ public class QR extends AppCompatActivity {
                         if (qrGeneratedTime.getText().toString().equals("Generated: --:--:--")) {
                             generateNewQRCode();
                         }
+                    } else {
+                        // Create default user data if not exists
+                        createDefaultUserData(currentUser);
                     }
                 }
 
@@ -148,20 +176,104 @@ public class QR extends AppCompatActivity {
         }
     }
 
+    private void createDefaultUserData(FirebaseUser currentUser) {
+        if (currentUser == null) return;
+
+        String email = currentUser.getEmail();
+        String defaultName = getDefaultName(email);
+        String memberId = generateMemberId();
+
+        // Set default values
+        userName = defaultName;
+        userMemberId = memberId;
+        membershipStatusText = "NO PLAN SELECTED";
+        membershipType = "No Plan Selected";
+        isActive = false;
+
+        // Save to Firebase (same structure as Profile activity)
+        userRef.child("name").setValue(defaultName);
+        userRef.child("email").setValue(email);
+        userRef.child("memberId").setValue(memberId);
+        userRef.child("membershipStatus").setValue("No Plan Selected");
+
+        // Update UI
+        updateUserInfoRealtime();
+        generateNewQRCode();
+    }
+
+    private String getDefaultName(String email) {
+        if (email != null && email.contains("@")) {
+            return email.split("@")[0];
+        }
+        return "Gym Member";
+    }
+
+    private String generateMemberId() {
+        // Generate unique member ID - SAME FORMAT AS PROFILE ACTIVITY
+        long timestamp = System.currentTimeMillis();
+        return "GYM" + String.valueOf(timestamp).substring(7); // GYM + last 6 digits
+    }
+
+    private String getMembershipTypeFromCode(String planCode) {
+        if (planCode == null) return "No Plan Selected";
+
+        if (planCode.startsWith("PT_")) {
+            return "Personal Training";
+        } else if (planCode.startsWith("STANDARD_")) {
+            return "Standard";
+        } else {
+            return "Standard";
+        }
+    }
+
+    private String formatMembershipDisplay(String planLabel) {
+        if (planLabel == null || planLabel.isEmpty()) {
+            return "NO PLAN SELECTED";
+        }
+
+        // Extract the main plan info for display
+        // Examples: "1 Month — ₱1,500" becomes "1 MONTH PLAN"
+        // "3 Months + 10 PT Sessions — ₱6,000" becomes "3 MONTHS + PT PLAN"
+
+        String upperLabel = planLabel.toUpperCase();
+
+        if (upperLabel.contains("PT SESSIONS")) {
+            if (upperLabel.contains("1 MONTH")) {
+                return "1 MONTH + PT PLAN";
+            } else if (upperLabel.contains("3 MONTHS")) {
+                return "3 MONTHS + PT PLAN";
+            } else {
+                return "PERSONAL TRAINING PLAN";
+            }
+        } else {
+            if (upperLabel.contains("1 MONTH")) {
+                return "1 MONTH PLAN";
+            } else if (upperLabel.contains("3 MONTHS")) {
+                return "3 MONTHS PLAN";
+            } else if (upperLabel.contains("6 MONTHS")) {
+                return "6 MONTHS PLAN";
+            } else if (upperLabel.contains("12 MONTHS") || upperLabel.contains("1 YEAR")) {
+                return "1 YEAR PLAN";
+            } else {
+                return "STANDARD PLAN";
+            }
+        }
+    }
+
     private void updateUserInfoRealtime() {
         // Update name
         qrUserName.setText(userName);
 
-        // Update member ID
+        // Update member ID (same format as Profile)
         memberId.setText("Member ID: #" + userMemberId);
 
-        // Update membership status with color coding
+        // Update membership status
         membershipStatus.setText(membershipStatusText);
 
         // Set status colors based on membership state
         CardView statusCard = (CardView) membershipStatus.getParent();
 
-        if (isActive) {
+        if (isActive || membershipStatusText.toUpperCase().contains("ACTIVE")) {
             if (membershipType.equalsIgnoreCase("Premium") || membershipType.equalsIgnoreCase("VIP")) {
                 // Premium/VIP members - Purple theme
                 membershipStatus.setTextColor(0xFF9C27B0); // Purple
@@ -178,30 +290,6 @@ public class QR extends AppCompatActivity {
         }
     }
 
-    private String formatMembershipStatus(String type, boolean active, String expiryDate) {
-        String status = active ? "Active" : "Inactive";
-        String formattedType = type.substring(0, 1).toUpperCase() + type.substring(1).toLowerCase();
-
-        if (expiryDate != null && !expiryDate.isEmpty() && active) {
-            return formattedType + " Member (" + status + ")";
-        } else {
-            return formattedType + " Member (" + status + ")";
-        }
-    }
-
-    private String generateMemberId(String uid, String email) {
-        // Create a more sophisticated member ID
-        String baseId = String.valueOf(Math.abs(uid.hashCode())).substring(0, 4);
-
-        if (email != null && !email.isEmpty()) {
-            // Add first letter of email for uniqueness
-            String emailPrefix = email.substring(0, 1).toUpperCase();
-            return emailPrefix + baseId;
-        }
-
-        return "U" + baseId;
-    }
-
     private void generateNewQRCode() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         String userId = currentUser != null ? currentUser.getUid() : "anonymous";
@@ -209,13 +297,13 @@ public class QR extends AppCompatActivity {
         // Create unique QR data with comprehensive user info
         String uniqueId = UUID.randomUUID().toString().substring(0, 8);
         long timestamp = System.currentTimeMillis();
-        String activeStatus = isActive ? "ACTIVE" : "INACTIVE";
+        String activeStatus = (isActive && !membershipType.equals("No Plan Selected")) ? "ACTIVE" : "INACTIVE";
 
         // Enhanced Format: MEMBERID_USERNAME_MEMBERSHIPTYPE_STATUS_USERID_UNIQUEID_TIMESTAMP
         String qrData = String.format("%s_%s_%s_%s_%s_%s_%d",
-                userMemberId,
+                userMemberId, // Now uses the same member ID as Profile
                 userName.replaceAll("[\\s\\W]", ""),
-                membershipType.toUpperCase(),
+                membershipType.replaceAll("[\\s\\W]", ""),
                 activeStatus,
                 userId.substring(0, Math.min(8, userId.length())),
                 uniqueId,

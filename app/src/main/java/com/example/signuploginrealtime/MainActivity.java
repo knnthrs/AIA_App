@@ -5,9 +5,10 @@ import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
+import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.bumptech.glide.Glide;
 import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -19,6 +20,12 @@ import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
+import android.widget.LinearLayout;
+
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -61,6 +68,52 @@ public class MainActivity extends AppCompatActivity {
         planType = findViewById(R.id.planType);
         expiryDate = findViewById(R.id.expiryDate);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
+
+
+        ImageView testImage = findViewById(R.id.testImage);
+        LinearLayout promoLayout = findViewById(R.id.promoLayout);
+
+// Firestore instance
+        FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+// Reference to promotions/latest
+        DocumentReference latestPromoRef = db.collection("promotions").document("latest");
+
+// Listen for changes in Firestore
+        latestPromoRef.addSnapshotListener((snapshot, e) -> {
+            if (e != null) {
+                Log.w("Firestore", "Listen failed.", e);
+                return;
+            }
+
+            if (snapshot != null && snapshot.exists()) {
+                // Fetch the "imageUrl" field
+                String imageUrl = snapshot.getString("imageUrl");
+
+                if (imageUrl != null && !imageUrl.isEmpty()) {
+                    // Load the image into your preview ImageView
+                    Glide.with(this)
+                            .load(imageUrl)
+                            .placeholder(android.R.drawable.ic_menu_report_image)
+                            .error(android.R.drawable.ic_delete)
+                            .into(testImage);
+
+                    // ✅ Pass the URL to Promo Activity when clicked
+                    promoLayout.setOnClickListener(v -> {
+                        Intent intent = new Intent(MainActivity.this, Promo.class);
+                        intent.putExtra("promoUrl", imageUrl);
+                        startActivity(intent);
+                    });
+                }
+            } else {
+                Log.d("Firestore", "No data found in latest document");
+            }
+        });
+
+
+
+
+
 
         // Membership card click → go to selection screen
         findViewById(R.id.membershipCard).setOnClickListener(v -> {

@@ -1,7 +1,8 @@
 package com.example.signuploginrealtime.models;
 
 public class WorkoutExercise {
-    private Exercise exercise;
+
+    private ExerciseInfo exerciseInfo; // store ExerciseInfo
     private int order;
     private int sets;
     private int reps;
@@ -9,10 +10,16 @@ public class WorkoutExercise {
 
     public WorkoutExercise() {}
 
-    // Getters and Setters
-    public Exercise getExercise() { return exercise; }
-    public void setExercise(Exercise exercise) { this.exercise = exercise; }
+    // ExerciseInfo getter/setter
+    public ExerciseInfo getExerciseInfo() {
+        return exerciseInfo;
+    }
 
+    public void setExerciseInfo(ExerciseInfo exerciseInfo) {
+        this.exerciseInfo = exerciseInfo;
+    }
+
+    // Other getters/setters
     public int getOrder() { return order; }
     public void setOrder(int order) { this.order = order; }
 
@@ -24,4 +31,15 @@ public class WorkoutExercise {
 
     public int getRestSeconds() { return restSeconds; }
     public void setRestSeconds(int restSeconds) { this.restSeconds = restSeconds; }
+
+    @Override
+    public String toString() {
+        return "WorkoutExercise{" +
+                "exerciseInfo=" + exerciseInfo +
+                ", order=" + order +
+                ", sets=" + sets +
+                ", reps=" + reps +
+                ", restSeconds=" + restSeconds +
+                '}';
+    }
 }

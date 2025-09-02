@@ -172,7 +172,7 @@ public class HealthIssues extends AppCompatActivity {
                         Toast.makeText(HealthIssues.this, "Profile saved successfully!", Toast.LENGTH_SHORT).show();
 
                         // MODIFIED: Navigate to WorkoutDisplayActivity instead of MainActivity
-                        Intent intent = new Intent(HealthIssues.this, WorkoutDisplayActivity.class);
+                        Intent intent = new Intent(HealthIssues.this, WorkoutList.class);
 
                         // Pass all the profile data to WorkoutDisplayActivity
                         intent.putExtra("fitness_goal", fitnessGoal);

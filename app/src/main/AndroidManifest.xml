@@ -16,12 +16,6 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         tools:targetApi="31">
         <activity
-            android:name=".WorkoutDisplayActivity"
-            android:exported="false" />
-        <activity
-            android:name=".Weight_loss_workout"
-            android:exported="false" />
-        <activity
             android:name=".HealthIssues"
             android:exported="false" />
         <activity

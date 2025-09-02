@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <application
@@ -14,7 +15,17 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SignupLogInRealtime"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <activity
+            android:name=".Promo"
+            android:exported="false" />
+        <activity
+            android:name=".WorkoutDisplayActivity"
+            android:exported="false" />
+        <activity
+            android:name=".Weight_loss_workout"
+            android:exported="false" />
         <activity
             android:name=".HealthIssues"
             android:exported="false" />

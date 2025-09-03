@@ -9,47 +9,55 @@ import java.util.List;
 
 public class WorkoutDecisionMaker {
 
-    public static Workout generateBaseWorkout(List<ExerciseInfo> availableExercises,
-                                              String fitnessGoal,
-                                              String fitnessLevel,
-                                              List<String> healthIssues,
-                                              int age, String gender, float bmi) {
+    // Updated to accept List<ExerciseInfo>
+    public static Workout generateBaseWorkout(
+            List<ExerciseInfo> exercises,
+            String goal,
+            String level,
+            List<String> disliked,
+            int age,
+            String gender,
+            float weight
+    ) {
+        Workout workout = new Workout();
+        List<WorkoutExercise> workoutExercises = new ArrayList<>();
 
-        List<WorkoutExercise> exercises = new ArrayList<>();
+        int order = 1;
 
-        for (ExerciseInfo exInfo : availableExercises) {
-            if (exInfo == null || exInfo.getName() == null) continue;
+        for (ExerciseInfo e : exercises) {
+            // Skip disliked exercises
+            if (disliked.contains(e.getName())) continue;
 
-            boolean skip = false;
+            WorkoutExercise we = new WorkoutExercise();
+            we.setExerciseInfo(e);
+            we.setOrder(order++);
 
-            // Skip exercises based on health issues
-            for (String issue : healthIssues) {
-                if ("Back Problems".equalsIgnoreCase(issue)
-                        && exInfo.getName().toLowerCase().contains("deadlift")) {
-                    skip = true;
+            // Default beginner sets and reps (can adjust by level)
+            switch (level.toLowerCase()) {
+                case "beginner":
+                    we.setSets(3);
+                    we.setReps(10);
                     break;
-                }
+                case "intermediate":
+                    we.setSets(4);
+                    we.setReps(12);
+                    break;
+                case "advanced":
+                    we.setSets(5);
+                    we.setReps(15);
+                    break;
+                default:
+                    we.setSets(3);
+                    we.setReps(10);
             }
 
-            if (!skip) {
-                WorkoutExercise we = new WorkoutExercise();
+            // Rest seconds default
+            we.setRestSeconds(60);
 
-                // Directly use ExerciseInfo instead of Exercise
-                we.setExerciseInfo(exInfo); // Make sure WorkoutExercise has setExerciseInfo method
-
-                we.setOrder(exercises.size() + 1);
-                we.setSets(3);      // default sets
-                we.setReps(10);     // default reps
-                we.setRestSeconds(60); // default rest
-
-                exercises.add(we);
-
-                // Limit to 5 exercises
-                if (exercises.size() >= 5) break;
-            }
+            workoutExercises.add(we);
         }
 
-        // Create workout with total duration or default value
-        return new Workout(exercises, 15);
+        workout.setExercises(workoutExercises);
+        return workout;
     }
 }

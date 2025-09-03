@@ -1,0 +1,49 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:gravity="center"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/yellowbg">
+
+    <!-- Exercise Name -->
+    <TextView
+        android:id="@+id/tv_exercise_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Exercise Name"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:paddingBottom="16dp" />
+
+    <!-- Exercise Details -->
+    <TextView
+        android:id="@+id/tv_exercise_details"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Exercise details here"
+        android:textSize="18sp"
+        android:paddingBottom="24dp" />
+
+    <!-- Timer / Rest -->
+    <TextView
+        android:id="@+id/tv_exercise_rest"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Time left: 60s"
+        android:textSize="22sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/holo_red_dark"
+        android:paddingBottom="24dp" />
+
+    <!-- Skip Button -->
+    <Button
+        android:id="@+id/btn_skip"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Skip"
+        android:backgroundTint="@android:color/holo_blue_light"
+        android:textColor="@android:color/white"
+        android:padding="12dp" />
+
+</LinearLayout>

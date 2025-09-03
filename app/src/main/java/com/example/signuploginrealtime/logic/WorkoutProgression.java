@@ -2,6 +2,7 @@ package com.example.signuploginrealtime.logic;
 
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
+import com.example.signuploginrealtime.models.ExerciseInfo;
 import com.example.signuploginrealtime.models.UserProfile;
 
 import java.util.ArrayList;
@@ -14,34 +15,52 @@ public class WorkoutProgression {
 
         for (WorkoutExercise we : baseWorkout.getExercises()) {
             WorkoutExercise progressed = new WorkoutExercise();
-            progressed.setExerciseInfo(we.getExerciseInfo()); // <-- updated
+
+            // Copy ExerciseInfo
+            ExerciseInfo originalInfo = we.getExerciseInfo();
+            ExerciseInfo copyInfo = new ExerciseInfo();
+            copyInfo.setName(originalInfo.getName());
+            copyInfo.setDescription(originalInfo.getDescription());
+            progressed.setExerciseInfo(copyInfo);
+
             progressed.setOrder(we.getOrder());
 
-            // Progressive scaling
-            int newReps = we.getReps() + (dayNumber / 2);
-            int newSets = we.getSets() + (dayNumber / 7);
-            int newRest = Math.max(30, we.getRestSeconds() - (dayNumber / 5) * 5);
+            // Determine base sets/reps from fitness goal
+            int baseSets = we.getSets();
+            int baseReps = we.getReps();
+            int baseRest = we.getRestSeconds();
 
-            // Adjust based on user profile
-            if (userProfile.getAge() > 50) {
-                newRest += 15; // older users get more rest
-            }
-
-            // Example: Adjust intensity based on fitness goal
             String goal = userProfile.getFitnessGoal().toLowerCase();
             switch (goal) {
                 case "lose weight":
-                    newReps += 2;   // slightly higher reps
-                    newRest = Math.min(newRest, 50); // shorter rest
+                    baseSets = 3;
+                    baseReps = 15;
+                    baseRest = 45;
                     break;
                 case "gain muscle":
-                    newSets += 1;   // slightly more sets
-                    newRest = Math.max(newRest, 90); // longer rest
+                    baseSets = 4;
+                    baseReps = 8;
+                    baseRest = 90;
                     break;
                 case "increase endurance":
-                    newReps += 5;   // more reps
-                    newRest = Math.min(newRest, 40);
+                    baseSets = 2;
+                    baseReps = 20;
+                    baseRest = 30;
                     break;
+                default:
+                    baseSets = we.getSets();
+                    baseReps = we.getReps();
+                    baseRest = we.getRestSeconds();
+            }
+
+            // Progressive scaling per day
+            int newReps = baseReps + (dayNumber / 2);
+            int newSets = baseSets + (dayNumber / 7);
+            int newRest = Math.max(30, baseRest - (dayNumber / 5) * 5);
+
+            // Adjust for age
+            if (userProfile.getAge() > 50) {
+                newRest += 15;
             }
 
             progressed.setReps(newReps);
@@ -51,8 +70,9 @@ public class WorkoutProgression {
             newExercises.add(progressed);
         }
 
-        int newDuration = baseWorkout.getDuration() + (dayNumber * 2);
+        Workout progressedWorkout = new Workout();
+        progressedWorkout.setExercises(newExercises);
 
-        return new Workout(newExercises, newDuration);
+        return progressedWorkout;
     }
 }

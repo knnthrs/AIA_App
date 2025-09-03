@@ -61,13 +61,14 @@
             android:exported="false" /> <!-- Splash (Launcher Activity) -->
         <activity
             android:name=".SplashActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.SignupLogInRealtime.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".LoginActivity"
             android:exported="false" />
@@ -80,6 +81,10 @@
         <activity
             android:name=".AboutusActivity"
             android:exported="false" />
+        <activity
+            android:name=".StreakCalendar"
+            android:exported="false" />
+
     </application>
 
 </manifest>

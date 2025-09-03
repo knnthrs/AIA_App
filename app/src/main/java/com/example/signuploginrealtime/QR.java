@@ -24,16 +24,10 @@ import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.QRCodeWriter;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
-import java.util.UUID;
-
 public class QR extends AppCompatActivity {
 
     private ImageView qrCodeImage, backButton;
-    private TextView qrGeneratedTime, qrUserName, memberId, membershipStatus;
-    private CardView generateNewQrButton;
+    private TextView qrUserName, memberId, membershipStatus;
 
     // User data variables
     private String userName = "Loading...";
@@ -66,20 +60,13 @@ public class QR extends AppCompatActivity {
     private void initializeViews() {
         qrCodeImage = findViewById(R.id.qr_code_image);
         backButton = findViewById(R.id.back_button);
-        qrGeneratedTime = findViewById(R.id.qr_generated_time);
         qrUserName = findViewById(R.id.qr_user_name);
         memberId = findViewById(R.id.member_id);
         membershipStatus = findViewById(R.id.membership_status);
-        generateNewQrButton = findViewById(R.id.generate_new_qr_button);
     }
 
     private void setupClickListeners() {
         backButton.setOnClickListener(v -> finish());
-
-        generateNewQrButton.setOnClickListener(v -> {
-            generateNewQRCode();
-            Toast.makeText(this, "New QR code generated!", Toast.LENGTH_SHORT).show();
-        });
     }
 
     private void loadUserData() {
@@ -100,24 +87,22 @@ public class QR extends AppCompatActivity {
                             userName = "Unknown User";
                         }
 
-                        // Get member ID from database (same as Profile activity)
+                        // Get member ID from database
                         String dbMemberId = snapshot.child("memberId").getValue(String.class);
                         if (dbMemberId != null && !dbMemberId.isEmpty()) {
                             userMemberId = dbMemberId;
                         } else {
-                            // Generate and save member ID if not exists (same format as Profile)
                             userMemberId = generateMemberId();
                             userRef.child("memberId").setValue(userMemberId);
                         }
 
-                        // Get actual membership plan information
+                        // Get membership info
                         String membershipPlanCode = snapshot.child("membershipPlanCode").getValue(String.class);
                         String membershipPlanLabel = snapshot.child("membershipPlanLabel").getValue(String.class);
 
                         if (membershipPlanCode != null && !membershipPlanCode.isEmpty()) {
-                            // User has selected a membership plan
                             membershipType = getMembershipTypeFromCode(membershipPlanCode);
-                            isActive = true; // User with selected plan is active
+                            isActive = true;
 
                             if (membershipPlanLabel != null && !membershipPlanLabel.isEmpty()) {
                                 membershipStatusText = formatMembershipDisplay(membershipPlanLabel);
@@ -125,14 +110,12 @@ public class QR extends AppCompatActivity {
                                 membershipStatusText = membershipType.toUpperCase() + " MEMBER";
                             }
                         } else {
-                            // Fallback: check old membership fields
                             membershipType = snapshot.child("membershipType").getValue(String.class);
                             if (membershipType == null) membershipType = "No Plan Selected";
 
                             Boolean activeStatus = snapshot.child("membershipActive").getValue(Boolean.class);
                             isActive = activeStatus != null ? activeStatus : false;
 
-                            // Get membership status from database
                             String dbMembershipStatus = snapshot.child("membershipStatus").getValue(String.class);
                             if (dbMembershipStatus != null && !dbMembershipStatus.isEmpty()) {
                                 membershipStatusText = dbMembershipStatus.toUpperCase();
@@ -142,15 +125,11 @@ public class QR extends AppCompatActivity {
                             }
                         }
 
-                        // Update UI with real-time data
                         updateUserInfoRealtime();
 
-                        // Generate QR code if this is the first load
-                        if (qrGeneratedTime.getText().toString().equals("Generated: --:--:--")) {
-                            generateNewQRCode();
-                        }
+                        // Generate permanent QR (or load if exists)
+                        ensurePermanentQRCode();
                     } else {
-                        // Create default user data if not exists
                         createDefaultUserData(currentUser);
                     }
                 }
@@ -159,20 +138,14 @@ public class QR extends AppCompatActivity {
                 public void onCancelled(DatabaseError error) {
                     Toast.makeText(QR.this, "Failed to load user data: " + error.getMessage(),
                             Toast.LENGTH_SHORT).show();
-                    // Use default values and generate QR
                     updateUserInfoRealtime();
-                    if (qrGeneratedTime.getText().toString().equals("Generated: --:--:--")) {
-                        generateNewQRCode();
-                    }
+                    ensurePermanentQRCode();
                 }
             };
 
-            // Attach the listener for real-time updates
             userRef.addValueEventListener(userDataListener);
         } else {
-            // User not authenticated, use defaults
             updateUserInfoRealtime();
-            generateNewQRCode();
         }
     }
 
@@ -183,22 +156,19 @@ public class QR extends AppCompatActivity {
         String defaultName = getDefaultName(email);
         String memberId = generateMemberId();
 
-        // Set default values
         userName = defaultName;
         userMemberId = memberId;
         membershipStatusText = "NO PLAN SELECTED";
         membershipType = "No Plan Selected";
         isActive = false;
 
-        // Save to Firebase (same structure as Profile activity)
         userRef.child("name").setValue(defaultName);
         userRef.child("email").setValue(email);
         userRef.child("memberId").setValue(memberId);
         userRef.child("membershipStatus").setValue("No Plan Selected");
 
-        // Update UI
         updateUserInfoRealtime();
-        generateNewQRCode();
+        ensurePermanentQRCode();
     }
 
     private String getDefaultName(String email) {
@@ -209,9 +179,8 @@ public class QR extends AppCompatActivity {
     }
 
     private String generateMemberId() {
-        // Generate unique member ID - SAME FORMAT AS PROFILE ACTIVITY
         long timestamp = System.currentTimeMillis();
-        return "GYM" + String.valueOf(timestamp).substring(7); // GYM + last 6 digits
+        return "GYM" + String.valueOf(timestamp).substring(7);
     }
 
     private String getMembershipTypeFromCode(String planCode) {
@@ -230,10 +199,6 @@ public class QR extends AppCompatActivity {
         if (planLabel == null || planLabel.isEmpty()) {
             return "NO PLAN SELECTED";
         }
-
-        // Extract the main plan info for display
-        // Examples: "1 Month — ₱1,500" becomes "1 MONTH PLAN"
-        // "3 Months + 10 PT Sessions — ₱6,000" becomes "3 MONTHS + PT PLAN"
 
         String upperLabel = planLabel.toUpperCase();
 
@@ -261,61 +226,49 @@ public class QR extends AppCompatActivity {
     }
 
     private void updateUserInfoRealtime() {
-        // Update name
         qrUserName.setText(userName);
-
-        // Update member ID (same format as Profile)
         memberId.setText("Member ID: #" + userMemberId);
-
-        // Update membership status
         membershipStatus.setText(membershipStatusText);
 
-        // Set status colors based on membership state
         CardView statusCard = (CardView) membershipStatus.getParent();
 
         if (isActive || membershipStatusText.toUpperCase().contains("ACTIVE")) {
             if (membershipType.equalsIgnoreCase("Premium") || membershipType.equalsIgnoreCase("VIP")) {
-                // Premium/VIP members - Purple theme
-                membershipStatus.setTextColor(0xFF9C27B0); // Purple
-                statusCard.setCardBackgroundColor(0xFFE1BEE7); // Light purple
+                membershipStatus.setTextColor(0xFF9C27B0);
+                statusCard.setCardBackgroundColor(0xFFE1BEE7);
             } else {
-                // Basic active members - Green theme
-                membershipStatus.setTextColor(0xFF388E3C); // Green
-                statusCard.setCardBackgroundColor(0xFFE8F5E8); // Light green
+                membershipStatus.setTextColor(0xFF388E3C);
+                statusCard.setCardBackgroundColor(0xFFE8F5E8);
             }
         } else {
-            // Inactive members - Red theme
-            membershipStatus.setTextColor(0xFFD32F2F); // Red
-            statusCard.setCardBackgroundColor(0xFFFFEBEE); // Light red
+            membershipStatus.setTextColor(0xFFD32F2F);
+            statusCard.setCardBackgroundColor(0xFFFFEBEE);
         }
     }
 
-    private void generateNewQRCode() {
+    private void ensurePermanentQRCode() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-        String userId = currentUser != null ? currentUser.getUid() : "anonymous";
+        if (currentUser == null) return;
 
-        // Create unique QR data with comprehensive user info
-        String uniqueId = UUID.randomUUID().toString().substring(0, 8);
-        long timestamp = System.currentTimeMillis();
-        String activeStatus = (isActive && !membershipType.equals("No Plan Selected")) ? "ACTIVE" : "INACTIVE";
+        userRef.child("qrCode").get().addOnCompleteListener(task -> {
+            if (task.isSuccessful()) {
+                String savedQr = task.getResult().getValue(String.class);
+                if (savedQr != null && !savedQr.isEmpty()) {
+                    generateQRCode(savedQr);
+                } else {
+                    String qrData = String.format("%s_%s_%s_%s",
+                            userMemberId,
+                            userName.replaceAll("[\\s\\W]", ""),
+                            membershipType.replaceAll("[\\s\\W]", ""),
+                            currentUser.getUid());
 
-        // Enhanced Format: MEMBERID_USERNAME_MEMBERSHIPTYPE_STATUS_USERID_UNIQUEID_TIMESTAMP
-        String qrData = String.format("%s_%s_%s_%s_%s_%s_%d",
-                userMemberId, // Now uses the same member ID as Profile
-                userName.replaceAll("[\\s\\W]", ""),
-                membershipType.replaceAll("[\\s\\W]", ""),
-                activeStatus,
-                userId.substring(0, Math.min(8, userId.length())),
-                uniqueId,
-                timestamp);
-
-        generateQRCode(qrData);
-        updateGeneratedTime();
-
-        // Show success message with member info
-        String message = String.format("QR Generated for %s\nMember ID: %s\nStatus: %s",
-                userName, userMemberId, activeStatus);
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show();
+                    userRef.child("qrCode").setValue(qrData);
+                    generateQRCode(qrData);
+                }
+            } else {
+                Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
+            }
+        });
     }
 
     private void generateQRCode(String text) {
@@ -337,16 +290,9 @@ public class QR extends AppCompatActivity {
         }
     }
 
-    private void updateGeneratedTime() {
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
-        String currentTime = sdf.format(new Date());
-        qrGeneratedTime.setText("Generated: " + currentTime);
-    }
-
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Remove Firebase listener to prevent memory leaks
         if (userRef != null && userDataListener != null) {
             userRef.removeEventListener(userDataListener);
         }
@@ -355,7 +301,6 @@ public class QR extends AppCompatActivity {
     @Override
     protected void onPause() {
         super.onPause();
-        // Optional: Remove listener when app goes to background to save resources
         if (userRef != null && userDataListener != null) {
             userRef.removeEventListener(userDataListener);
         }
@@ -364,7 +309,6 @@ public class QR extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Re-attach listener when app comes back to foreground
         if (userRef != null && userDataListener != null) {
             userRef.addValueEventListener(userDataListener);
         }

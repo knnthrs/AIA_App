@@ -23,7 +23,7 @@ public class Promo extends AppCompatActivity {
             Glide.with(this)
                     .load(promoUrl)
                     .placeholder(android.R.drawable.ic_menu_report_image)
-                    .error(android.R.drawable.ic_delete)
+                    .error(R.drawable.badge_background)
                     .into(promoImageView);
         }
     }

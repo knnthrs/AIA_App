@@ -13,7 +13,7 @@
         android:orientation="vertical"
         android:padding="12dp">
 
-        <!-- Order Number -->
+        <!-- Exercise Number -->
         <TextView
             android:id="@+id/tv_exercise_number"
             android:layout_width="wrap_content"
@@ -29,40 +29,42 @@
             android:layout_height="wrap_content"
             android:text="Push Up"
             android:textSize="18sp"
-            android:textStyle="bold"
-            android:layout_marginTop="4dp" />
+            android:textStyle="bold" />
 
         <!-- Exercise Details -->
         <TextView
             android:id="@+id/tv_exercise_details"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Do this exercise for chest strength."
-            android:textSize="14sp"
-            android:layout_marginTop="4dp" />
+            android:text="Chest exercise"
+            android:textSize="14sp" />
 
-        <!-- Rest Time + Info Button -->
-        <LinearLayout
-            android:layout_width="match_parent"
+        <!-- Rest Time -->
+        <TextView
+            android:id="@+id/tv_exercise_rest"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="6dp">
+            android:text="Rest: 60s"
+            android:textSize="14sp"
+            android:textStyle="italic" />
 
-            <TextView
-                android:id="@+id/tv_exercise_rest"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Rest: 60 seconds"
-                android:textSize="14sp" />
+        <!-- ✅ New: Muscles -->
+        <TextView
+            android:id="@+id/tv_exercise_muscles"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Muscles: Chest, Triceps"
+            android:textSize="14sp"
+            android:textColor="@android:color/holo_blue_dark" />
 
-            <ImageView
-                android:id="@+id/iv_exercise_info"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@android:drawable/ic_menu_info_details"
-                android:contentDescription="Info" />
-        </LinearLayout>
+        <!-- ✅ New: Equipment -->
+        <TextView
+            android:id="@+id/tv_exercise_equipment"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Equipment: None"
+            android:textSize="14sp"
+            android:textColor="@android:color/holo_green_dark" />
 
     </LinearLayout>
-
 </androidx.cardview.widget.CardView>

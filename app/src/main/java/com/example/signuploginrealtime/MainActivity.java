@@ -1,12 +1,14 @@
 package com.example.signuploginrealtime;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.util.Log;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.cardview.widget.CardView;
 
 import com.bumptech.glide.Glide;
 import com.google.android.material.badge.BadgeDrawable;
@@ -26,18 +28,20 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 
-
 public class MainActivity extends AppCompatActivity {
 
     TextView greetingText;
     TextView membershipStatus;
     TextView planType;
     TextView expiryDate;
+    TextView streakDisplay; // New streak display
+    CardView streakCard; // New streak card
     FloatingActionButton fab;
     FirebaseAuth mAuth;
     DatabaseReference userRef;
     BottomNavigationView bottomNavigationView;
     ValueEventListener userDataListener;
+    SharedPreferences workoutPrefs; // For streak data
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -58,8 +62,8 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        // REMOVED the duplicate profile check since LoginActivity already handles it
-        // Users should only reach MainActivity if their profile is complete
+        // Initialize SharedPreferences for workout data
+        workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
 
         // Initialize views
         fab = findViewById(R.id.fab);
@@ -69,17 +73,20 @@ public class MainActivity extends AppCompatActivity {
         expiryDate = findViewById(R.id.expiryDate);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
+        // Initialize new streak views (you'll need to add these to your layout)
+        streakDisplay = findViewById(R.id.streak_number);  // This will show just the number
+        streakCard = findViewById(R.id.streak_counter_card);  // This is the clickable card
 
         ImageView testImage = findViewById(R.id.testImage);
         LinearLayout promoLayout = findViewById(R.id.promoLayout);
 
-// Firestore instance
+        // Firestore instance
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-// Reference to promotions/latest
+        // Reference to promotions/latest
         DocumentReference latestPromoRef = db.collection("promotions").document("latest");
 
-// Listen for changes in Firestore
+        // Listen for changes in Firestore
         latestPromoRef.addSnapshotListener((snapshot, e) -> {
             if (e != null) {
                 Log.w("Firestore", "Listen failed.", e);
@@ -110,16 +117,20 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-
-
-
-
-
         // Membership card click → go to selection screen
         findViewById(R.id.membershipCard).setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, SelectMembership.class);
             startActivity(intent);
         });
+
+        // Streak card click → go to StreakCalendar
+        if (streakCard != null) {
+            streakCard.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, StreakCalendar.class);
+                startActivity(intent);
+                overridePendingTransition(0, 0);
+            });
+        }
 
         // Notification Bell icon click listener
         ImageView bellIcon = findViewById(R.id.bell_icon);
@@ -131,8 +142,11 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // FAB click listener
+        // FAB click listener - Modified to save workout when used
         fab.setOnClickListener(v -> {
+            // Save today's workout when QR is used
+            saveWorkoutForToday();
+
             Intent intent = new Intent(this, QR.class);
             startActivity(intent);
         });
@@ -164,6 +178,81 @@ public class MainActivity extends AppCompatActivity {
 
         // Load user data with real-time updates
         loadUserData();
+
+        // Update streak display
+        updateStreakDisplay();
+    }
+
+    // New method to save workout for today
+    private void saveWorkoutForToday() {
+        String today = getCurrentDateString();
+        String workoutDetails = "Gym session completed";
+
+        // Save workout using the StreakCalendar method
+        StreakCalendar.saveWorkoutForDate(workoutPrefs, today, workoutDetails);
+
+        // Update current streak
+        updateCurrentStreak();
+
+        // Refresh streak display
+        updateStreakDisplay();
+
+        Toast.makeText(this, "Workout recorded for today!", Toast.LENGTH_SHORT).show();
+    }
+
+    // Method to update current streak
+    private void updateCurrentStreak() {
+        int newStreak = calculateCurrentStreak();
+        SharedPreferences.Editor editor = workoutPrefs.edit();
+        editor.putInt("current_streak", newStreak);
+        editor.apply();
+    }
+
+    // Method to calculate current streak
+    private int calculateCurrentStreak() {
+        String today = getCurrentDateString();
+        int streak = 0;
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Calendar cal = Calendar.getInstance();
+
+            // Check consecutive days backwards from today
+            while (true) {
+                String dateStr = formatCalendarToString(cal);
+                if (workoutPrefs.getStringSet("workout_dates", null) != null &&
+                        workoutPrefs.getStringSet("workout_dates", null).contains(dateStr)) {
+                    streak++;
+                    cal.add(Calendar.DAY_OF_MONTH, -1);
+                } else {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return streak;
+    }
+
+    // Method to update streak display on dashboard
+    private void updateStreakDisplay() {
+        if (streakDisplay != null) {
+            int currentStreak = workoutPrefs.getInt("current_streak", 0);
+            streakDisplay.setText(String.valueOf(currentStreak));
+        }
+    }
+
+    // Helper method to get current date as string
+    private String getCurrentDateString() {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return sdf.format(new Date());
+    }
+
+    // Helper method to format calendar to string
+    private String formatCalendarToString(Calendar cal) {
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return sdf.format(cal.getTime());
     }
 
     private void loadUserData() {
@@ -256,8 +345,6 @@ public class MainActivity extends AppCompatActivity {
 
     private String extractPlanName(String planLabel) {
         // Extract plan name from full label
-        // Example: "1 Month – ₱1,500\nFull gym access • All equipment • Locker room"
-        // We want: "1 Month"
         if (planLabel != null) {
             if (planLabel.contains(" – ")) {
                 return planLabel.split(" – ")[0];
@@ -302,9 +389,10 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        // Refresh data when returning from SelectMembership activity
+        // Refresh data when returning from activities
         if (mAuth.getCurrentUser() != null) {
             loadUserData();
+            updateStreakDisplay(); // Refresh streak display
         }
     }
 

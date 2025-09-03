@@ -1,18 +1,18 @@
 package com.example.signuploginrealtime;
 
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.util.Log;
 import android.view.View;
-import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.signuploginrealtime.api.ApiClient;
 import com.example.signuploginrealtime.api.WgerApiService;
-import com.example.signuploginrealtime.models.WgerExercise;
 import com.example.signuploginrealtime.models.WgerExerciseResponse;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
@@ -28,7 +28,10 @@ import retrofit2.Response;
 
 public class WorkoutList extends AppCompatActivity {
 
-    private LinearLayout exercisesContainer;
+    private static final String TAG = "WorkoutList";
+
+    private RecyclerView exercisesRecycler;
+    private WorkoutAdapter workoutAdapter;
     private TextView exerciseCount, workoutDuration;
     private ProgressBar loadingIndicator;
     private View refreshButton;
@@ -40,7 +43,15 @@ public class WorkoutList extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_workout_list);
 
-        exercisesContainer = findViewById(R.id.exercises_container);
+        Log.d(TAG, "onCreate started");
+
+        exercisesRecycler = findViewById(R.id.exercises_recycler);
+        exercisesRecycler.setLayoutManager(new LinearLayoutManager(this));
+
+        // ✅ Initialize adapter correctly
+        workoutAdapter = new WorkoutAdapter(this, new ArrayList<WorkoutExercise>());
+        exercisesRecycler.setAdapter(workoutAdapter);
+
         exerciseCount = findViewById(R.id.exercise_count);
         workoutDuration = findViewById(R.id.workout_duration);
         loadingIndicator = findViewById(R.id.loading_indicator);
@@ -51,35 +62,42 @@ public class WorkoutList extends AppCompatActivity {
         // Fetch exercises from API
         fetchExercises();
 
-        refreshButton.setOnClickListener(v -> fetchExercises());
+        refreshButton.setOnClickListener(v -> {
+            Log.d(TAG, "Refresh button clicked");
+            fetchExercises();
+        });
     }
 
     private void fetchExercises() {
+        Log.d(TAG, "fetchExercises() called");
         loadingIndicator.setVisibility(View.VISIBLE);
 
         apiService.getExercises(2, 20, 0).enqueue(new Callback<WgerExerciseResponse>() {
             @Override
             public void onResponse(Call<WgerExerciseResponse> call, Response<WgerExerciseResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
-                    List<WgerExercise> wgerList = response.body().getResults();
-                    List<ExerciseInfo> converted = new ArrayList<>();
+                    List<ExerciseInfo> exercises = response.body().getResults();
 
-                    for (WgerExercise w : wgerList) {
-                        ExerciseInfo e = new ExerciseInfo();
-                        e.setName(w.getName());
-                        e.setDescription(w.getCleanDescription());
-                        converted.add(e);
+                    Log.d(TAG, "API returned " + exercises.size() + " exercises");
+
+                    for (int i = 0; i < Math.min(5, exercises.size()); i++) {
+                        ExerciseInfo ex = exercises.get(i);
+                        Log.d(TAG, "Exercise " + i + " details:");
+                        Log.d(TAG, "  - ID: " + (ex != null ? ex.getId() : "null"));
+                        Log.d(TAG, "  - Name: " + (ex != null ? ex.getName() : "null"));
+                        Log.d(TAG, "  - UUID: " + (ex != null ? ex.getUuid() : "null"));
+                        Log.d(TAG, "  - Description: " + (ex != null ? ex.getCleanDescription() : "null"));
+                        Log.d(TAG, "  - Category: " + (ex != null ? ex.getCategoryName() : "null"));
+                        Log.d(TAG, "  - Language: " + (ex != null ? ex.getLanguage() : "null"));
                     }
 
-                    generateWorkout(converted);
-                } else {
-                    loadingIndicator.setVisibility(View.GONE);
-                    Toast.makeText(WorkoutList.this, "Failed to fetch exercises", Toast.LENGTH_SHORT).show();
+                    generateWorkout(exercises);
                 }
             }
 
             @Override
             public void onFailure(Call<WgerExerciseResponse> call, Throwable t) {
+                Log.e(TAG, "API call failed", t);
                 loadingIndicator.setVisibility(View.GONE);
                 Toast.makeText(WorkoutList.this, "Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
             }
@@ -87,6 +105,8 @@ public class WorkoutList extends AppCompatActivity {
     }
 
     private void generateWorkout(List<ExerciseInfo> availableExercises) {
+        Log.d(TAG, "generateWorkout() called with " + availableExercises.size() + " exercises");
+
         // Example profile data — replace later
         String userGoal = "Lose Weight";
         String userLevel = "Beginner";
@@ -95,46 +115,31 @@ public class WorkoutList extends AppCompatActivity {
         String gender = "Male";
         float bmi = 23.0f;
 
+        Log.d(TAG, "User profile - Goal: " + userGoal + ", Level: " + userLevel);
+
         Workout workout = WorkoutDecisionMaker.generateBaseWorkout(
                 availableExercises, userGoal, userLevel, healthIssues, age, gender, bmi
         );
+
+        Log.d(TAG, "Generated workout with " + workout.getExercises().size() + " exercises");
+
+        for (int i = 0; i < workout.getExercises().size(); i++) {
+            WorkoutExercise we = workout.getExercises().get(i);
+            Log.d(TAG, "Workout exercise " + i + ": " +
+                    (we.getExerciseInfo() != null ? we.getExerciseInfo().getName() : "NULL"));
+        }
 
         showExercises(workout.getExercises());
         loadingIndicator.setVisibility(View.GONE);
     }
 
     private void showExercises(List<WorkoutExercise> workoutExercises) {
-        exercisesContainer.removeAllViews();
+        Log.d(TAG, "showExercises() called with " + workoutExercises.size() + " exercises");
 
         exerciseCount.setText("Exercises: " + workoutExercises.size());
         workoutDuration.setText("Duration: " + (workoutExercises.size() * 5) + " mins");
 
-        LayoutInflater inflater = LayoutInflater.from(this);
-        int order = 1;
-        for (WorkoutExercise we : workoutExercises) {
-            View card = inflater.inflate(R.layout.item_exercise_card, exercisesContainer, false);
-
-            TextView number = card.findViewById(R.id.tv_exercise_number);
-            TextView name = card.findViewById(R.id.tv_exercise_name);
-            TextView details = card.findViewById(R.id.tv_exercise_details);
-            TextView rest = card.findViewById(R.id.tv_exercise_rest);
-
-            number.setText(String.valueOf(order));
-
-            if (we.getExerciseInfo() != null) {  // <-- updated
-                ExerciseInfo ex = we.getExerciseInfo();
-                name.setText(ex.getName() != null ? ex.getName() : "Unknown");
-                details.setText(ex.getDescription() != null ? ex.getDescription() : "No description");
-            } else {
-                name.setText("Unknown");
-                details.setText("No description");
-            }
-
-            rest.setText("Rest: " + we.getRestSeconds() + "s");
-
-            exercisesContainer.addView(card);
-            order++;
-        }
+        // ✅ Update adapter data
+        workoutAdapter.setExercises(workoutExercises);
     }
-
 }

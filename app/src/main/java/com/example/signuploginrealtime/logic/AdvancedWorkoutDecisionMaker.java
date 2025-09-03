@@ -96,16 +96,25 @@ public class AdvancedWorkoutDecisionMaker {
     private static boolean hasRequiredEquipment(ExerciseInfo exercise, UserProfile profile) {
         // If user has gym access, assume all equipment is available
         if (profile.isHasGymAccess()) return true;
-        
+
         String exerciseName = exercise.getName().toLowerCase();
         List<String> availableEquipment = profile.getAvailableEquipment();
-        
+
+        // Get equipment names from the exercise
+        List<String> exerciseEquipment = exercise.getEquipmentNames();
+        if (exerciseEquipment == null || exerciseEquipment.isEmpty()) {
+            return true; // No equipment required
+        }
+
         // Check if exercise requires equipment user doesn't have
-        if (exerciseName.contains("barbell") && !hasEquipment(availableEquipment, "barbell")) return false;
-        if (exerciseName.contains("dumbbell") && !hasEquipment(availableEquipment, "dumbbell")) return false;
-        if (exerciseName.contains("cable") && !hasEquipment(availableEquipment, "cable machine")) return false;
-        if (exerciseName.contains("machine") && !hasEquipment(availableEquipment, "gym machines")) return false;
-        
+        for (String requiredEquip : exerciseEquipment) {
+            String equipLower = requiredEquip.toLowerCase();
+            if (equipLower.contains("barbell") && !hasEquipment(availableEquipment, "barbell")) return false;
+            if (equipLower.contains("dumbbell") && !hasEquipment(availableEquipment, "dumbbell")) return false;
+            if (equipLower.contains("cable") && !hasEquipment(availableEquipment, "cable machine")) return false;
+            if (equipLower.contains("machine") && !hasEquipment(availableEquipment, "gym machines")) return false;
+        }
+
         return true;
     }
 

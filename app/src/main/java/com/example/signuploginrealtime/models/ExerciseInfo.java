@@ -4,17 +4,12 @@ import com.google.gson.annotations.SerializedName;
 import java.util.List;
 
 public class ExerciseInfo {
+
     @SerializedName("id")
     private int id;
 
     @SerializedName("uuid")
     private String uuid;
-
-    @SerializedName("exercise")
-    private Integer exerciseId; // some endpoints use this; keep if you need it
-
-    @SerializedName("language")
-    private int language;
 
     @SerializedName("name")
     private String name;
@@ -22,40 +17,34 @@ public class ExerciseInfo {
     @SerializedName("description")
     private String description;
 
-    @SerializedName("created")
-    private String created;
-
-    @SerializedName("license_author")
-    private String licenseAuthor;
-
-    // ✅ New fields from wger /exercise/
     @SerializedName("category")
-    private Integer category; // can be null
+    private Integer category; // nullable
 
     @SerializedName("muscles")
     private List<Integer> muscles;
 
-    // There is also "muscles_secondary" in wger, add if needed
-    // @SerializedName("muscles_secondary")
-    // private List<Integer> musclesSecondary;
+    @SerializedName("muscles_secondary")
+    private List<Integer> musclesSecondary;
 
     @SerializedName("equipment")
     private List<Integer> equipment;
 
-    public ExerciseInfo() {}
+    @SerializedName("license_author")
+    private String licenseAuthor;
 
-    // Getters & Setters
+    @SerializedName("variations")
+    private Integer variations; // nullable
+
+    @SerializedName("language")
+    private Integer language; // optional
+
+
+    // ✅ Getters & Setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
     public String getUuid() { return uuid; }
     public void setUuid(String uuid) { this.uuid = uuid; }
-
-    public Integer getExerciseId() { return exerciseId; }
-    public void setExerciseId(Integer exerciseId) { this.exerciseId = exerciseId; }
-
-    public int getLanguage() { return language; }
-    public void setLanguage(int language) { this.language = language; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
@@ -63,28 +52,21 @@ public class ExerciseInfo {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public String getCreated() { return created; }
-    public void setCreated(String created) { this.created = created; }
-
-    public String getLicenseAuthor() { return licenseAuthor; }
-    public void setLicenseAuthor(String licenseAuthor) { this.licenseAuthor = licenseAuthor; }
-
-    // ✅ New getters
-    public Integer getCategory() { return category; }
-    public void setCategory(Integer category) { this.category = category; }
+    public int getCategory() { return category; }
+    public void setCategory(int category) { this.category = category; }
 
     public List<Integer> getMuscles() { return muscles; }
     public void setMuscles(List<Integer> muscles) { this.muscles = muscles; }
 
+    public List<Integer> getMusclesSecondary() { return musclesSecondary; }
+    public void setMusclesSecondary(List<Integer> musclesSecondary) { this.musclesSecondary = musclesSecondary; }
+
     public List<Integer> getEquipment() { return equipment; }
     public void setEquipment(List<Integer> equipment) { this.equipment = equipment; }
 
-    @Override
-    public String toString() {
-        return "ExerciseInfo{" +
-                "id=" + id +
-                ", name='" + name + '\'' +
-                ", description='" + description + '\'' +
-                '}';
-    }
+    public String getLicenseAuthor() { return licenseAuthor; }
+    public void setLicenseAuthor(String licenseAuthor) { this.licenseAuthor = licenseAuthor; }
+
+    public int getVariations() { return variations; }
+    public void setVariations(int variations) { this.variations = variations; }
 }

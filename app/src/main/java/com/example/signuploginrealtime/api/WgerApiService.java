@@ -1,22 +1,25 @@
 package com.example.signuploginrealtime.api;
 
-import com.example.signuploginrealtime.models.ExerciseInfo;
+import com.example.signuploginrealtime.models.WgerExerciseResponse;
+
 import retrofit2.Call;
 import retrofit2.http.GET;
 import retrofit2.http.Query;
 
-import java.util.List;
-
 public interface WgerApiService {
-    // Fetch exercises from Wger
-    @GET("exercise/")
-    Call<ExerciseResponse> getExercises(
-            @Query("language") int languageId, // e.g. 2 = English
-            @Query("limit") int limit
+
+    // Fetch exercise info (includes name and description)
+    @GET("exerciseinfo/")
+    Call<WgerExerciseResponse> getExercisesInfo(
+            @Query("id__in") String ids,      // comma-separated IDs, e.g., "9,12,20"
+            @Query("language") int languageId // 2 = English
     );
 
-    // Wrapper class for the JSON response
-    class ExerciseResponse {
-        public List<ExerciseInfo> results;
-    }
+    // Optional: fetch basic exercises with pagination
+    @GET("exercise/")
+    Call<WgerExerciseResponse> getExercises(
+            @Query("language") int languageId,
+            @Query("limit") int limit,
+            @Query("offset") int offset
+    );
 }

@@ -1,49 +1,149 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
-    android:padding="24dp"
-    android:gravity="center"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/yellowbg">
+    android:background="@drawable/yellowbg"
+    android:padding="16dp">
+
+
+    <!-- Exercise Animation/Image Container -->
+    <RelativeLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@android:color/white"
+        android:layout_marginBottom="24dp">
+
+        <!-- Exercise Animation View -->
+        <ImageView
+            android:id="@+id/iv_exercise_animation"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_centerInParent="true"
+            android:scaleType="centerInside"
+            android:contentDescription="Exercise demonstration" />
+
+    </RelativeLayout>
 
     <!-- Exercise Name -->
     <TextView
         android:id="@+id/tv_exercise_name"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Exercise Name"
-        android:textSize="24sp"
+        android:layout_gravity="center"
+        android:text="DUMBBELL BACKWARD LUNGE"
+        android:textSize="20sp"
         android:textStyle="bold"
-        android:paddingBottom="16dp" />
+        android:textColor="@android:color/black"
+        android:letterSpacing="0.05"
+        android:paddingBottom="8dp" />
 
-    <!-- Exercise Details -->
+    <!-- Exercise Details (Reps/Sets) -->
     <TextView
         android:id="@+id/tv_exercise_details"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Exercise details here"
-        android:textSize="18sp"
-        android:paddingBottom="24dp" />
+        android:layout_gravity="center"
+        android:text="Each Side x 6"
+        android:textSize="16sp"
+        android:textColor="#808080"
+        android:paddingBottom="32dp" />
 
-    <!-- Timer / Rest -->
+    <!-- Exercise Progress Counter -->
     <TextView
-        android:id="@+id/tv_exercise_rest"
+        android:id="@+id/tv_exercise_progress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Time left: 60s"
-        android:textSize="22sp"
+        android:layout_gravity="center"
+        android:text="1/12"
+        android:textSize="48sp"
         android:textStyle="bold"
-        android:textColor="@android:color/holo_red_dark"
-        android:paddingBottom="24dp" />
+        android:textColor="@android:color/black"
+        android:paddingBottom="32dp" />
 
-    <!-- Skip Button -->
-    <Button
-        android:id="@+id/btn_skip"
-        android:layout_width="wrap_content"
+    <!-- Control Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Skip"
-        android:backgroundTint="@android:color/holo_blue_light"
-        android:textColor="@android:color/white"
-        android:padding="12dp" />
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- Pause Button -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_pause"
+            android:layout_width="wrap_content"
+            android:layout_height="60dp"
+            android:layout_marginEnd="8dp"
+            android:paddingHorizontal="90dp"
+            android:text= "PAUSE"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:background="@drawable/black_button_bg"
+            android:gravity="center" />
+
+        <!-- Done/Complete Button -->
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_done"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginStart="8dp"
+            android:text="▶"
+            android:textSize="20sp"
+            android:textColor="@android:color/white"
+            android:background="@drawable/black_circular_button_bg"
+            android:gravity="center" />
+
+    </LinearLayout>
+
+    <!-- Navigation Controls -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingTop="16dp">
+
+        <!-- Previous Button -->
+        <Button
+            android:id="@+id/btn_previous"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="⏮ Previous"
+            android:textSize="14sp"
+            android:textColor="#808080"
+            android:background="@android:color/transparent"
+            android:padding="8dp" />
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <!-- Skip Button -->
+        <Button
+            android:id="@+id/btn_skip"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Skip ⏭"
+            android:textSize="14sp"
+            android:textColor="#808080"
+            android:background="@android:color/transparent"
+            android:padding="8dp" />
+
+    </LinearLayout>
+
+    <!-- Progress Bar -->
+    <ProgressBar
+        android:id="@+id/progress_bar"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        android:layout_marginTop="8dp"
+        android:progress="8"
+        android:max="100"
+        android:progressTint="@android:color/holo_blue_light" />
 
 </LinearLayout>

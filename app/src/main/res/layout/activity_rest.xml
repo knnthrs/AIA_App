@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="24dp"
+    android:background="@drawable/yellowbg">
+
+    <!-- Rest Timer Display -->
+    <TextView
+        android:id="@+id/tv_rest_timer"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Rest: 60s"
+        android:textSize="36sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/white"
+        android:layout_marginBottom="32dp" />
+
+    <!-- Buttons Row -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center">
+
+        <!-- Skip Rest Button -->
+        <Button
+            android:id="@+id/btn_skip_rest"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Skip Rest"
+            android:padding="12dp"
+            android:layout_margin="8dp"
+            android:backgroundTint="@android:color/holo_red_dark"
+            android:textColor="@android:color/white" />
+
+        <!-- Add 20s Button -->
+        <Button
+            android:id="@+id/btn_add_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="+20s"
+            android:padding="12dp"
+            android:layout_margin="8dp"
+            android:backgroundTint="@android:color/holo_green_dark"
+            android:textColor="@android:color/white" />
+    </LinearLayout>
+
+</LinearLayout>

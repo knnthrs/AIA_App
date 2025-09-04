@@ -17,9 +17,11 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
-            android:name=".WorkoutSessionActivity"
+            android:name=".activity_rest"
             android:exported="false" />
-        <!-- Activities -->
+        <activity
+            android:name=".WorkoutSessionActivity"
+            android:exported="false" /> <!-- Activities -->
         <activity
             android:name=".Promo"
             android:exported="false" />
@@ -65,10 +67,10 @@
             android:theme="@style/Theme.SignupLogInRealtime.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
+
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
         <activity
             android:name=".LoginActivity"
             android:exported="false" />
@@ -84,7 +86,6 @@
         <activity
             android:name=".StreakCalendar"
             android:exported="false" />
-
     </application>
 
 </manifest>

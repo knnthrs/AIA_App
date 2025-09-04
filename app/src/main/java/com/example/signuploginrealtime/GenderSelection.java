@@ -14,11 +14,14 @@ import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.auth.FirebaseAuth;
 
+import java.util.ArrayList;
+
 public class GenderSelection extends AppCompatActivity {
 
     private MaterialCardView cardMale, cardFemale;
     private Button btnNext;
     private String selectedGender = "";
+    private UserProfileHelper.UserProfile userProfile; // ✅ full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +33,15 @@ public class GenderSelection extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // ✅ Initialize UserProfile
+        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        if (userProfile == null) {
+            userProfile = new UserProfileHelper.UserProfile();
+            userProfile.setHealthIssues(new ArrayList<>());
+            userProfile.setFitnessGoal("general fitness");
+            userProfile.setFitnessLevel("beginner");
+        }
 
         // Initialize views
         cardMale = findViewById(R.id.cardMale);
@@ -50,18 +62,19 @@ public class GenderSelection extends AppCompatActivity {
         // Next button click listener
         btnNext.setOnClickListener(v -> {
             if (!selectedGender.isEmpty()) {
+                // ✅ Save gender into full UserProfile
+                userProfile.setGender(selectedGender);
+
+                // Pass full UserProfile to next activity (AgeInput)
                 Intent intent = new Intent(GenderSelection.this, AgeInput.class);
-                intent.putExtra("gender", selectedGender);
+                intent.putExtra("userProfile", userProfile);
                 startActivity(intent);
-                // REMOVED finish(); to allow back navigation
             }
         });
     }
 
     @Override
     public void onBackPressed() {
-        // If user tries to go back from profile setup, redirect to login
-        // This prevents them from getting stuck in the setup flow
         new androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle("Exit Setup?")
                 .setMessage("Your profile setup is not complete. Do you want to exit to login?")
@@ -92,5 +105,4 @@ public class GenderSelection extends AppCompatActivity {
         btnNext.setEnabled(true);
         btnNext.setAlpha(1.0f);
     }
-
 }

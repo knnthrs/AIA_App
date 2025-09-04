@@ -1,8 +1,9 @@
 package com.example.signuploginrealtime;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Html;
-import android.util.Log;
+import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -10,24 +11,18 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.example.signuploginrealtime.models.WgerExerciseResponse;
-import com.example.signuploginrealtime.models.WgerExercise;
-import com.example.signuploginrealtime.models.ExerciseInfo;
-import com.example.signuploginrealtime.logic.AdvancedWorkoutDecisionMaker;
-import android.content.Intent;
-
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.signuploginrealtime.api.ApiClient;
 import com.example.signuploginrealtime.api.WgerApiService;
-import com.example.signuploginrealtime.logic.WorkoutDecisionMaker;
+import com.example.signuploginrealtime.logic.AdvancedWorkoutDecisionMaker;
 import com.example.signuploginrealtime.logic.WorkoutProgression;
 import com.example.signuploginrealtime.models.ExerciseInfo;
-import com.example.signuploginrealtime.models.UserProfile;
+import com.example.signuploginrealtime.models.WgerExercise;
+import com.example.signuploginrealtime.models.WgerExerciseResponse;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
-import java.util.ArrayList;
-
+import com.example.signuploginrealtime.UserProfileHelper.UserProfile;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +30,7 @@ import java.util.List;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
+
 
 public class WorkoutList extends AppCompatActivity {
 
@@ -44,7 +40,12 @@ public class WorkoutList extends AppCompatActivity {
     private View refreshButton;
     private WgerApiService apiService;
 
-    private int currentDay = 1; // progression day counter
+    private int currentDay = 1;
+    private UserProfile userProfile;
+    private List<WorkoutExercise> currentWorkoutExercises;
+    private List<ExerciseInfo> allExercises = new ArrayList<>();
+    private int batchesCompleted = 0;
+    private int totalBatches = 0;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -55,123 +56,186 @@ public class WorkoutList extends AppCompatActivity {
         exerciseCount = findViewById(R.id.exercise_count);
         workoutDuration = findViewById(R.id.workout_duration);
         loadingIndicator = findViewById(R.id.loading_indicator);
-        refreshButton = findViewById(R.id.start_button); // Make sure this matches your button ID
+        refreshButton = findViewById(R.id.start_button);
 
         apiService = ApiClient.getClient().create(WgerApiService.class);
 
-        fetchExercises();
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
+        if (userProfile == null) {
+            userProfile = new UserProfile();
+            userProfile.setAge(25);
+            userProfile.setGender("not specified");
+            userProfile.setFitnessGoal("general fitness");
+            userProfile.setFitnessLevel("beginner");
+            userProfile.setHealthIssues(new ArrayList<>());
+        }
 
-        // ✅ Replace old listener with this one
+        fetchAllExercises(); // Start API fetch
+
         refreshButton.setOnClickListener(v -> {
-            ArrayList<String> names = new ArrayList<>();
-            ArrayList<String> details = new ArrayList<>();
-            ArrayList<Integer> rests = new ArrayList<>();
+            if (currentWorkoutExercises == null || currentWorkoutExercises.isEmpty()) return;
 
-            for (int i = 0; i < exercisesContainer.getChildCount(); i++) {
-                View card = exercisesContainer.getChildAt(i);
-                TextView name = card.findViewById(R.id.tv_exercise_name);
-                TextView detail = card.findViewById(R.id.tv_exercise_details);
-                TextView rest = card.findViewById(R.id.tv_exercise_rest);
+            ArrayList<String> exerciseNames = new ArrayList<>();
+            ArrayList<String> exerciseDetails = new ArrayList<>();
+            ArrayList<Integer> exerciseRests = new ArrayList<>();
 
-                names.add(name.getText().toString());
-                details.add(detail.getText().toString());
-                rests.add(Integer.parseInt(rest.getText().toString().replace("Rest: ", "").replace("s", "").trim()));
+            for (WorkoutExercise we : currentWorkoutExercises) {
+                exerciseNames.add(we.getExerciseInfo() != null ? we.getExerciseInfo().getName() : "Unknown");
+                String desc = we.getExerciseInfo() != null ? we.getExerciseInfo().getDescription() : "No description";
+                exerciseDetails.add(we.getSets() > 0 && we.getReps() > 0
+                        ? we.getSets() + " sets x " + we.getReps() + " reps\n" + desc
+                        : desc);
+                exerciseRests.add(we.getRestSeconds() > 0 ? we.getRestSeconds() : 60);
             }
 
             Intent intent = new Intent(WorkoutList.this, WorkoutSessionActivity.class);
-            intent.putStringArrayListExtra("names", names);
-            intent.putStringArrayListExtra("details", details);
-            intent.putIntegerArrayListExtra("rests", rests);
+            intent.putExtra("userProfile", userProfile);
+            intent.putStringArrayListExtra("exerciseNames", exerciseNames);
+            intent.putStringArrayListExtra("exerciseDetails", exerciseDetails);
+            intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
             startActivity(intent);
         });
     }
 
-
-
-    private void fetchExercises() {
+    // --- Step 1: Fetch all exercise IDs recursively ---
+    private void fetchAllExercises() {
         loadingIndicator.setVisibility(View.VISIBLE);
         Toast.makeText(this, "Fetching exercises...", Toast.LENGTH_SHORT).show();
+        fetchExercisesPage(0, 100); // start at offset 0 with limit 100
+    }
 
-        // Example exercise IDs
-        String exerciseIds = "9,12,20,31,41,43,46,48,50,51,56,57";
-
-        apiService.getExercisesInfo(exerciseIds, 2).enqueue(new Callback<WgerExerciseResponse>() {
+    private void fetchExercisesPage(int offset, int limit) {
+        apiService.getExercises(2, limit, offset).enqueue(new Callback<WgerExerciseResponse>() {
             @Override
             public void onResponse(Call<WgerExerciseResponse> call, Response<WgerExerciseResponse> response) {
-                loadingIndicator.setVisibility(View.GONE);
-
                 if (response.isSuccessful() && response.body() != null) {
-                    List<ExerciseInfo> exercises = new ArrayList<>();
-
-                    // Convert each WgerExercise into ExerciseInfo
+                    List<Integer> exerciseIds = new ArrayList<>();
                     for (WgerExercise w : response.body().getResults()) {
-                        ExerciseInfo e = new ExerciseInfo();
-
-                        String name = "Unnamed Exercise";
-                        String desc = "No description available";
-
-                        if (w.getTranslations() != null) {
-                            for (WgerExercise.Translation t : w.getTranslations()) {
-                                if (t.getLanguage() == 2) { // English
-                                    name = t.getName() != null ? t.getName() : name;
-                                    desc = t.getDescription() != null ? Html.fromHtml(t.getDescription(), Html.FROM_HTML_MODE_LEGACY).toString() : desc;
-                                    break;
-                                }
-                            }
-                        }
-
-                        e.setName(name);
-                        e.setDescription(desc);
-                        exercises.add(e);
-
-                        Log.d("WorkoutList", "Exercise fetched: " + e.getName());
+                        exerciseIds.add(w.getId());
                     }
+                    fetchExerciseDetailsInBatches(exerciseIds);
 
-
-
-                    // Pass the converted list to generateWorkout
-                    generateWorkout(exercises);
-
+                    // If there's a next page, fetch it recursively
+                    if (response.body().getNext() != null) {
+                        fetchExercisesPage(offset + limit, limit);
+                    }
                 } else {
-                    Toast.makeText(WorkoutList.this, "Failed to fetch exercises", Toast.LENGTH_SHORT).show();
                     useDummyWorkout();
                 }
             }
 
             @Override
             public void onFailure(Call<WgerExerciseResponse> call, Throwable t) {
-                loadingIndicator.setVisibility(View.GONE);
-                Toast.makeText(WorkoutList.this, "Error: " + t.getMessage(), Toast.LENGTH_LONG).show();
                 useDummyWorkout();
             }
         });
     }
 
+    // --- Step 2: Batch fetch full exercise info ---
+    private void fetchExerciseDetailsInBatches(List<Integer> allIds) {
+        int batchSize = 50;
+        totalBatches = (int) Math.ceil(allIds.size() / (double) batchSize);
+        batchesCompleted = 0;
 
+        for (int i = 0; i < allIds.size(); i += batchSize) {
+            int end = Math.min(i + batchSize, allIds.size());
+            List<Integer> batch = allIds.subList(i, end);
+            fetchExerciseInfo(batch);
+        }
+    }
 
+    private void fetchExerciseInfo(List<Integer> batchIds) {
+        String idParam = TextUtils.join(",", batchIds);
+        apiService.getExercisesInfo(idParam, 2).enqueue(new Callback<WgerExerciseResponse>() {
+            @Override
+            public void onResponse(Call<WgerExerciseResponse> call, Response<WgerExerciseResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    for (WgerExercise w : response.body().getResults()) {
+                        if (w.getTranslations() != null) {
+                            WgerExercise.Translation englishTranslation = null;
+                            for (WgerExercise.Translation t : w.getTranslations()) {
+                                if (t.getLanguage() == 2) {
+                                    englishTranslation = t;
+                                    break;
+                                }
+                            }
 
+                            if (englishTranslation != null) {
+                                ExerciseInfo e = new ExerciseInfo();
+                                e.setId(w.getId());
+                                e.setName(englishTranslation.getName() != null ? englishTranslation.getName() : "Exercise #" + w.getId());
+                                e.setDescription(englishTranslation.getDescription() != null
+                                        ? Html.fromHtml(englishTranslation.getDescription(), Html.FROM_HTML_MODE_LEGACY).toString()
+                                        : "No description available");
+
+                                // Avoid duplicates by checking ID
+                                boolean alreadyExists = false;
+                                for (ExerciseInfo ex : allExercises) {
+                                    if (ex.getId() == e.getId()) {
+                                        alreadyExists = true;
+                                        break;
+                                    }
+                                }
+                                if (!alreadyExists) {
+                                    allExercises.add(e);
+                                }
+                            }
+                        }
+                    }
+
+                    batchesCompleted++;
+                    if (batchesCompleted >= totalBatches) {
+                        pickRandomExercises(allExercises);
+                    }
+                } else {
+                    useDummyWorkout();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<WgerExerciseResponse> call, Throwable t) {
+                useDummyWorkout();
+            }
+        });
+    }
+
+    // --- Pick 6 random exercises without duplicates ---
+    private void pickRandomExercises(List<ExerciseInfo> exercises) {
+        if (exercises.isEmpty()) {
+            useDummyWorkout();
+            return;
+        }
+
+        List<ExerciseInfo> random6 = new ArrayList<>();
+        List<Integer> pickedIds = new ArrayList<>();
+
+        while (random6.size() < 6 && random6.size() < exercises.size()) {
+            int index = (int) (Math.random() * exercises.size());
+            ExerciseInfo candidate = exercises.get(index);
+            if (!pickedIds.contains(candidate.getId())) {
+                random6.add(candidate);
+                pickedIds.add(candidate.getId());
+            }
+        }
+
+        loadingIndicator.setVisibility(View.GONE);
+        generateWorkout(random6);
+    }
+
+    // --- Workout generation and display ---
     private void generateWorkout(List<ExerciseInfo> availableExercises) {
-        // Create user profile
-        UserProfile userProfile = createEmptyProfileForProgression();
-        userProfile.setFitnessGoal("lose weight"); // or "gain muscle", "increase endurance"
-        userProfile.setAge(25); // example, adjust as needed
+        com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
 
-        // ✅ Use AdvancedWorkoutDecisionMaker instead of WorkoutDecisionMaker
         Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
-                availableExercises,
-                userProfile
+                availableExercises, modelProfile
         );
 
-        // Apply progression
         Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(
-                baseWorkout,
-                currentDay,
-                userProfile
+                baseWorkout, currentDay, modelProfile
         );
 
-        // ✅ Personalize sets/reps/rest
         if (finalWorkout != null && finalWorkout.getExercises() != null) {
-            personalizeWorkout(finalWorkout.getExercises(), userProfile, currentDay);
+            personalizeWorkout(finalWorkout.getExercises(), modelProfile, currentDay);
         }
 
         if (finalWorkout == null || finalWorkout.getExercises() == null || finalWorkout.getExercises().isEmpty()) {
@@ -182,74 +246,43 @@ public class WorkoutList extends AppCompatActivity {
         showExercises(finalWorkout.getExercises());
     }
 
-
-
-    private void personalizeWorkout(List<WorkoutExercise> exercises, UserProfile userProfile, int day) {
-        for (WorkoutExercise we : exercises) {
-            String name = we.getExerciseInfo() != null ? we.getExerciseInfo().getName().toLowerCase() : "";
-
-            int sets = 3;
-            int reps = 10;
-            int rest = 60;
-
-            // Determine exercise type (simplified)
-            if (name.contains("push") || name.contains("bench") || name.contains("press") || name.contains("pushup")) {
-                // Push exercises
-                sets = 3 + (day % 2);            // 3-4 sets
-                reps = 10 + (int)(Math.random() * 6); // 10-15 reps
-                rest = 60 - (day * 2);           // slightly shorter rest as day increases
-            } else if (name.contains("pull") || name.contains("row") || name.contains("pullup")) {
-                // Pull exercises
-                sets = 3 + (day % 2);
-                reps = 8 + (int)(Math.random() * 5);  // 8-12 reps
-                rest = 60;
-            } else if (name.contains("squat") || name.contains("lunge") || name.contains("leg")) {
-                // Legs
-                sets = 4 + (day % 2);            // 4-5 sets
-                reps = 12 + (int)(Math.random() * 4); // 12-15 reps
-                rest = 75;
-            } else if (name.contains("plank") || name.contains("hold")) {
-                // Planks / timed exercises
-                sets = 3;
-                reps = 1;                        // reps = 1 for timed hold
-                rest = 30 + day * 5;
-            } else {
-                // Default/general exercises
-                sets = 2 + (day % 3);
-                reps = 10 + (int)(Math.random() * 6);
-                rest = 60;
-            }
-
-            // Adjust based on fitness level
-            switch (userProfile.getFitnessLevel().toLowerCase()) {
-                case "beginner":
-                    sets = Math.max(2, sets - 1);
-                    reps = Math.max(8, reps - 2);
-                    rest += 10; // longer rest for beginners
-                    break;
-                case "intermediate":
-                    sets = sets;
-                    reps = reps;
-                    rest -= 5; // slightly shorter rest
-                    break;
-                case "advanced":
-                    sets += 1;  // more sets
-                    reps += 2;  // more reps
-                    rest -= 10; // shorter rest
-                    break;
-            }
-
-            // Apply final values
-            we.setSets(sets);
-            we.setReps(reps);
-            we.setRestSeconds(rest);
+    private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
+        if (firebaseProfile == null) {
+            com.example.signuploginrealtime.models.UserProfile defaultProfile = new com.example.signuploginrealtime.models.UserProfile();
+            defaultProfile.setAge(25);
+            defaultProfile.setGender("not specified");
+            defaultProfile.setFitnessGoal("general fitness");
+            defaultProfile.setFitnessLevel("beginner");
+            defaultProfile.setHealthIssues(new ArrayList<>());
+            defaultProfile.setAvailableEquipment(new ArrayList<>());
+            defaultProfile.setDislikedExercises(new ArrayList<>());
+            defaultProfile.setHasGymAccess(false);
+            defaultProfile.setHeight(170);
+            defaultProfile.setWeight(70);
+            return defaultProfile;
         }
+
+        com.example.signuploginrealtime.models.UserProfile modelProfile = new com.example.signuploginrealtime.models.UserProfile();
+        modelProfile.setAge(firebaseProfile.getAge());
+        modelProfile.setGender(firebaseProfile.getGender());
+        modelProfile.setFitnessGoal(firebaseProfile.getFitnessGoal());
+        modelProfile.setFitnessLevel(firebaseProfile.getFitnessLevel());
+        modelProfile.setHealthIssues(firebaseProfile.getHealthIssues());
+        modelProfile.setAvailableEquipment(new ArrayList<>());
+        modelProfile.setDislikedExercises(new ArrayList<>());
+        modelProfile.setHasGymAccess(false);
+        modelProfile.setHeight(firebaseProfile.getHeight());
+        modelProfile.setWeight(firebaseProfile.getWeight());
+        return modelProfile;
     }
 
+    private void personalizeWorkout(List<WorkoutExercise> exercises, com.example.signuploginrealtime.models.UserProfile profile, int day) {
+        // Already handled in AdvancedWorkoutDecisionMaker
+    }
 
     private void showExercises(List<WorkoutExercise> workoutExercises) {
         exercisesContainer.removeAllViews();
-
+        currentWorkoutExercises = workoutExercises;
         exerciseCount.setText("Exercises: " + workoutExercises.size());
         int duration = workoutExercises.size() * 5;
         workoutDuration.setText("Duration: " + duration + " mins");
@@ -258,14 +291,12 @@ public class WorkoutList extends AppCompatActivity {
         int order = 1;
         for (WorkoutExercise we : workoutExercises) {
             View card = inflater.inflate(R.layout.item_exercise_card, exercisesContainer, false);
-
             TextView number = card.findViewById(R.id.tv_exercise_number);
             TextView name = card.findViewById(R.id.tv_exercise_name);
             TextView details = card.findViewById(R.id.tv_exercise_details);
             TextView rest = card.findViewById(R.id.tv_exercise_rest);
 
             number.setText(String.valueOf(order));
-
             if (we.getExerciseInfo() != null) {
                 name.setText(we.getExerciseInfo().getName());
                 String desc = we.getExerciseInfo().getDescription();
@@ -278,7 +309,6 @@ public class WorkoutList extends AppCompatActivity {
             }
 
             rest.setText("Rest: " + (we.getRestSeconds() > 0 ? we.getRestSeconds() : 60) + "s");
-
             exercisesContainer.addView(card);
             order++;
         }
@@ -293,18 +323,5 @@ public class WorkoutList extends AppCompatActivity {
             dummy.add(e);
         }
         generateWorkout(dummy);
-    }
-
-    private UserProfile createEmptyProfileForProgression() {
-        UserProfile p = new UserProfile();
-        p.setFitnessGoal("general fitness");
-        p.setFitnessLevel("beginner");
-        p.setAge(25);
-        p.setGender("not specified");
-        p.setHealthIssues(new ArrayList<>());
-        p.setAvailableEquipment(new ArrayList<>());
-        p.setDislikedExercises(new ArrayList<>());
-        p.setHasGymAccess(false);
-        return p;
     }
 }

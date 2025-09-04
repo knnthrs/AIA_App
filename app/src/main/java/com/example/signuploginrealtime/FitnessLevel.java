@@ -12,31 +12,34 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.card.MaterialCardView;
 
+import java.util.ArrayList;
+
 public class FitnessLevel extends AppCompatActivity {
 
     private MaterialCardView cardBeginner, cardIntermediate, cardAdvanced;
     private Button btnNext;
     private String selectedFitnessLevel = "";
-    private String gender;
-    private int age;
-    private float height, weight;
+
+    private UserProfileHelper.UserProfile userProfile; // full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_fitness_level);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Get data from previous activities
-        gender = getIntent().getStringExtra("gender");
-        age = getIntent().getIntExtra("age", 0);
-        height = getIntent().getFloatExtra("height", 0);
-        weight = getIntent().getFloatExtra("weight", 0);
+        // Get full UserProfile from previous activity
+        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        if (userProfile == null) {
+            userProfile = new UserProfileHelper.UserProfile();
+            userProfile.setHealthIssues(new ArrayList<>());
+        }
 
         // Initialize views
         cardBeginner = findViewById(R.id.cardBeginner);
@@ -45,32 +48,20 @@ public class FitnessLevel extends AppCompatActivity {
         btnNext = findViewById(R.id.btnNext);
 
         // Set click listeners for fitness level selection
-        cardBeginner.setOnClickListener(v -> {
-            selectedFitnessLevel = "Beginner";
-            updateCardSelection();
-        });
-
-        cardIntermediate.setOnClickListener(v -> {
-            selectedFitnessLevel = "Intermediate";
-            updateCardSelection();
-        });
-
-        cardAdvanced.setOnClickListener(v -> {
-            selectedFitnessLevel = "Advanced";
-            updateCardSelection();
-        });
+        cardBeginner.setOnClickListener(v -> { selectedFitnessLevel = "Beginner"; updateCardSelection(); });
+        cardIntermediate.setOnClickListener(v -> { selectedFitnessLevel = "Intermediate"; updateCardSelection(); });
+        cardAdvanced.setOnClickListener(v -> { selectedFitnessLevel = "Advanced"; updateCardSelection(); });
 
         // Next button click listener
         btnNext.setOnClickListener(v -> {
             if (!selectedFitnessLevel.isEmpty()) {
+                // Save selected fitness level in UserProfile
+                userProfile.setFitnessLevel(selectedFitnessLevel);
+
+                // Pass full userProfile to next activity (FitnessGoal)
                 Intent intent = new Intent(FitnessLevel.this, FitnessGoal.class);
-                intent.putExtra("gender", gender);
-                intent.putExtra("age", age);
-                intent.putExtra("height", height);
-                intent.putExtra("weight", weight);
-                intent.putExtra("fitnessLevel", selectedFitnessLevel);
+                intent.putExtra("userProfile", userProfile);
                 startActivity(intent);
-                // REMOVED finish(); to allow back navigation
             }
         });
     }
@@ -83,15 +74,9 @@ public class FitnessLevel extends AppCompatActivity {
 
         // Highlight selected card
         switch (selectedFitnessLevel) {
-            case "Beginner":
-                cardBeginner.setStrokeColor(getResources().getColor(R.color.black));
-                break;
-            case "Intermediate":
-                cardIntermediate.setStrokeColor(getResources().getColor(R.color.black));
-                break;
-            case "Advanced":
-                cardAdvanced.setStrokeColor(getResources().getColor(R.color.black));
-                break;
+            case "Beginner": cardBeginner.setStrokeColor(getResources().getColor(R.color.black)); break;
+            case "Intermediate": cardIntermediate.setStrokeColor(getResources().getColor(R.color.black)); break;
+            case "Advanced": cardAdvanced.setStrokeColor(getResources().getColor(R.color.black)); break;
         }
 
         // Enable next button

@@ -8,6 +8,7 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import java.io.Serializable;
 import java.util.List;
 
 // CREATE THIS AS A NEW FILE - UserProfileHelper.java
@@ -58,8 +59,8 @@ public class UserProfileHelper {
         }
     }
 
-    // User Profile data classS
-    public static class UserProfile {
+    // User Profile data class
+    public static class UserProfile implements Serializable {
         private String gender;
         private int age;
         private float height;

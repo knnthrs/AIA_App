@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
@@ -16,25 +15,35 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.textfield.TextInputEditText;
 
+import java.util.ArrayList;
+
 public class AgeInput extends AppCompatActivity {
 
     private TextInputEditText etAge;
     private Button btnNext;
-    private String gender;
+    private UserProfileHelper.UserProfile userProfile; // ✅ full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_age_input);
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
 
-        // Get data from previous activity
-        gender = getIntent().getStringExtra("gender");
+        // ✅ Get the UserProfile from previous activity (Gender selection)
+        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        if (userProfile == null) {
+            // fallback if somehow missing
+            userProfile = new UserProfileHelper.UserProfile();
+            userProfile.setHealthIssues(new ArrayList<>());
+            userProfile.setFitnessGoal("general fitness");
+            userProfile.setFitnessLevel("beginner");
+        }
 
         // Initialize views
         etAge = findViewById(R.id.etAge);
@@ -44,14 +53,10 @@ public class AgeInput extends AppCompatActivity {
         etAge.addTextChangedListener(new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
             @Override
-            public void afterTextChanged(Editable s) {
-                validateInput();
-            }
+            public void afterTextChanged(Editable s) { validateInput(); }
         });
 
         // Next button click listener
@@ -72,11 +77,13 @@ public class AgeInput extends AppCompatActivity {
                     return;
                 }
 
+                // ✅ Save age into full UserProfile
+                userProfile.setAge(age);
+
                 Intent intent = new Intent(AgeInput.this, HeightWeightInput.class);
-                intent.putExtra("gender", gender);
-                intent.putExtra("age", age);
+                intent.putExtra("userProfile", userProfile);
                 startActivity(intent);
-                // REMOVED finish(); to allow back navigation
+
 
             } catch (NumberFormatException e) {
                 etAge.setError("Please enter a valid number");
@@ -85,9 +92,9 @@ public class AgeInput extends AppCompatActivity {
         });
     }
 
+    // ✅ Correctly placed OUTSIDE onCreate()
     private void validateInput() {
         String ageText = etAge.getText().toString().trim();
-
         boolean isValid = false;
 
         if (!ageText.isEmpty()) {
@@ -102,12 +109,7 @@ public class AgeInput extends AppCompatActivity {
         }
 
         // Enable/disable button based on validation
-        if (isValid) {
-            btnNext.setEnabled(true);
-            btnNext.setAlpha(1.0f);
-        } else {
-            btnNext.setEnabled(false);
-            btnNext.setAlpha(0.5f);
-        }
+        btnNext.setEnabled(isValid);
+        btnNext.setAlpha(isValid ? 1.0f : 0.5f);
     }
 }

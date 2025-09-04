@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.Button;
-import android.widget.EditText;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -19,8 +18,7 @@ public class HeightWeightInput extends AppCompatActivity {
 
     private TextInputEditText etHeight, etWeight;
     private Button btnNext;
-    private String gender;
-    private int age;
+    private UserProfileHelper.UserProfile userProfile; // full profile object
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -33,9 +31,11 @@ public class HeightWeightInput extends AppCompatActivity {
             return insets;
         });
 
-        // Get data from previous activities
-        gender = getIntent().getStringExtra("gender");
-        age = getIntent().getIntExtra("age", 0);
+        // Get full UserProfile from previous activity
+        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        if (userProfile == null) {
+            userProfile = new UserProfileHelper.UserProfile();
+        }
 
         // Initialize views
         etHeight = findViewById(R.id.etHeight);
@@ -46,14 +46,10 @@ public class HeightWeightInput extends AppCompatActivity {
         TextWatcher inputWatcher = new TextWatcher() {
             @Override
             public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {}
-
             @Override
-            public void afterTextChanged(Editable s) {
-                validateInputs();
-            }
+            public void afterTextChanged(Editable s) { validateInputs(); }
         };
 
         etHeight.addTextChangedListener(inputWatcher);
@@ -92,13 +88,14 @@ public class HeightWeightInput extends AppCompatActivity {
                     return;
                 }
 
+                // ✅ Save height and weight into userProfile
+                userProfile.setHeight(height);
+                userProfile.setWeight(weight);
+
+                // ✅ Pass full userProfile to next activity (FitnessLevel)
                 Intent intent = new Intent(HeightWeightInput.this, FitnessLevel.class);
-                intent.putExtra("gender", gender);
-                intent.putExtra("age", age);
-                intent.putExtra("height", height);
-                intent.putExtra("weight", weight);
+                intent.putExtra("userProfile", userProfile);
                 startActivity(intent);
-                // REMOVED finish(); to allow back navigation
 
             } catch (NumberFormatException e) {
                 etHeight.setError("Please enter valid numbers");
@@ -117,8 +114,6 @@ public class HeightWeightInput extends AppCompatActivity {
             try {
                 float height = Float.parseFloat(heightText);
                 float weight = Float.parseFloat(weightText);
-
-                // Check if both values are within valid ranges
                 if (height > 0 && height <= 300 && weight > 0 && weight <= 500) {
                     isValid = true;
                 }
@@ -128,12 +123,7 @@ public class HeightWeightInput extends AppCompatActivity {
         }
 
         // Enable/disable button based on validation
-        if (isValid) {
-            btnNext.setEnabled(true);
-            btnNext.setAlpha(1.0f);
-        } else {
-            btnNext.setEnabled(false);
-            btnNext.setAlpha(0.5f);
-        }
+        btnNext.setEnabled(isValid);
+        btnNext.setAlpha(isValid ? 1.0f : 0.5f);
     }
 }

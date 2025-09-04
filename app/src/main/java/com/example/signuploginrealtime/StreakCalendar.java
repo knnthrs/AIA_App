@@ -1,4 +1,3 @@
-// StreakCalendarActivity.java
 package com.example.signuploginrealtime;
 
 import android.content.SharedPreferences;

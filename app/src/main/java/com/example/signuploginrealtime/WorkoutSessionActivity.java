@@ -32,10 +32,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         tvRest = findViewById(R.id.tv_exercise_rest);
         btnSkip = findViewById(R.id.btn_skip);
 
-        // ✅ Get exercises using keys sent from WorkoutList
-        exerciseNames = getIntent().getStringArrayListExtra("exerciseNames");
-        exerciseDetails = getIntent().getStringArrayListExtra("exerciseDetails");
-        exerciseRests = getIntent().getIntegerArrayListExtra("exerciseRests");
+        // Get exercises from Intent
+        exerciseNames = getIntent().getStringArrayListExtra("names");
+        exerciseDetails = getIntent().getStringArrayListExtra("details");
+        exerciseRests = getIntent().getIntegerArrayListExtra("rests");
 
         if (exerciseNames == null || exerciseNames.isEmpty()) {
             tvName.setText("No exercises available");
@@ -56,19 +56,22 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             tvName.setText("Workout Complete!");
             tvDetails.setText("");
             tvRest.setText("");
-            btnSkip.setVisibility(View.GONE);
+            btnSkip.setVisibility(View.GONE); // make button disappear
             return;
         }
 
+        // Show skip button for active exercises
         btnSkip.setVisibility(View.VISIBLE);
 
         tvName.setText(exerciseNames.get(index));
         tvDetails.setText(exerciseDetails.get(index));
 
+        // Correctly parse the rest time
         int durationSeconds = exerciseRests.get(index);
-        if (durationSeconds <= 0) durationSeconds = 60; // fallback
-        long durationMillis = durationSeconds * 1000L;
+        if (durationSeconds <= 0) durationSeconds = 60; // fallback in case of bad data
+        long durationMillis = durationSeconds * 1000L; // convert to milliseconds
 
+        // Cancel previous timer if exists
         if (timer != null) timer.cancel();
 
         timer = new CountDownTimer(durationMillis, 1000) {
@@ -85,6 +88,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
     private void moveToNextExercise() {
+        // Cancel current timer if running
         if (timer != null) timer.cancel();
         currentIndex++;
         showExercise(currentIndex);

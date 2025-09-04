@@ -1,22 +1,40 @@
 package com.example.signuploginrealtime;
 
+import android.app.DatePickerDialog;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.text.InputType;
+import android.widget.DatePicker;
+import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
+import android.widget.Switch;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.annotation.NonNull;
 
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.auth.AuthCredential;
+import com.google.firebase.auth.EmailAuthProvider;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 public class Profile extends AppCompatActivity {
 
@@ -24,8 +42,21 @@ public class Profile extends AppCompatActivity {
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth mAuth;
     private TextView profileName, profileEmail, tvMemberId, tvPhone, tvDob, tvStatus;
+    private LinearLayout layoutDob, layoutEmail, layoutPhone;
     private DatabaseReference userRef;
     private ValueEventListener userDataListener;
+
+    // Date picker components
+    private Calendar selectedDate;
+    private SimpleDateFormat dateFormat;
+
+    // Email and phone validation patterns
+    private static final Pattern EMAIL_PATTERN = Pattern.compile(
+            "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$"
+    );
+    private static final Pattern PHONE_PATTERN = Pattern.compile(
+            "^[+]?[1-9]\\d{1,14}$" // International phone format
+    );
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,13 +66,25 @@ public class Profile extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
 
-        // Initialize TextViews based on your existing XML layout
+        // Initialize TextViews and LinearLayouts based on your existing XML layout
         profileName = findViewById(R.id.profileName);
         profileEmail = findViewById(R.id.profileEmail);
         tvMemberId = findViewById(R.id.tv_member_id);
         tvPhone = findViewById(R.id.tv_phone);
         tvDob = findViewById(R.id.tv_dob);
         tvStatus = findViewById(R.id.tv_status);
+        layoutDob = findViewById(R.id.layout_dob);
+        layoutEmail = findViewById(R.id.layout_email);
+        layoutPhone = findViewById(R.id.layout_phone);
+
+        // Initialize date components
+        selectedDate = Calendar.getInstance();
+        dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+
+        // Set up functionality
+        setupDatePicker();
+        setupEditableFields();
+        setupSecurityClickListeners();
 
         if (currentUser != null) {
             // Set up database reference
@@ -96,6 +139,497 @@ public class Profile extends AppCompatActivity {
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
     }
 
+    private void setupSecurityClickListeners() {
+        // Change Password click listener
+        LinearLayout layoutChangePassword = findViewById(R.id.layout_change_password);
+        layoutChangePassword.setOnClickListener(v -> showChangePasswordDialog());
+
+        // Two-Factor Authentication click listener
+        LinearLayout layoutTwoFactor = findViewById(R.id.layout_two_factor);
+        layoutTwoFactor.setOnClickListener(v -> showTwoFactorDialog());
+    }
+
+    private void showChangePasswordDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Change Password");
+        builder.setMessage("To change your password, you'll need to verify your current password first.");
+
+        // Create a LinearLayout to hold multiple EditText views
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        // Current password field
+        final EditText currentPasswordInput = new EditText(this);
+        currentPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        currentPasswordInput.setHint("Current Password");
+        layout.addView(currentPasswordInput);
+
+        // New password field
+        final EditText newPasswordInput = new EditText(this);
+        newPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        newPasswordInput.setHint("New Password (min 6 characters)");
+        layout.addView(newPasswordInput);
+
+        // Confirm new password field
+        final EditText confirmPasswordInput = new EditText(this);
+        confirmPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        confirmPasswordInput.setHint("Confirm New Password");
+        layout.addView(confirmPasswordInput);
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Change Password", (dialog, which) -> {
+            String currentPassword = currentPasswordInput.getText().toString().trim();
+            String newPassword = newPasswordInput.getText().toString().trim();
+            String confirmPassword = confirmPasswordInput.getText().toString().trim();
+
+            if (validatePasswordChange(currentPassword, newPassword, confirmPassword)) {
+                changeUserPassword(currentPassword, newPassword);
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private boolean validatePasswordChange(String currentPassword, String newPassword, String confirmPassword) {
+        if (currentPassword.isEmpty()) {
+            Toast.makeText(this, "Please enter your current password", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if (newPassword.isEmpty()) {
+            Toast.makeText(this, "Please enter a new password", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if (newPassword.length() < 6) {
+            Toast.makeText(this, "New password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if (!newPassword.equals(confirmPassword)) {
+            Toast.makeText(this, "Passwords don't match", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        if (currentPassword.equals(newPassword)) {
+            Toast.makeText(this, "New password must be different from current password", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        return true;
+    }
+
+    private void changeUserPassword(String currentPassword, String newPassword) {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null || user.getEmail() == null) {
+            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Show loading toast
+        Toast.makeText(this, "Changing password...", Toast.LENGTH_SHORT).show();
+
+        // Re-authenticate user with current password
+        AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), currentPassword);
+
+        user.reauthenticate(credential).addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if (task.isSuccessful()) {
+                    // Re-authentication successful, now change password
+                    user.updatePassword(newPassword).addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> passwordTask) {
+                            if (passwordTask.isSuccessful()) {
+                                Toast.makeText(Profile.this, "Password changed successfully!", Toast.LENGTH_LONG).show();
+
+                                // Save password change timestamp to Firebase
+                                if (userRef != null) {
+                                    userRef.child("lastPasswordChange").setValue(System.currentTimeMillis());
+                                }
+                            } else {
+                                String errorMessage = passwordTask.getException() != null ?
+                                        passwordTask.getException().getMessage() : "Failed to change password";
+                                Toast.makeText(Profile.this, "Error: " + errorMessage, Toast.LENGTH_LONG).show();
+                            }
+                        }
+                    });
+                } else {
+                    // Re-authentication failed
+                    Toast.makeText(Profile.this, "Current password is incorrect", Toast.LENGTH_LONG).show();
+                }
+            }
+        });
+    }
+
+    private void showTwoFactorDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Two-Factor Authentication");
+
+        // Create layout for the dialog
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
+
+        // Check current 2FA status from SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
+        boolean is2FAEnabled = prefs.getBoolean("two_factor_enabled", false);
+
+        // Status text
+        TextView statusText = new TextView(this);
+        if (is2FAEnabled) {
+            statusText.setText("Two-Factor Authentication is currently ENABLED");
+            statusText.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        } else {
+            statusText.setText("Two-Factor Authentication is currently DISABLED");
+            statusText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+        statusText.setTextSize(16);
+        statusText.setPadding(0, 0, 0, 20);
+        layout.addView(statusText);
+
+        // Info text
+        TextView infoText = new TextView(this);
+        infoText.setText("Two-Factor Authentication adds an extra layer of security to your account by requiring a verification code from your phone in addition to your password.");
+        infoText.setTextSize(14);
+        infoText.setPadding(0, 0, 0, 20);
+        layout.addView(infoText);
+
+        // Toggle switch
+        Switch twoFactorSwitch = new Switch(this);
+        twoFactorSwitch.setText(is2FAEnabled ? "Disable 2FA" : "Enable 2FA");
+        twoFactorSwitch.setChecked(is2FAEnabled);
+        layout.addView(twoFactorSwitch);
+
+        // Phone number field (only show if enabling 2FA)
+        final EditText phoneInput = new EditText(this);
+        phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
+        phoneInput.setHint("Enter your phone number for SMS codes");
+        String currentPhone = tvPhone.getText().toString();
+        if (!currentPhone.equals("Phone not set") && !currentPhone.isEmpty()) {
+            phoneInput.setText(currentPhone);
+        }
+
+        // Initially hide phone input if 2FA is already enabled
+        if (is2FAEnabled) {
+            phoneInput.setVisibility(LinearLayout.GONE);
+        }
+        layout.addView(phoneInput);
+
+        // Switch listener to show/hide phone input
+        twoFactorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            if (isChecked && !is2FAEnabled) {
+                // Enabling 2FA - show phone input
+                phoneInput.setVisibility(LinearLayout.VISIBLE);
+                twoFactorSwitch.setText("Enable 2FA");
+            } else if (!isChecked && is2FAEnabled) {
+                // Disabling 2FA - hide phone input
+                phoneInput.setVisibility(LinearLayout.GONE);
+                twoFactorSwitch.setText("Disable 2FA");
+            }
+        });
+
+        builder.setView(layout);
+
+        builder.setPositiveButton("Save Changes", (dialog, which) -> {
+            boolean newStatus = twoFactorSwitch.isChecked();
+
+            if (newStatus && !is2FAEnabled) {
+                // Enabling 2FA
+                String phoneNumber = phoneInput.getText().toString().trim();
+                if (phoneNumber.isEmpty()) {
+                    Toast.makeText(this, "Please enter a phone number for 2FA", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (!validatePhone(phoneNumber)) {
+                    Toast.makeText(this, "Please enter a valid phone number", Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                enableTwoFactor(phoneNumber);
+            } else if (!newStatus && is2FAEnabled) {
+                // Disabling 2FA
+                disableTwoFactor();
+            } else {
+                Toast.makeText(this, "No changes made", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+    }
+
+    private void enableTwoFactor(String phoneNumber) {
+        // Save 2FA settings
+        SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putBoolean("two_factor_enabled", true);
+        editor.putString("two_factor_phone", phoneNumber);
+        editor.putLong("two_factor_enabled_date", System.currentTimeMillis());
+        editor.apply();
+
+        // Save to Firebase
+        if (userRef != null) {
+            userRef.child("twoFactorEnabled").setValue(true);
+            userRef.child("twoFactorPhone").setValue(phoneNumber);
+            userRef.child("twoFactorEnabledDate").setValue(System.currentTimeMillis());
+        }
+
+        // Update phone number if it's different
+        if (!phoneNumber.equals(tvPhone.getText().toString())) {
+            updatePhone(phoneNumber);
+        }
+
+        // Show success message
+        Toast.makeText(this, "Two-Factor Authentication enabled successfully!", Toast.LENGTH_LONG).show();
+
+        // Show info about next login
+        new AlertDialog.Builder(this)
+                .setTitle("2FA Enabled")
+                .setMessage("Two-Factor Authentication is now active on your account. Next time you log in, you'll receive an SMS verification code on " + phoneNumber)
+                .setPositiveButton("OK", null)
+                .show();
+    }
+
+    private void disableTwoFactor() {
+        // Show confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle("Disable Two-Factor Authentication")
+                .setMessage("Are you sure you want to disable 2FA? This will make your account less secure.")
+                .setPositiveButton("Yes, Disable", (dialog, which) -> {
+                    // Remove 2FA settings
+                    SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("two_factor_enabled", false);
+                    editor.remove("two_factor_phone");
+                    editor.putLong("two_factor_disabled_date", System.currentTimeMillis());
+                    editor.apply();
+
+                    // Update Firebase
+                    if (userRef != null) {
+                        userRef.child("twoFactorEnabled").setValue(false);
+                        userRef.child("twoFactorPhone").removeValue();
+                        userRef.child("twoFactorDisabledDate").setValue(System.currentTimeMillis());
+                    }
+
+                    Toast.makeText(Profile.this, "Two-Factor Authentication disabled", Toast.LENGTH_LONG).show();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void setupEditableFields() {
+        // Set up email editing
+        layoutEmail.setOnClickListener(v -> showEditEmailDialog());
+
+        // Set up phone editing
+        layoutPhone.setOnClickListener(v -> showEditPhoneDialog());
+    }
+
+    private void showEditEmailDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Edit Email Address");
+
+        // Create EditText
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        input.setText(profileEmail.getText().toString());
+        input.setSelection(input.getText().length()); // Place cursor at end
+
+        // Set padding
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(padding, padding, padding, padding);
+
+        builder.setView(input);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String newEmail = input.getText().toString().trim();
+            if (validateEmail(newEmail)) {
+                updateEmail(newEmail);
+            } else {
+                Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Focus on input and show keyboard
+        input.requestFocus();
+    }
+
+    private void showEditPhoneDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Edit Phone Number");
+
+        // Create EditText
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_PHONE);
+
+        String currentPhone = tvPhone.getText().toString();
+        if (!currentPhone.equals("Phone not set")) {
+            input.setText(currentPhone);
+            input.setSelection(input.getText().length()); // Place cursor at end
+        }
+
+        input.setHint("Enter your phone number");
+
+        // Set padding
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        input.setPadding(padding, padding, padding, padding);
+
+        builder.setView(input);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String newPhone = input.getText().toString().trim();
+            if (newPhone.isEmpty()) {
+                Toast.makeText(this, "Phone number cannot be empty", Toast.LENGTH_SHORT).show();
+            } else if (validatePhone(newPhone)) {
+                updatePhone(newPhone);
+            } else {
+                Toast.makeText(this, "Please enter a valid phone number", Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Focus on input and show keyboard
+        input.requestFocus();
+    }
+
+    private boolean validateEmail(String email) {
+        return email != null && EMAIL_PATTERN.matcher(email).matches();
+    }
+
+    private boolean validatePhone(String phone) {
+        if (phone == null || phone.trim().isEmpty()) {
+            return false;
+        }
+
+        // Remove spaces, dashes, and parentheses for validation
+        String cleanPhone = phone.replaceAll("[\\s\\-\\(\\)]", "");
+
+        // Check if it's a valid format (at least 10 digits, can start with +)
+        return cleanPhone.length() >= 10 &&
+                (cleanPhone.matches("^\\+?[1-9]\\d{9,14}$") ||
+                        cleanPhone.matches("^[0-9]{10,15}$"));
+    }
+
+    private void updateEmail(String newEmail) {
+        if (userRef != null) {
+            userRef.child("email").setValue(newEmail)
+                    .addOnSuccessListener(aVoid -> {
+                        profileEmail.setText(newEmail);
+                        Toast.makeText(this, "Email updated successfully", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update email: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updatePhone(String newPhone) {
+        if (userRef != null) {
+            userRef.child("phone").setValue(newPhone)
+                    .addOnSuccessListener(aVoid -> {
+                        tvPhone.setText(newPhone);
+                        Toast.makeText(this, "Phone number updated successfully", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update phone: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void setupDatePicker() {
+        layoutDob.setOnClickListener(v -> showDatePickerDialog());
+    }
+
+    private void showDatePickerDialog() {
+        int currentYear = selectedDate.get(Calendar.YEAR);
+        int currentMonth = selectedDate.get(Calendar.MONTH);
+        int currentDay = selectedDate.get(Calendar.DAY_OF_MONTH);
+
+        DatePickerDialog datePickerDialog = new DatePickerDialog(
+                this,
+                new DatePickerDialog.OnDateSetListener() {
+                    @Override
+                    public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
+                        // Update the selected date
+                        selectedDate.set(Calendar.YEAR, year);
+                        selectedDate.set(Calendar.MONTH, month);
+                        selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+
+                        // Format and display the selected date
+                        String formattedDate = dateFormat.format(selectedDate.getTime());
+                        tvDob.setText(formattedDate);
+
+                        // Save the date to Firebase and SharedPreferences
+                        saveDateOfBirth(formattedDate);
+
+                        // Show confirmation toast
+                        Toast.makeText(Profile.this, "Date of birth updated", Toast.LENGTH_SHORT).show();
+                    }
+                },
+                currentYear,
+                currentMonth,
+                currentDay
+        );
+
+        // Set date constraints
+        Calendar maxDate = Calendar.getInstance();
+        maxDate.add(Calendar.YEAR, -13); // Minimum age of 13
+        datePickerDialog.getDatePicker().setMaxDate(maxDate.getTimeInMillis());
+
+        Calendar minDate = Calendar.getInstance();
+        minDate.set(1900, 0, 1); // Minimum year 1900
+        datePickerDialog.getDatePicker().setMinDate(minDate.getTimeInMillis());
+
+        datePickerDialog.show();
+    }
+
+    private void saveDateOfBirth(String dateOfBirth) {
+        // Save to SharedPreferences
+        SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+        SharedPreferences.Editor editor = prefs.edit();
+        editor.putString("date_of_birth", dateOfBirth);
+        editor.putLong("date_of_birth_timestamp", selectedDate.getTimeInMillis());
+        editor.apply();
+
+        // Save to Firebase
+        if (userRef != null) {
+            userRef.child("dateOfBirth").setValue(dateOfBirth);
+        }
+    }
+
+    private void loadDateOfBirthFromPrefs() {
+        SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
+        String savedDate = prefs.getString("date_of_birth", "");
+        long savedTimestamp = prefs.getLong("date_of_birth_timestamp", -1);
+
+        if (!savedDate.isEmpty()) {
+            tvDob.setText(savedDate);
+            if (savedTimestamp != -1) {
+                selectedDate.setTimeInMillis(savedTimestamp);
+            }
+        }
+    }
+
     private void setupUserDataListener() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) return;
@@ -123,6 +657,7 @@ public class Profile extends AppCompatActivity {
             @Override
             public void onCancelled(DatabaseError error) {
                 // Handle error - maybe show toast or log error
+                Toast.makeText(Profile.this, "Failed to load profile data", Toast.LENGTH_SHORT).show();
             }
         };
 
@@ -171,11 +706,21 @@ public class Profile extends AppCompatActivity {
             userRef.child("memberId").setValue(generatedMemberId);
         }
 
-        // Update Date of Birth
+        // Update Date of Birth - prioritize Firebase data
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
             tvDob.setText(dateOfBirth);
+            // Parse the date back to Calendar if needed for date picker
+            try {
+                selectedDate.setTime(dateFormat.parse(dateOfBirth));
+            } catch (Exception e) {
+                // If parsing fails, keep current date
+            }
         } else {
-            tvDob.setText("Not set");
+            // Load from SharedPreferences as fallback
+            loadDateOfBirthFromPrefs();
+            if (tvDob.getText().toString().equals("Not set")) {
+                tvDob.setText("Select your date of birth");
+            }
         }
 
         // Update Membership Status
@@ -209,7 +754,7 @@ public class Profile extends AppCompatActivity {
         tvPhone.setText("Phone not set");
         tvMemberId.setText("Member ID: #" + memberId);
         tvStatus.setText("ACTIVE MEMBER");
-        tvDob.setText("Not set");
+        tvDob.setText("Select your date of birth");
     }
 
     private String getDefaultName(String email) {
@@ -223,6 +768,27 @@ public class Profile extends AppCompatActivity {
         // Generate unique member ID - you can customize this format
         long timestamp = System.currentTimeMillis();
         return "GYM" + String.valueOf(timestamp).substring(7); // GYM + last 6 digits
+    }
+
+    // Helper method to calculate age from date of birth
+    private int calculateAge() {
+        if (selectedDate == null) return 0;
+
+        Calendar today = Calendar.getInstance();
+        int age = today.get(Calendar.YEAR) - selectedDate.get(Calendar.YEAR);
+
+        // Check if birthday has occurred this year
+        if (today.get(Calendar.DAY_OF_YEAR) < selectedDate.get(Calendar.DAY_OF_YEAR)) {
+            age--;
+        }
+
+        return age;
+    }
+
+    // Method to get formatted date for API calls or database storage
+    private String getDateOfBirthForAPI() {
+        SimpleDateFormat apiFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        return apiFormat.format(selectedDate.getTime());
     }
 
     @Override

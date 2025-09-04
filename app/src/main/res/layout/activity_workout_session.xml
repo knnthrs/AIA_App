@@ -7,6 +7,7 @@
     android:padding="16dp">
 
 
+
     <!-- Exercise Animation/Image Container -->
     <RelativeLayout
         android:layout_width="match_parent"
@@ -19,10 +20,11 @@
         <ImageView
             android:id="@+id/iv_exercise_animation"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:layout_centerInParent="true"
+            android:layout_height="250dp"
+            android:layout_marginTop="32dp"
+            android:paddingTop="16dp"
             android:scaleType="centerInside"
-            android:contentDescription="Exercise demonstration" />
+            android:contentDescription="Exercise animation" />
 
     </RelativeLayout>
 
@@ -106,7 +108,7 @@
         android:paddingTop="16dp">
 
         <!-- Previous Button -->
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_previous"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -123,7 +125,7 @@
             android:layout_weight="1" />
 
         <!-- Skip Button -->
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btn_skip"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

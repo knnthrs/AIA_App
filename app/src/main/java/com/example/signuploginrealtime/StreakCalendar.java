@@ -1,12 +1,13 @@
-// StreakCalendarActivity.java
 package com.example.signuploginrealtime;
 
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.widget.CalendarView;
 import android.widget.TextView;
+
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -30,8 +31,10 @@ public class StreakCalendar extends AppCompatActivity {
         // Setup toolbar
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-        getSupportActionBar().setTitle("Workout History");
+        if (getSupportActionBar() != null) {
+            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+            getSupportActionBar().setTitle("Workout History");
+        }
 
         // Initialize views
         calendarView = findViewById(R.id.calendarView);
@@ -90,8 +93,10 @@ public class StreakCalendar extends AppCompatActivity {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
             for (int i = 1; i < sortedDates.length; i++) {
-                Date prevDate = sdf.parse(sortedDates[i-1]);
+                Date prevDate = sdf.parse(sortedDates[i - 1]);
                 Date currDate = sdf.parse(sortedDates[i]);
+
+                if (prevDate == null || currDate == null) continue;
 
                 // Check if dates are consecutive
                 long diffInMillies = currDate.getTime() - prevDate.getTime();
@@ -116,7 +121,6 @@ public class StreakCalendar extends AppCompatActivity {
         String displayDate = formatDateForDisplay(selectedDate);
 
         if (workoutDates.contains(dateString)) {
-            // Get workout details for this date if available
             String workoutDetails = getWorkoutDetailsForDate(dateString);
             selectedDateInfo.setText("✅ " + displayDate + "\n" + workoutDetails);
             selectedDateInfo.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
@@ -127,11 +131,10 @@ public class StreakCalendar extends AppCompatActivity {
     }
 
     private String getWorkoutDetailsForDate(String dateString) {
-        // Get saved workout details for specific date
         String workoutKey = "workout_details_" + dateString;
         String details = workoutPrefs.getString(workoutKey, "");
 
-        if (!details.isEmpty()) {
+        if (details != null && !details.isEmpty()) {
             return "Workout completed: " + details;
         } else {
             return "Workout completed";
@@ -148,14 +151,13 @@ public class StreakCalendar extends AppCompatActivity {
         return sdf.format(calendar.getTime());
     }
 
-    // Method to save workout for a specific date (call this from MainActivity)
+    // Method to save workout for a specific date
     public static void saveWorkoutForDate(SharedPreferences prefs, String date, String workoutDetails) {
         Set<String> workoutDates = prefs.getStringSet("workout_dates", new HashSet<>());
         if (workoutDates == null) {
             workoutDates = new HashSet<>();
         } else {
-            // Create new set to avoid modifying the original
-            workoutDates = new HashSet<>(workoutDates);
+            workoutDates = new HashSet<>(workoutDates); // avoid modifying original reference
         }
 
         workoutDates.add(date);

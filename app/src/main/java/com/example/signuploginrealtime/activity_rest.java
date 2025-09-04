@@ -26,7 +26,7 @@ public class activity_rest extends AppCompatActivity {
     private ArrayList<Integer> exerciseRests;
     private ArrayList<Integer> exerciseReps;
 
-    private TextToSpeech tts; // TTS engine
+    private TextToSpeech tts;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,26 +37,29 @@ public class activity_rest extends AppCompatActivity {
         btnSkip = findViewById(R.id.btn_skip_rest);
         btnAddTime = findViewById(R.id.btn_add_time);
 
-        // Initialize TTS
-        tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                tts.setLanguage(Locale.US);
-            }
-        });
-
         // Get data
-        restDuration = getIntent().getIntExtra("restDuration", 60);
+        restDuration = getIntent().getIntExtra("restDuration", 30);
         nextIndex = getIntent().getIntExtra("nextIndex", 0);
         exerciseNames = getIntent().getStringArrayListExtra("names");
         exerciseDetails = getIntent().getStringArrayListExtra("details");
         exerciseRests = getIntent().getIntegerArrayListExtra("rests");
         exerciseReps = getIntent().getIntegerArrayListExtra("reps");
 
-        startRestTimer(restDuration);
+        // Init TTS
+        tts = new TextToSpeech(this, status -> {
+            if (status == TextToSpeech.SUCCESS) {
+                tts.setLanguage(Locale.US);
+                startRestTimer(restDuration);
+            }
+        });
 
-        btnSkip.setOnClickListener(v -> goToNextExercise());
+        btnSkip.setOnClickListener(v -> {
+            stopRest();
+            goToNextExercise();
+        });
+
         btnAddTime.setOnClickListener(v -> {
-            if (restTimer != null) restTimer.cancel();
+            stopRest();
             restDuration += 20;
             startRestTimer(restDuration);
         });
@@ -71,10 +74,9 @@ public class activity_rest extends AppCompatActivity {
                 int secs = (int) (millisUntilFinished / 1000);
                 tvRestTimer.setText("Rest: " + secs + "s");
 
-                // Announce at milestones
                 if (tts != null) {
                     if (secs == 10 || secs == 5) {
-                        tts.speak(secs + " seconds left", TextToSpeech.QUEUE_FLUSH, null, null);
+                        tts.speak(secs + " seconds left", TextToSpeech.QUEUE_FLUSH, null, "rest_" + secs);
                     }
                 }
             }
@@ -82,7 +84,7 @@ public class activity_rest extends AppCompatActivity {
             @Override
             public void onFinish() {
                 if (tts != null) {
-                    tts.speak("Go!", TextToSpeech.QUEUE_FLUSH, null, null);
+                    tts.speak("Go!", TextToSpeech.QUEUE_FLUSH, null, "rest_go");
                 }
                 goToNextExercise();
             }
@@ -90,7 +92,6 @@ public class activity_rest extends AppCompatActivity {
     }
 
     private void goToNextExercise() {
-        if (restTimer != null) restTimer.cancel();
         Intent intent = new Intent(this, WorkoutSessionActivity.class);
         intent.putStringArrayListExtra("names", exerciseNames);
         intent.putStringArrayListExtra("details", exerciseDetails);
@@ -101,12 +102,15 @@ public class activity_rest extends AppCompatActivity {
         finish();
     }
 
+    private void stopRest() {
+        if (restTimer != null) restTimer.cancel();
+        if (tts != null) tts.stop();
+    }
+
     @Override
     protected void onDestroy() {
-        if (tts != null) {
-            tts.stop();
-            tts.shutdown();
-        }
+        stopRest();
+        if (tts != null) tts.shutdown();
         super.onDestroy();
     }
 }

@@ -142,14 +142,12 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
-        // FAB click listener - Modified to save workout when used
+        // FAB click listener - Open QR scanner only (NO workout saved here)
         fab.setOnClickListener(v -> {
-            // Save today's workout when QR is used
-            saveWorkoutForToday();
-
             Intent intent = new Intent(this, QR.class);
             startActivity(intent);
         });
+
 
         // Setup bottom navigation
         bottomNavigationView.setSelectedItemId(R.id.item_1);

@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -8,13 +9,88 @@
     android:background="@drawable/yellowbg"
     tools:context=".WorkoutList">
 
+    <!-- Fixed Header Section (doesn't scroll) -->
+    <LinearLayout
+        android:id="@+id/fixed_header"
+        android:layout_width="401dp"
+        android:layout_height="105dp"
+        android:background="@drawable/yellowbg"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layout_marginTop="60dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Back Button and Title Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="16dp">
+
+            <ImageButton
+                android:id="@+id/btn_back"
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:scaleType="centerInside"
+                android:src="@drawable/ic_arrow_back" />
+
+            <TextView
+                android:id="@+id/tv_header"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:text="Your Workout Plan"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="40dp"
+                android:layout_height="30dp" />
+
+        </LinearLayout>
+
+        <!-- Stats Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:id="@+id/exercise_count"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Exercises: 0"
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/workout_duration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Duration: 0 mins"
+                android:textSize="16sp" />
+        </LinearLayout>
+
+    </LinearLayout>
+
     <!-- Scrollable workout content -->
     <ScrollView
         android:id="@+id/scroll_area"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:padding="16dp"
-        app:layout_constraintTop_toTopOf="parent"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintTop_toBottomOf="@id/fixed_header"
         app:layout_constraintBottom_toTopOf="@id/bottom_navigation"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
@@ -23,39 +99,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <!-- Header -->
-            <TextView
-                android:id="@+id/tv_header"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Your Workout Plan"
-                android:textSize="20sp"
-                android:textStyle="bold"
-                android:paddingBottom="25dp" />
-
-            <!-- Stats Row -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/exercise_count"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Exercises: 0"
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:id="@+id/workout_duration"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Duration: 0 mins"
-                    android:textSize="16sp" />
-            </LinearLayout>
 
             <!-- Loading Spinner -->
             <ProgressBar
@@ -72,8 +115,8 @@
                 android:id="@+id/exercises_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:layout_marginTop="16dp" />
+                android:orientation="vertical" />
+
         </LinearLayout>
     </ScrollView>
 
@@ -88,7 +131,6 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
-
 
         <!-- Start Button -->
         <androidx.cardview.widget.CardView
@@ -112,4 +154,5 @@
                 android:textStyle="bold" />
         </androidx.cardview.widget.CardView>
     </LinearLayout>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

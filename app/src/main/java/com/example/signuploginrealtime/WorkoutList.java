@@ -5,6 +5,7 @@ import android.text.Html;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
@@ -37,9 +38,11 @@ public class WorkoutList extends AppCompatActivity {
     private TextView exerciseCount, workoutDuration;
     private ProgressBar loadingIndicator;
     private View refreshButton;
+    private ImageButton backButton;
     private WgerApiService apiService;
 
     private int currentDay = 1; // progression day counter
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,8 +54,16 @@ public class WorkoutList extends AppCompatActivity {
         workoutDuration = findViewById(R.id.workout_duration);
         loadingIndicator = findViewById(R.id.loading_indicator);
         refreshButton = findViewById(R.id.start_button); // Make sure this matches your button ID
+        backButton = findViewById(R.id.btn_back);
 
         apiService = ApiClient.getClient().create(WgerApiService.class);
+
+
+
+        // Set up back button functionality
+        backButton.setOnClickListener(v -> {
+            finish(); // This will close the current activity and return to the previous one
+        });
 
         fetchExercises();
 
@@ -108,6 +119,19 @@ public class WorkoutList extends AppCompatActivity {
             startActivity(intent);
         });
     }
+
+    private void loadWorkoutForToday() {
+        currentDay = 1; // reset to today
+        fetchExercises();
+    }
+
+    private void loadWorkoutForTomorrow() {
+        currentDay = 2; // move progression forward one day
+        fetchExercises();
+    }
+
+
+
 
     private void fetchExercises() {
         loadingIndicator.setVisibility(View.VISIBLE);

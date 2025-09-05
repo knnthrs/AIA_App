@@ -6,7 +6,7 @@ import android.widget.CalendarView;
 import android.widget.TextView;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.Toolbar;
+import android.widget.ImageButton;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -28,13 +28,9 @@ public class StreakCalendar extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_streak_calendar);
 
-        // Setup toolbar
-        Toolbar toolbar = findViewById(R.id.toolbar);
-        setSupportActionBar(toolbar);
-        if (getSupportActionBar() != null) {
-            getSupportActionBar().setDisplayHomeAsUpEnabled(true);
-            getSupportActionBar().setTitle("Workout History");
-        }
+        // Setup back button
+        ImageButton backButton = findViewById(R.id.btn_back);
+        backButton.setOnClickListener(v -> finish());
 
         // Initialize views
         calendarView = findViewById(R.id.calendarView);

@@ -21,12 +21,33 @@ import com.google.firebase.database.*;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
+import java.util.ArrayList;
 import java.util.Locale;
 import android.widget.LinearLayout;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.text.Html;
 
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
+
+// Import the necessary classes for workout generation
+import com.example.signuploginrealtime.models.WgerExerciseResponse;
+import com.example.signuploginrealtime.models.WgerExercise;
+import com.example.signuploginrealtime.models.ExerciseInfo;
+import com.example.signuploginrealtime.logic.AdvancedWorkoutDecisionMaker;
+import com.example.signuploginrealtime.api.ApiClient;
+import com.example.signuploginrealtime.api.WgerApiService;
+import com.example.signuploginrealtime.logic.WorkoutProgression;
+import com.example.signuploginrealtime.models.UserProfile;
+import com.example.signuploginrealtime.models.Workout;
+import com.example.signuploginrealtime.models.WorkoutExercise;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -36,12 +57,15 @@ public class MainActivity extends AppCompatActivity {
     TextView expiryDate;
     TextView streakDisplay; // New streak display
     CardView streakCard; // New streak card
+    CardView activitiesCard; // Today's activities card
+    LinearLayout activitiesContainer; // Container for exercise cards
     FloatingActionButton fab;
     FirebaseAuth mAuth;
     DatabaseReference userRef;
     BottomNavigationView bottomNavigationView;
     ValueEventListener userDataListener;
     SharedPreferences workoutPrefs; // For streak data
+    private WgerApiService apiService; // For fetching exercises
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +89,9 @@ public class MainActivity extends AppCompatActivity {
         // Initialize SharedPreferences for workout data
         workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
 
+        // Initialize API service
+        apiService = ApiClient.getClient().create(WgerApiService.class);
+
         // Initialize views
         fab = findViewById(R.id.fab);
         greetingText = findViewById(R.id.greeting_text);
@@ -76,6 +103,10 @@ public class MainActivity extends AppCompatActivity {
         // Initialize new streak views (you'll need to add these to your layout)
         streakDisplay = findViewById(R.id.streak_number);  // This will show just the number
         streakCard = findViewById(R.id.streak_counter_card);  // This is the clickable card
+
+        // Initialize activities views
+        activitiesCard = findViewById(R.id.activities_card);
+        activitiesContainer = findViewById(R.id.activities_horizontal_container);
 
         ImageView testImage = findViewById(R.id.testImage);
         LinearLayout promoLayout = findViewById(R.id.promoLayout);
@@ -132,6 +163,15 @@ public class MainActivity extends AppCompatActivity {
             });
         }
 
+        // Activities card click → go to WorkoutList
+        if (activitiesCard != null) {
+            activitiesCard.setOnClickListener(v -> {
+                Intent intent = new Intent(MainActivity.this, WorkoutList.class);
+                startActivity(intent);
+                overridePendingTransition(0, 0);
+            });
+        }
+
         // Notification Bell icon click listener
         ImageView bellIcon = findViewById(R.id.bell_icon);
         if (bellIcon != null) {
@@ -147,7 +187,6 @@ public class MainActivity extends AppCompatActivity {
             Intent intent = new Intent(this, QR.class);
             startActivity(intent);
         });
-
 
         // Setup bottom navigation
         bottomNavigationView.setSelectedItemId(R.id.item_1);
@@ -179,6 +218,130 @@ public class MainActivity extends AppCompatActivity {
 
         // Update streak display
         updateStreakDisplay();
+
+        // Load today's activities
+        loadTodaysActivities();
+    }
+
+    // New method to load today's activities
+    private void loadTodaysActivities() {
+        // Example exercise IDs (same as WorkoutList)
+        String exerciseIds = "9,12,20,31,41,43,46,48,50,51,56,57";
+
+        apiService.getExercisesInfo(exerciseIds, 2).enqueue(new Callback<WgerExerciseResponse>() {
+            @Override
+            public void onResponse(Call<WgerExerciseResponse> call, Response<WgerExerciseResponse> response) {
+                if (response.isSuccessful() && response.body() != null) {
+                    List<ExerciseInfo> exercises = new ArrayList<>();
+
+                    for (WgerExercise w : response.body().getResults()) {
+                        ExerciseInfo e = new ExerciseInfo();
+                        String name = "Unnamed Exercise";
+
+                        if (w.getTranslations() != null) {
+                            for (WgerExercise.Translation t : w.getTranslations()) {
+                                if (t.getLanguage() == 2) { // English
+                                    name = t.getName() != null ? t.getName() : name;
+                                    break;
+                                }
+                            }
+                        }
+
+                        e.setName(name);
+                        exercises.add(e);
+                    }
+
+                    // Generate workout to get exercise names
+                    generateTodaysWorkout(exercises);
+                } else {
+                    // Use dummy data if API fails
+                    useDummyActivities();
+                }
+            }
+
+            @Override
+            public void onFailure(Call<WgerExerciseResponse> call, Throwable t) {
+                Log.e("MainActivity", "Failed to fetch exercises: " + t.getMessage());
+                useDummyActivities();
+            }
+        });
+    }
+
+    private void generateTodaysWorkout(List<ExerciseInfo> availableExercises) {
+        UserProfile userProfile = createEmptyProfileForProgression();
+        userProfile.setFitnessGoal("lose weight");
+        userProfile.setAge(25);
+
+        Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
+                availableExercises,
+                userProfile
+        );
+
+        Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(
+                baseWorkout,
+                1, // Current day
+                userProfile
+        );
+
+        if (finalWorkout != null && finalWorkout.getExercises() != null) {
+            displayTodaysActivities(finalWorkout.getExercises());
+        } else {
+            useDummyActivities();
+        }
+    }
+
+    private void displayTodaysActivities(List<WorkoutExercise> workoutExercises) {
+        activitiesContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        // Limit to first 4-5 exercises to keep the UI clean
+        int maxExercises = Math.min(workoutExercises.size(), 5);
+
+        for (int i = 0; i < maxExercises; i++) {
+            WorkoutExercise exercise = workoutExercises.get(i);
+            View exerciseCard = inflater.inflate(R.layout.item_activity_card, activitiesContainer, false);
+
+            TextView exerciseName = exerciseCard.findViewById(R.id.tv_activity_name);
+            if (exercise.getExerciseInfo() != null) {
+                String name = exercise.getExerciseInfo().getName();
+                // Truncate long names
+                if (name.length() > 15) {
+                    name = name.substring(0, 12) + "...";
+                }
+                exerciseName.setText(name);
+            } else {
+                exerciseName.setText("Exercise " + (i + 1));
+            }
+
+            activitiesContainer.addView(exerciseCard);
+        }
+    }
+
+    private void useDummyActivities() {
+        activitiesContainer.removeAllViews();
+        LayoutInflater inflater = LayoutInflater.from(this);
+
+        String[] dummyExercises = {"Push-ups", "Squats", "Plank", "Lunges", "Burpees"};
+
+        for (String exerciseName : dummyExercises) {
+            View exerciseCard = inflater.inflate(R.layout.item_activity_card, activitiesContainer, false);
+            TextView exerciseNameView = exerciseCard.findViewById(R.id.tv_activity_name);
+            exerciseNameView.setText(exerciseName);
+            activitiesContainer.addView(exerciseCard);
+        }
+    }
+
+    private UserProfile createEmptyProfileForProgression() {
+        UserProfile p = new UserProfile();
+        p.setFitnessGoal("general fitness");
+        p.setFitnessLevel("beginner");
+        p.setAge(25);
+        p.setGender("not specified");
+        p.setHealthIssues(new ArrayList<>());
+        p.setAvailableEquipment(new ArrayList<>());
+        p.setDislikedExercises(new ArrayList<>());
+        p.setHasGymAccess(false);
+        return p;
     }
 
     // New method to save workout for today
@@ -391,6 +554,7 @@ public class MainActivity extends AppCompatActivity {
         if (mAuth.getCurrentUser() != null) {
             loadUserData();
             updateStreakDisplay(); // Refresh streak display
+            loadTodaysActivities(); // Refresh today's activities
         }
     }
 

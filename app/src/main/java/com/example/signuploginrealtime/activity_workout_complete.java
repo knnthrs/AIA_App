@@ -14,11 +14,21 @@ import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
+// ADD ONLY THESE FIREBASE IMPORTS
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
+import java.util.HashMap;
+import java.util.Map;
+
 public class activity_workout_complete extends AppCompatActivity {
 
     private Button btnFinish, btnViewStreak;
     private SharedPreferences workoutPrefs;
     private TextToSpeech tts;
+
+    // ADD ONLY THESE FIREBASE VARIABLES
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,6 +40,10 @@ public class activity_workout_complete extends AppCompatActivity {
 
         workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
 
+        // ADD ONLY THESE FIREBASE INITIALIZATIONS
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
+
         // Initialize TTS
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
@@ -38,11 +52,19 @@ public class activity_workout_complete extends AppCompatActivity {
             }
         });
 
+
+        // Save flag so MainActivity knows to show tomorrow's activities
+        SharedPreferences prefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
+        prefs.edit().putBoolean("showTomorrow", true).apply();
+
+
         // End session → save workout → update streaks → go to MainActivity
         btnFinish.setOnClickListener(v -> {
             if (!isWorkoutRecordedToday()) {
                 saveWorkoutForToday();
                 updateStreakData();
+                // ADD ONLY THIS FIREBASE SAVE CALL
+                saveWorkoutToFirebase();
                 Toast.makeText(this, "Workout recorded! Keep up the streak!", Toast.LENGTH_SHORT).show();
             } else {
                 Toast.makeText(this, "Workout already recorded for today!", Toast.LENGTH_SHORT).show();
@@ -55,6 +77,8 @@ public class activity_workout_complete extends AppCompatActivity {
             if (!isWorkoutRecordedToday()) {
                 saveWorkoutForToday();
                 updateStreakData();
+                // ADD ONLY THIS FIREBASE SAVE CALL
+                saveWorkoutToFirebase();
             }
 
             Intent intent = new Intent(activity_workout_complete.this, StreakCalendar.class);
@@ -155,6 +179,73 @@ public class activity_workout_complete extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    // ADD ONLY THESE NEW FIREBASE METHODS
+    private void saveWorkoutToFirebase() {
+        // Check if user is authenticated
+        if (mAuth.getCurrentUser() == null) {
+            return; // User not logged in, can't save data
+        }
+
+        String userId = mAuth.getCurrentUser().getUid();
+        String currentDate = getCurrentDateString();
+        String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
+
+        // Get workout details from intent
+        String workoutName = getIntent().getStringExtra("workout_name");
+        int totalExercises = getIntent().getIntExtra("total_exercises", 0);
+        String workoutDuration = getIntent().getStringExtra("workout_duration");
+
+        // Create workout data map
+        Map<String, Object> workoutData = new HashMap<>();
+        workoutData.put("workoutName", workoutName != null ? workoutName : "Workout session");
+        workoutData.put("totalExercises", totalExercises);
+        workoutData.put("completedExercises", totalExercises); // Assuming all exercises were completed
+        workoutData.put("duration", workoutDuration != null ? workoutDuration : "Unknown");
+        workoutData.put("date", currentDate);
+        workoutData.put("time", currentTime);
+        workoutData.put("timestamp", System.currentTimeMillis());
+        workoutData.put("status", "completed");
+
+        // Save to Firestore: users/{userId}/progress/{date}
+        db.collection("users")
+                .document(userId)
+                .collection("progress")
+                .document(currentDate)
+                .set(workoutData)
+                .addOnSuccessListener(aVoid -> {
+                    // Successfully saved
+                    updateUserStats(userId);
+                })
+                .addOnFailureListener(e -> {
+                    // Handle error
+                    e.printStackTrace();
+                });
+    }
+
+    private void updateUserStats(String userId) {
+        // Update user's overall statistics
+        Map<String, Object> statsUpdate = new HashMap<>();
+
+        String currentDate = getCurrentDateString();
+
+        statsUpdate.put("lastWorkoutDate", currentDate);
+        statsUpdate.put("lastActive", System.currentTimeMillis());
+        statsUpdate.put("totalWorkouts", com.google.firebase.firestore.FieldValue.increment(1));
+
+        // Update or create user stats
+        db.collection("users")
+                .document(userId)
+                .collection("stats")
+                .document("overall")
+                .set(statsUpdate, com.google.firebase.firestore.SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    // Stats updated successfully
+                })
+                .addOnFailureListener(e -> {
+                    e.printStackTrace();
+                });
     }
 
     @Override

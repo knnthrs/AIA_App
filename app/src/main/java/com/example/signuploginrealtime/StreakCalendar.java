@@ -60,6 +60,15 @@ public class StreakCalendar extends AppCompatActivity {
         showDateInfo(Calendar.getInstance());
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Refresh data when returning to this activity
+        loadWorkoutDates();
+        updateStreakStatistics();
+        showDateInfo(Calendar.getInstance());
+    }
+
     private void loadWorkoutDates() {
         workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
         if (workoutDates == null) {
@@ -68,15 +77,52 @@ public class StreakCalendar extends AppCompatActivity {
     }
 
     private void updateStreakStatistics() {
-        int currentStreak = workoutPrefs.getInt("current_streak", 0);
+        int currentStreak = calculateCurrentStreak();
         int totalWorkouts = workoutDates.size();
-        int longestStreak = calculateLongestStreak();
+        int longestStreak = workoutPrefs.getInt("longest_streak", calculateLongestStreak());
+
+        // Update current streak in preferences
+        workoutPrefs.edit().putInt("current_streak", currentStreak).apply();
+
+        // Update longest streak if current is higher
+        if (currentStreak > longestStreak) {
+            longestStreak = currentStreak;
+            workoutPrefs.edit().putInt("longest_streak", longestStreak).apply();
+        }
 
         String statsText = "Current Streak: " + currentStreak + " days\n" +
                 "Total Workouts: " + totalWorkouts + "\n" +
                 "Longest Streak: " + longestStreak + " days";
 
         streakStats.setText(statsText);
+    }
+
+    private int calculateCurrentStreak() {
+        if (workoutDates.isEmpty()) return 0;
+
+        String today = formatDateToString(Calendar.getInstance());
+        int streak = 0;
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(sdf.parse(today));
+
+            // Check each day backwards from today
+            while (true) {
+                String dateStr = sdf.format(cal.getTime());
+                if (workoutDates.contains(dateStr)) {
+                    streak++;
+                    cal.add(Calendar.DAY_OF_MONTH, -1);
+                } else {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return streak;
     }
 
     private int calculateLongestStreak() {
@@ -135,9 +181,9 @@ public class StreakCalendar extends AppCompatActivity {
         String details = workoutPrefs.getString(workoutKey, "");
 
         if (details != null && !details.isEmpty()) {
-            return "Workout completed: " + details;
+            return "✨ " + details;
         } else {
-            return "Workout completed";
+            return "✨ Workout completed";
         }
     }
 
@@ -151,13 +197,13 @@ public class StreakCalendar extends AppCompatActivity {
         return sdf.format(calendar.getTime());
     }
 
-    // Method to save workout for a specific date
+    // Static method to save workout for a specific date
     public static void saveWorkoutForDate(SharedPreferences prefs, String date, String workoutDetails) {
         Set<String> workoutDates = prefs.getStringSet("workout_dates", new HashSet<>());
         if (workoutDates == null) {
             workoutDates = new HashSet<>();
         } else {
-            workoutDates = new HashSet<>(workoutDates); // avoid modifying original reference
+            workoutDates = new HashSet<>(workoutDates); // Create new set to avoid modifying original
         }
 
         workoutDates.add(date);

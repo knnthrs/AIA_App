@@ -20,6 +20,8 @@ public class activity_rest extends AppCompatActivity {
     private CountDownTimer restTimer;
     private int restDuration;
     private int nextIndex;
+    private boolean isTransitioning = false; // Prevent multiple transitions
+    private boolean isActivityFinished = false; // Track if activity is being finished
 
     private ArrayList<String> exerciseNames;
     private ArrayList<String> exerciseDetails;
@@ -47,30 +49,60 @@ public class activity_rest extends AppCompatActivity {
 
         // Init TTS
         tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
+            if (status == TextToSpeech.SUCCESS && !isActivityFinished) {
                 tts.setLanguage(Locale.US);
                 startRestTimer(restDuration);
             }
         });
 
         btnSkip.setOnClickListener(v -> {
-            stopRest();
-            goToNextExercise();
+            if (!isTransitioning) {
+                skipRest();
+            }
         });
 
         btnAddTime.setOnClickListener(v -> {
-            stopRest();
-            restDuration += 20;
-            startRestTimer(restDuration);
+            if (!isTransitioning) {
+                addTime();
+            }
         });
     }
 
+    private void skipRest() {
+        if (isTransitioning || isActivityFinished) {
+            return;
+        }
+
+        isTransitioning = true;
+        stopRest();
+        goToNextExercise();
+    }
+
+    private void addTime() {
+        if (isTransitioning || isActivityFinished) {
+            return;
+        }
+
+        stopRest();
+        restDuration += 20;
+        startRestTimer(restDuration);
+    }
+
     private void startRestTimer(int seconds) {
+        if (isActivityFinished || isTransitioning) {
+            return;
+        }
+
         if (restTimer != null) restTimer.cancel();
 
         restTimer = new CountDownTimer(seconds * 1000L, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
+                if (isActivityFinished || isTransitioning) {
+                    cancel();
+                    return;
+                }
+
                 int secs = (int) (millisUntilFinished / 1000);
                 tvRestTimer.setText("Rest: " + secs + "s");
 
@@ -83,34 +115,80 @@ public class activity_rest extends AppCompatActivity {
 
             @Override
             public void onFinish() {
+                if (isActivityFinished || isTransitioning) {
+                    return;
+                }
+
                 if (tts != null) {
                     tts.speak("Go!", TextToSpeech.QUEUE_FLUSH, null, "rest_go");
                 }
-                goToNextExercise();
+
+                // Add small delay for "Go!" announcement
+                tvRestTimer.postDelayed(() -> {
+                    if (!isActivityFinished && !isTransitioning) {
+                        isTransitioning = true;
+                        goToNextExercise();
+                    }
+                }, 500);
             }
         }.start();
     }
 
     private void goToNextExercise() {
-        Intent intent = new Intent(this, WorkoutSessionActivity.class);
-        intent.putStringArrayListExtra("names", exerciseNames);
-        intent.putStringArrayListExtra("details", exerciseDetails);
-        intent.putIntegerArrayListExtra("rests", exerciseRests);
-        intent.putIntegerArrayListExtra("reps", exerciseReps);
-        intent.putExtra("currentIndex", nextIndex);
-        startActivity(intent);
-        finish();
+        if (isTransitioning && !isActivityFinished) {
+            // Check if we've reached the end of exercises
+            if (nextIndex >= exerciseNames.size()) {
+                // Go to workout completion instead of next exercise
+                Intent intent = new Intent(this, activity_workout_complete.class);
+                intent.putExtra("workout_name", "Full Body Workout");
+                intent.putExtra("total_exercises", exerciseNames.size());
+                intent.putExtra("workout_duration", "30 minutes");
+                startActivity(intent);
+                finish();
+                return;
+            }
+
+            Intent intent = new Intent(this, WorkoutSessionActivity.class);
+            intent.putStringArrayListExtra("names", exerciseNames);
+            intent.putStringArrayListExtra("details", exerciseDetails);
+            intent.putIntegerArrayListExtra("rests", exerciseRests);
+            intent.putIntegerArrayListExtra("reps", exerciseReps);
+            intent.putExtra("currentIndex", nextIndex);
+            startActivity(intent);
+            finish();
+        }
     }
 
     private void stopRest() {
-        if (restTimer != null) restTimer.cancel();
+        if (restTimer != null) {
+            restTimer.cancel();
+            restTimer = null;
+        }
         if (tts != null) tts.stop();
     }
 
     @Override
     protected void onDestroy() {
+        isActivityFinished = true;
         stopRest();
         if (tts != null) tts.shutdown();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Don't stop completely, just pause timers
+        if (restTimer != null) {
+            restTimer.cancel();
+        }
+        if (tts != null) tts.stop();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        isActivityFinished = true;
+        stopRest();
     }
 }

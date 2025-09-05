@@ -27,10 +27,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private int currentIndex = 0;
     private int currentRep = 1;
     private boolean isPaused = false;
+    private boolean ttsReady = false;
+    private boolean isTransitioning = false; // Prevent multiple transitions
+    private boolean isActivityFinished = false; // Track if activity is being finished
 
     private CountDownTimer timer, prepTimer;
     private long timeLeftMillis;
-    private int repDuration = 3000; // faster rep timing
+    private int repDuration = 3000;
 
     private TextToSpeech tts;
 
@@ -55,31 +58,74 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         exerciseReps = getIntent().getIntegerArrayListExtra("reps");
         currentIndex = getIntent().getIntExtra("currentIndex", 0);
 
+        // Clear placeholder UI immediately
+        tvName.setText("");
+        tvDetails.setText("");
+        tvProgress.setText("");
+
+        // Show loading state or first exercise info without starting timers
+        if (exerciseNames != null && !exerciseNames.isEmpty()) {
+            tvName.setText(exerciseNames.get(currentIndex));
+            tvDetails.setText(exerciseDetails.get(currentIndex));
+            tvProgress.setText("0/" + exerciseReps.get(currentIndex));
+            progressBar.setMax(exerciseNames.size());
+            progressBar.setProgress(currentIndex);
+        }
+
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.US);
+                ttsReady = true;
 
-                // ✅ Only show first exercise after TTS is ready
-                if (exerciseNames != null && !exerciseNames.isEmpty()) {
-                    // Clear placeholder UI
-                    tvName.setText("");
-                    tvDetails.setText("");
-                    tvProgress.setText("");
-                    // Start first exercise
-                    showExercise(currentIndex);
-                }
+                // Add a small delay to ensure TTS is fully ready
+                tvName.postDelayed(() -> {
+                    if (exerciseNames != null && !exerciseNames.isEmpty() && !isActivityFinished) {
+                        startPrepCountdown(currentIndex);
+                    }
+                }, 500);
             }
         });
 
-        btnPause.setOnClickListener(v -> togglePause());
-        btnDone.setOnClickListener(v -> moveToNextExercise());
-        btnSkip.setOnClickListener(v -> moveToNextExercise());
-        btnPrevious.setOnClickListener(v -> moveToPreviousExercise());
+        btnPause.setOnClickListener(v -> {
+            if (!isTransitioning) {
+                togglePause();
+            }
+        });
+
+        btnDone.setOnClickListener(v -> {
+            if (!isTransitioning) {
+                moveToNextExercise();
+            }
+        });
+
+        btnSkip.setOnClickListener(v -> {
+            if (!isTransitioning) {
+                moveToNextExercise();
+            }
+        });
+
+        btnPrevious.setOnClickListener(v -> {
+            if (!isTransitioning) {
+                moveToPreviousExercise();
+            }
+        });
     }
 
     private void showExercise(int index) {
+        if (isActivityFinished || isTransitioning) {
+            return;
+        }
+
         if (index >= exerciseNames.size()) {
-            startActivity(new Intent(this, activity_workout_complete.class));
+            // Mark as transitioning to prevent further operations
+            isTransitioning = true;
+            cleanupAndFinish();
+
+            Intent intent = new Intent(this, activity_workout_complete.class);
+            intent.putExtra("workout_name", "Full Body Workout");
+            intent.putExtra("total_exercises", exerciseNames.size());
+            intent.putExtra("workout_duration", calculateWorkoutDuration());
+            startActivity(intent);
             finish();
             return;
         }
@@ -93,33 +139,55 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         tvProgress.setText("0/" + exerciseReps.get(index));
 
-        startPrepCountdown(index);
+        // Only start prep countdown if TTS is ready and not transitioning
+        if (ttsReady && !isTransitioning && !isActivityFinished) {
+            startPrepCountdown(index);
+        }
+    }
+
+    private String calculateWorkoutDuration() {
+        return "30 minutes";
     }
 
     private void startPrepCountdown(int index) {
+        if (isActivityFinished || isTransitioning) {
+            return;
+        }
+
+        // Cancel any existing timers first
+        cancelAllTimers();
+
         String[] prep = {"Ready", "1", "2", "3", "Go"};
 
-        prepTimer = new CountDownTimer(prep.length * 1000, 1000) {
+        prepTimer = new CountDownTimer(prep.length * 1000 + 1000, 1000) {
             int step = 0;
 
             @Override
             public void onTick(long millisUntilFinished) {
-                if (isPaused) return;
+                if (isPaused || isActivityFinished || isTransitioning) return;
 
-                if (step < prep.length) {
-                    tts.speak(prep[step], TextToSpeech.QUEUE_FLUSH, null, "prep_" + step);
+                if (step < prep.length && ttsReady) {
+                    if (tts != null && !tts.isSpeaking()) {
+                        tts.speak(prep[step], TextToSpeech.QUEUE_FLUSH, null, "prep_" + step);
+                    }
                     step++;
                 }
             }
 
             @Override
             public void onFinish() {
-                startRepTimer(index);
+                if (!isPaused && !isActivityFinished && !isTransitioning) {
+                    startRepTimer(index);
+                }
             }
         }.start();
     }
 
     private void startRepTimer(int index) {
+        if (isActivityFinished || isTransitioning) {
+            return;
+        }
+
         int totalReps = exerciseReps.get(index);
 
         if (timeLeftMillis == 0) timeLeftMillis = repDuration;
@@ -127,22 +195,42 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         timer = new CountDownTimer(timeLeftMillis, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
+                if (isActivityFinished || isTransitioning) {
+                    cancel();
+                    return;
+                }
                 timeLeftMillis = millisUntilFinished;
             }
 
             @Override
             public void onFinish() {
-                if (isPaused) return;
+                if (isPaused || isActivityFinished || isTransitioning) return;
 
                 if (currentRep <= totalReps) {
-                    tts.speak(String.valueOf(currentRep), TextToSpeech.QUEUE_FLUSH, null, "rep_" + currentRep);
+                    if (ttsReady && tts != null) {
+                        tts.speak(String.valueOf(currentRep), TextToSpeech.QUEUE_FLUSH, null, "rep_" + currentRep);
+                    }
                     tvProgress.setText(currentRep + "/" + totalReps);
                     currentRep++;
                     timeLeftMillis = 0;
                     startRepTimer(index);
                 } else {
                     progressBar.setProgress(currentIndex + 1);
-                    goToRest(exerciseRests.get(index));
+                    // Check if this is the last exercise
+                    if (currentIndex + 1 >= exerciseNames.size()) {
+                        // Mark as transitioning and go to completion
+                        isTransitioning = true;
+                        cleanupAndFinish();
+
+                        Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
+                        intent.putExtra("workout_name", "Full Body Workout");
+                        intent.putExtra("total_exercises", exerciseNames.size());
+                        intent.putExtra("workout_duration", calculateWorkoutDuration());
+                        startActivity(intent);
+                        finish();
+                    } else {
+                        goToRest(exerciseRests.get(index));
+                    }
                 }
             }
         }.start();
@@ -150,8 +238,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     private void togglePause() {
         if (!isPaused) {
-            if (timer != null) timer.cancel();
-            if (prepTimer != null) prepTimer.cancel();
+            cancelAllTimers();
+            if (tts != null) tts.stop();
             btnPause.setText("RESUME");
             isPaused = true;
         } else {
@@ -170,8 +258,14 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
     private void goToRest(int restSeconds) {
-        if (timer != null) timer.cancel();
-        if (prepTimer != null) prepTimer.cancel();
+        if (isTransitioning || isActivityFinished) {
+            return;
+        }
+
+        // Mark as transitioning to prevent multiple calls
+        isTransitioning = true;
+
+        cleanupAndFinish();
 
         Intent intent = new Intent(this, activity_rest.class);
         intent.putExtra("restDuration", restSeconds);
@@ -185,29 +279,68 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
     private void moveToNextExercise() {
-        if (timer != null) timer.cancel();
-        if (prepTimer != null) prepTimer.cancel();
+        if (isTransitioning || isActivityFinished) {
+            return;
+        }
+
+        cleanupTimersAndTTS();
         currentIndex++;
         timeLeftMillis = 0;
         showExercise(currentIndex);
     }
 
     private void moveToPreviousExercise() {
-        if (timer != null) timer.cancel();
-        if (prepTimer != null) prepTimer.cancel();
+        if (isTransitioning || isActivityFinished) {
+            return;
+        }
+
+        cleanupTimersAndTTS();
         if (currentIndex > 0) currentIndex--;
         timeLeftMillis = 0;
         showExercise(currentIndex);
     }
 
+    private void cancelAllTimers() {
+        if (timer != null) {
+            timer.cancel();
+            timer = null;
+        }
+        if (prepTimer != null) {
+            prepTimer.cancel();
+            prepTimer = null;
+        }
+    }
+
+    private void cleanupTimersAndTTS() {
+        cancelAllTimers();
+        if (tts != null) tts.stop();
+    }
+
+    private void cleanupAndFinish() {
+        isActivityFinished = true;
+        cleanupTimersAndTTS();
+    }
+
     @Override
     protected void onDestroy() {
+        cleanupAndFinish();
         if (tts != null) {
-            tts.stop();
             tts.shutdown();
         }
-        if (timer != null) timer.cancel();
-        if (prepTimer != null) prepTimer.cancel();
         super.onDestroy();
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        // Don't mark as finished, just cleanup timers
+        cleanupTimersAndTTS();
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        isActivityFinished = true;
+        cleanupTimersAndTTS();
     }
 }

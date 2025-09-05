@@ -6,8 +6,6 @@
     android:background="@drawable/yellowbg"
     android:padding="16dp">
 
-
-
     <!-- Exercise Animation/Image Container -->
     <RelativeLayout
         android:layout_width="match_parent"
@@ -34,12 +32,13 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="DUMBBELL BACKWARD LUNGE"
+        android:text=""
         android:textSize="20sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
         android:letterSpacing="0.05"
-        android:paddingBottom="8dp" />
+        android:paddingBottom="8dp"
+        android:minHeight="32dp" />
 
     <!-- Exercise Details (Reps/Sets) -->
     <TextView
@@ -47,10 +46,11 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="Each Side x 6"
+        android:text=""
         android:textSize="16sp"
         android:textColor="#808080"
-        android:paddingBottom="32dp" />
+        android:paddingBottom="32dp"
+        android:minHeight="24dp" />
 
     <!-- Exercise Progress Counter -->
     <TextView
@@ -58,11 +58,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
-        android:text="1/12"
+        android:text=""
         android:textSize="48sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
-        android:paddingBottom="32dp" />
+        android:paddingBottom="32dp"
+        android:minHeight="72dp" />
 
     <!-- Control Buttons -->
     <LinearLayout
@@ -144,7 +145,7 @@
         android:layout_width="match_parent"
         android:layout_height="4dp"
         android:layout_marginTop="8dp"
-        android:progress="8"
+        android:progress="0"
         android:max="100"
         android:progressTint="@android:color/holo_blue_light" />
 

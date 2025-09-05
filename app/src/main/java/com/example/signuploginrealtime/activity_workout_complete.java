@@ -8,8 +8,11 @@ import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.Locale;
+import java.util.Set;
 
 public class activity_workout_complete extends AppCompatActivity {
 
@@ -23,7 +26,7 @@ public class activity_workout_complete extends AppCompatActivity {
         setContentView(R.layout.activity_workout_complete);
 
         btnFinish = findViewById(R.id.btn_end_session);
-        btnViewStreak = findViewById(R.id.btn_view_streaks); // optional
+        btnViewStreak = findViewById(R.id.btn_view_streaks);
 
         workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
 
@@ -35,28 +38,111 @@ public class activity_workout_complete extends AppCompatActivity {
             }
         });
 
-        // End session → save workout → go to MainActivity immediately
+        // End session → save workout → update streaks → go to MainActivity
         btnFinish.setOnClickListener(v -> {
-            saveWorkoutForToday();
+            if (!isWorkoutRecordedToday()) {
+                saveWorkoutForToday();
+                updateStreakData();
+                Toast.makeText(this, "Workout recorded! Keep up the streak!", Toast.LENGTH_SHORT).show();
+            } else {
+                Toast.makeText(this, "Workout already recorded for today!", Toast.LENGTH_SHORT).show();
+            }
             goToMain();
         });
 
-        // Optional: view streak button
-        if (btnViewStreak != null) {
-            btnViewStreak.setOnClickListener(v -> {
-                Intent intent = new Intent(activity_workout_complete.this, StreakCalendar.class);
-                startActivity(intent);
-            });
-        }
+        // View streak calendar
+        btnViewStreak.setOnClickListener(v -> {
+            if (!isWorkoutRecordedToday()) {
+                saveWorkoutForToday();
+                updateStreakData();
+            }
+
+            Intent intent = new Intent(activity_workout_complete.this, StreakCalendar.class);
+            startActivity(intent);
+        });
+    }
+
+    private boolean isWorkoutRecordedToday() {
+        Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
+        return workoutDates != null && workoutDates.contains(getCurrentDateString());
     }
 
     private void saveWorkoutForToday() {
         String today = getCurrentDateString();
-        String workoutDetails = "Gym session completed";
 
-        StreakCalendar.saveWorkoutForDate(workoutPrefs, today, workoutDetails);
+        // Get workout details from intent if available
+        String workoutName = getIntent().getStringExtra("workout_name");
+        if (workoutName == null || workoutName.isEmpty()) {
+            workoutName = "Workout session";
+        }
+        String workoutDetails = workoutName + " completed";
 
-        Toast.makeText(this, "Workout recorded for today!", Toast.LENGTH_SHORT).show();
+        // Get existing workout dates
+        Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
+        if (workoutDates == null) {
+            workoutDates = new HashSet<>();
+        } else {
+            workoutDates = new HashSet<>(workoutDates); // Create new set to avoid issues
+        }
+
+        // Add today's date
+        workoutDates.add(today);
+
+        // Save to preferences
+        SharedPreferences.Editor editor = workoutPrefs.edit();
+        editor.putStringSet("workout_dates", workoutDates);
+        editor.putString("workout_details_" + today, workoutDetails);
+        editor.commit(); // Use commit for immediate save
+    }
+
+    private void updateStreakData() {
+        // Calculate current streak
+        int currentStreak = calculateCurrentStreak();
+        int longestStreak = workoutPrefs.getInt("longest_streak", 0);
+
+        // Update longest streak if current streak is higher
+        if (currentStreak > longestStreak) {
+            longestStreak = currentStreak;
+        }
+
+        // Save streaks
+        SharedPreferences.Editor editor = workoutPrefs.edit();
+        editor.putInt("current_streak", currentStreak);
+        editor.putInt("longest_streak", longestStreak);
+        editor.putString("last_workout_date", getCurrentDateString());
+        editor.commit();
+    }
+
+    private int calculateCurrentStreak() {
+        Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
+        if (workoutDates == null || workoutDates.isEmpty()) {
+            return 0;
+        }
+
+        String today = getCurrentDateString();
+        int streak = 0;
+
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(sdf.parse(today));
+
+            // Check each day backwards from today
+            for (int i = 0; i < 365; i++) { // Prevent infinite loop
+                String dateStr = sdf.format(cal.getTime());
+
+                if (workoutDates.contains(dateStr)) {
+                    streak++;
+                    cal.add(Calendar.DAY_OF_MONTH, -1); // Go back one day
+                } else {
+                    break;
+                }
+            }
+        } catch (Exception e) {
+            return 0;
+        }
+
+        return streak;
     }
 
     private String getCurrentDateString() {

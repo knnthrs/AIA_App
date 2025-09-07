@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
+
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -16,76 +17,49 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
+        <!-- Rest Timer Activity -->
         <activity
-            android:name=".activity_rest"
+            android:name=".RestTimerActivity"
             android:exported="false" />
+
+        <!-- Workout Session Activity -->
         <activity
             android:name=".WorkoutSessionActivity"
-            android:exported="false" /> <!-- Activities -->
-        <activity
-            android:name=".Promo"
             android:exported="false" />
-        <activity
-            android:name=".WorkoutList"
-            android:exported="false" />
-        <activity
-            android:name=".HealthIssues"
-            android:exported="false" />
-        <activity
-            android:name=".FitnessGoal"
-            android:exported="false" />
-        <activity
-            android:name=".FitnessLevel"
-            android:exported="false" />
-        <activity
-            android:name=".HeightWeightInput"
-            android:exported="false" />
-        <activity
-            android:name=".AgeInput"
-            android:exported="false" />
-        <activity
-            android:name=".GenderSelection"
-            android:exported="false" />
-        <activity
-            android:name=".SelectMembership"
-            android:exported="false" />
-        <activity
-            android:name=".Notification"
-            android:exported="false" />
-        <activity
-            android:name=".Achievement"
-            android:exported="false" />
-        <activity
-            android:name=".Profile"
-            android:exported="false" />
-        <activity
-            android:name=".QR"
-            android:exported="false" /> <!-- Splash (Launcher Activity) -->
+
+        <!-- Other activities -->
+        <activity android:name=".Promo" android:exported="false" />
+        <activity android:name=".WorkoutList" android:exported="false" />
+        <activity android:name=".HealthIssues" android:exported="false" />
+        <activity android:name=".FitnessGoal" android:exported="false" />
+        <activity android:name=".FitnessLevel" android:exported="false" />
+        <activity android:name=".HeightWeightInput" android:exported="false" />
+        <activity android:name=".AgeInput" android:exported="false" />
+        <activity android:name=".GenderSelection" android:exported="false" />
+        <activity android:name=".SelectMembership" android:exported="false" />
+        <activity android:name=".Notification" android:exported="false" />
+        <activity android:name=".Achievement" android:exported="false" />
+        <activity android:name=".Profile" android:exported="false" />
+        <activity android:name=".QR" android:exported="false" />
+
+        <!-- Splash (Launcher Activity) -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
             android:theme="@style/Theme.SignupLogInRealtime.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <activity
-            android:name=".LoginActivity"
-            android:exported="false" />
-        <activity
-            android:name=".SignupActivity"
-            android:exported="true" />
-        <activity
-            android:name=".MainActivity"
-            android:exported="false" />
-        <activity
-            android:name=".AboutusActivity"
-            android:exported="false" />
-        <activity
-            android:name=".StreakCalendar"
-            android:exported="false" />
+
+        <activity android:name=".LoginActivity" android:exported="false" />
+        <activity android:name=".SignupActivity" android:exported="true" />
+        <activity android:name=".MainActivity" android:exported="false" />
+        <activity android:name=".AboutusActivity" android:exported="false" />
+        <activity android:name=".StreakCalendar" android:exported="false" />
+
     </application>
 
 </manifest>

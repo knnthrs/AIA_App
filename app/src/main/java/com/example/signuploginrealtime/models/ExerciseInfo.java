@@ -38,6 +38,11 @@ public class ExerciseInfo {
     @SerializedName("language")
     private Integer language; // optional
 
+    // NEW: Video URL
+    private String videoUrl;
+
+    // NEW: Image URL
+    private String imageUrl;
 
     // ✅ Getters & Setters
     public int getId() { return id; }
@@ -52,8 +57,8 @@ public class ExerciseInfo {
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
 
-    public int getCategory() { return category; }
-    public void setCategory(int category) { this.category = category; }
+    public Integer getCategory() { return category; }
+    public void setCategory(Integer category) { this.category = category; }
 
     public List<Integer> getMuscles() { return muscles; }
     public void setMuscles(List<Integer> muscles) { this.muscles = muscles; }
@@ -67,6 +72,15 @@ public class ExerciseInfo {
     public String getLicenseAuthor() { return licenseAuthor; }
     public void setLicenseAuthor(String licenseAuthor) { this.licenseAuthor = licenseAuthor; }
 
-    public int getVariations() { return variations; }
-    public void setVariations(int variations) { this.variations = variations; }
+    public Integer getVariations() { return variations; }
+    public void setVariations(Integer variations) { this.variations = variations; }
+
+    public Integer getLanguage() { return language; }
+    public void setLanguage(Integer language) { this.language = language; }
+
+    public String getVideoUrl() { return videoUrl; }
+    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
+
+    public String getImageUrl() { return imageUrl; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }

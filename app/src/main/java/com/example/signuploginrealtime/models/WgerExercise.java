@@ -7,12 +7,18 @@ public class WgerExercise {
     private int id;
     private List<Translation> translations;
 
+    // NEW: List of images
+    private List<ExerciseImage> images;
+
     // getters and setters
     public int getId() { return id; }
     public void setId(int id) { this.id = id; }
 
     public List<Translation> getTranslations() { return translations; }
     public void setTranslations(List<Translation> translations) { this.translations = translations; }
+
+    public List<ExerciseImage> getImages() { return images; }
+    public void setImages(List<ExerciseImage> images) { this.images = images; }
 
     // Inner class for translations
     public static class Translation {
@@ -21,7 +27,6 @@ public class WgerExercise {
         private String name;
         private String description;
 
-        // getters and setters
         public int getId() { return id; }
         public void setId(int id) { this.id = id; }
 
@@ -33,5 +38,17 @@ public class WgerExercise {
 
         public String getDescription() { return description; }
         public void setDescription(String description) { this.description = description; }
+    }
+
+    // NEW Inner class for images
+    public static class ExerciseImage {
+        private String image; // URL
+        private int exercise; // Exercise ID
+
+        public String getImage() { return image; }
+        public void setImage(String image) { this.image = image; }
+
+        public int getExercise() { return exercise; }
+        public void setExercise(int exercise) { this.exercise = exercise; }
     }
 }

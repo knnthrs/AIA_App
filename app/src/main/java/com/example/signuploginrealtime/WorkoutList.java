@@ -23,7 +23,7 @@ import com.example.signuploginrealtime.models.WgerExerciseResponse;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
 import com.example.signuploginrealtime.UserProfileHelper.UserProfile;
-
+import android.widget.ImageButton;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,6 +54,10 @@ public class WorkoutList extends AppCompatActivity {
         workoutDuration = findViewById(R.id.workout_duration);
         loadingIndicator = findViewById(R.id.loading_indicator);
         startWorkoutButton = findViewById(R.id.start_button);
+
+        ImageButton btnBack = findViewById(R.id.btn_back);
+        btnBack.setOnClickListener(v -> onBackPressed());
+
 
         apiService = ApiClient.getClient().create(WgerApiService.class);
         userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");

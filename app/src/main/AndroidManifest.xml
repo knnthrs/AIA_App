@@ -18,6 +18,10 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
+        <!-- Workout complete Activity -->
+        <activity android:name=".activity_workout_complete"
+            android:exported="false" />
+
         <!-- Rest Timer Activity -->
         <activity
             android:name=".RestTimerActivity"

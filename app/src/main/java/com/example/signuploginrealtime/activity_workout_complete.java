@@ -45,12 +45,12 @@ public class activity_workout_complete extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         // Initialize TTS
-        tts = new TextToSpeech(this, status -> {
-            if (status == TextToSpeech.SUCCESS) {
-                tts.setLanguage(Locale.US);
-                tts.speak("Well done! Congratulations!", TextToSpeech.QUEUE_FLUSH, null, "well_done");
-            }
-        });
+       // tts = new TextToSpeech(this, status -> {
+        //      if (status == TextToSpeech.SUCCESS) {
+              //  tts.setLanguage(Locale.US);
+              //  tts.speak("Well done! Congratulations!", TextToSpeech.QUEUE_FLUSH, null, "well_done");
+          //  }
+       // });
 
 
         // Save flag so MainActivity knows to show tomorrow's activities

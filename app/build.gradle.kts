@@ -11,7 +11,7 @@ android {
     defaultConfig {
         applicationId = "com.example.signuploginrealtime"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -32,20 +32,19 @@ android {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
 }
 
 dependencies {
+    // AndroidX and UI
     implementation(libs.appcompat)
     implementation(libs.material)
     implementation(libs.activity)
-    implementation(libs.constraintlayout)
-    implementation("com.squareup.okhttp3:okhttp:4.11.0")
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
+    implementation(libs.core.ktx)
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
-    implementation("com.google.code.gson:gson:2.8.9")
 
     // Firebase BOM
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
@@ -54,29 +53,21 @@ dependencies {
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-storage")
 
-    // Glide
+    // Glide for image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
-    implementation(libs.core.ktx)
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
 
-    // Retrofit
+    // Retrofit + OkHttp for networking (generic, not Wger-specific)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-
-    // OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
 
-    // Gson (optional, Retrofit converter already depends on it)
-    implementation("com.google.code.gson:gson:2.10.1")
+    // ZXing barcode scanner
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
+    // Testing
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
-
-    // Retrofit
-    implementation("com.squareup.retrofit2:retrofit:2.9.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
-    // OkHttp for logging
-    implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
 }

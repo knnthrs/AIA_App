@@ -1,86 +1,95 @@
 package com.example.signuploginrealtime.models;
 
-import com.google.gson.annotations.SerializedName;
+import com.google.firebase.database.PropertyName;
 import java.util.List;
+import java.util.ArrayList;
 
 public class ExerciseInfo {
 
-    @SerializedName("id")
-    private int id;
+    @PropertyName("exerciseId")
+    private String exerciseId;
 
-    @SerializedName("uuid")
-    private String uuid;
-
-    @SerializedName("name")
+    @PropertyName("name")
     private String name;
 
-    @SerializedName("description")
-    private String description;
+    @PropertyName("bodyParts")
+    private List<String> bodyParts;
 
-    @SerializedName("category")
-    private Integer category; // nullable
+    @PropertyName("equipments")
+    private List<String> equipments;
 
-    @SerializedName("muscles")
-    private List<Integer> muscles;
+    @PropertyName("equipments")  // fallback in case JSON uses singular
+    private List<String> equipmentLegacy;
 
-    @SerializedName("muscles_secondary")
-    private List<Integer> musclesSecondary;
+    @PropertyName("gifUrl")
+    private String gifUrl;
 
-    @SerializedName("equipment")
-    private List<Integer> equipment;
+    @PropertyName("targetMuscles")
+    private List<String> targetMuscles;
 
-    @SerializedName("license_author")
-    private String licenseAuthor;
+    @PropertyName("secondaryMuscles")
+    private List<String> secondaryMuscles;
 
-    @SerializedName("variations")
-    private Integer variations; // nullable
+    // ✅ Now it's a List, not a Map
+    @PropertyName("instructions")
+    private List<String> instructions;
 
-    @SerializedName("language")
-    private Integer language; // optional
+    public ExerciseInfo() {
+        // Default constructor required for Firebase
+    }
 
-    // NEW: Video URL
-    private String videoUrl;
-
-    // NEW: Image URL
-    private String imageUrl;
-
-    // ✅ Getters & Setters
-    public int getId() { return id; }
-    public void setId(int id) { this.id = id; }
-
-    public String getUuid() { return uuid; }
-    public void setUuid(String uuid) { this.uuid = uuid; }
+    // --- Getters & Setters ---
+    public String getExerciseId() { return exerciseId; }
+    public void setExerciseId(String exerciseId) { this.exerciseId = exerciseId; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
+    public List<String> getBodyParts() { return bodyParts; }
+    public void setBodyParts(List<String> bodyParts) { this.bodyParts = bodyParts; }
 
-    public Integer getCategory() { return category; }
-    public void setCategory(Integer category) { this.category = category; }
+    public List<String> getEquipments() {
+        if (equipments != null && !equipments.isEmpty()) {
+            return equipments;
+        }
+        if (equipmentLegacy != null && !equipmentLegacy.isEmpty()) {
+            return equipmentLegacy;
+        }
+        return new ArrayList<>();
+    }
 
-    public List<Integer> getMuscles() { return muscles; }
-    public void setMuscles(List<Integer> muscles) { this.muscles = muscles; }
+    public void setEquipments(List<String> equipments) {
+        this.equipments = equipments;
+    }
 
-    public List<Integer> getMusclesSecondary() { return musclesSecondary; }
-    public void setMusclesSecondary(List<Integer> musclesSecondary) { this.musclesSecondary = musclesSecondary; }
+    public void setEquipmentLegacy(List<String> equipmentLegacy) {
+        this.equipmentLegacy = equipmentLegacy;
+    }
 
-    public List<Integer> getEquipment() { return equipment; }
-    public void setEquipment(List<Integer> equipment) { this.equipment = equipment; }
+    public String getGifUrl() { return gifUrl; }
+    public void setGifUrl(String gifUrl) { this.gifUrl = gifUrl; }
 
-    public String getLicenseAuthor() { return licenseAuthor; }
-    public void setLicenseAuthor(String licenseAuthor) { this.licenseAuthor = licenseAuthor; }
+    public List<String> getTargetMuscles() { return targetMuscles; }
+    public void setTargetMuscles(List<String> targetMuscles) { this.targetMuscles = targetMuscles; }
 
-    public Integer getVariations() { return variations; }
-    public void setVariations(Integer variations) { this.variations = variations; }
+    public List<String> getSecondaryMuscles() { return secondaryMuscles; }
+    public void setSecondaryMuscles(List<String> secondaryMuscles) { this.secondaryMuscles = secondaryMuscles; }
 
-    public Integer getLanguage() { return language; }
-    public void setLanguage(Integer language) { this.language = language; }
+    public List<String> getInstructions() {
+        return instructions != null ? instructions : new ArrayList<>();
+    }
+    public void setInstructions(List<String> instructions) { this.instructions = instructions; }
 
-    public String getVideoUrl() { return videoUrl; }
-    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
+    // Convenience methods
+    public String getPrimaryBodyPart() {
+        return (bodyParts != null && !bodyParts.isEmpty()) ? bodyParts.get(0) : null;
+    }
 
-    public String getImageUrl() { return imageUrl; }
-    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public String getPrimaryEquipment() {
+        return (equipments != null && !equipments.isEmpty()) ? equipments.get(0) : null;
+    }
+
+    public String getPrimaryTargetMuscle() {
+        return (targetMuscles != null && !targetMuscles.isEmpty()) ? targetMuscles.get(0) : null;
+    }
 }

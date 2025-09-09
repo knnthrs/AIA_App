@@ -1,168 +1,241 @@
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/yellowbg"
     android:padding="16dp">
 
-    <!-- Exercise Image Container -->
-    <RelativeLayout
-        android:layout_width="match_parent"
+    <!-- Exercise Image with Rounded Corners + Progress Bar inside -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="@android:color/white">
+        app:cardCornerRadius="30dp"
+        app:cardElevation="4dp"
+        android:clipToOutline="true"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toTopOf="@+id/bottom_section"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHeight_percent="0.45">
 
-        <!-- ✅ Replaced VideoView with ImageView -->
-        <ImageView
-            android:id="@+id/iv_exercise_image"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:contentDescription="Exercise Image" />
-    </RelativeLayout>
+            android:orientation="vertical">
 
-    <!-- Horizontal Progress Bar (positioned right below image) -->
-    <ProgressBar
-        android:id="@+id/progress_bar"
-        style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="match_parent"
-        android:layout_height="8dp"
-        android:layout_marginTop="0dp"
-        android:layout_marginBottom="24dp"
-        android:progress="25"
-        android:max="100"
-        android:progressTint="#009688"
-        android:progressBackgroundTint="#E0E0E0"
-        android:background="#E0E0E0" />
+            <!-- Image -->
+            <ImageView
+                android:id="@+id/iv_exercise_image"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="0.7"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:contentDescription="Exercise Image" />
 
-    <!-- Fallback if no image -->
-    <TextView
-        android:id="@+id/tvNoImage"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="No image available for this exercise"
-        android:textSize="16sp"
-        android:textColor="@android:color/black"
-        android:visibility="gone"
-        android:padding="16dp"/>
+            <!-- Progress Bar inside the curve -->
+            <ProgressBar
+                android:id="@+id/progress_bar"
+                style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent"
+                android:layout_height="10dp"
+                android:progress="25"
+                android:max="100"
+                android:progressTint="#009688"
+                android:progressBackgroundTint="#E0E0E0"
+                android:background="#E0E0E0" />
+        </LinearLayout>
 
-    <!-- Exercise Name -->
-    <TextView
-        android:id="@+id/tv_exercise_name"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="EXERCISE NAME"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:letterSpacing="0.05"
-        android:paddingBottom="8dp" />
+        <TextView
+            android:id="@+id/tv_no_image"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="No image available for this exercise"
+            android:textSize="16sp"
+            android:textColor="@android:color/black"
+            android:visibility="gone"
+            android:background="@android:color/white"
+            android:padding="16dp"/>
 
-    <!-- Exercise Details (Reps/Sets) -->
-    <TextView
-        android:id="@+id/tv_exercise_details"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Each Side x 6"
-        android:textSize="16sp"
-        android:textColor="#808080"
-        android:paddingBottom="8dp" />
+    </androidx.cardview.widget.CardView>
 
-    <!-- Exercise Timer -->
-    <TextView
-        android:id="@+id/tv_exercise_timer"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="Timer: 60s"
-        android:textSize="18sp"
-        android:textColor="@android:color/holo_red_dark"
-        android:paddingBottom="16dp" />
-
-    <!-- Exercise Progress Counter -->
-    <TextView
-        android:id="@+id/tv_exercise_progress"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:text="1/12"
-        android:textSize="48sp"
-        android:textStyle="bold"
-        android:textColor="@android:color/black"
-        android:paddingBottom="32dp" />
-
-    <!-- Control Buttons -->
+    <!-- Bottom Section -->
     <LinearLayout
-        android:layout_width="match_parent"
+        android:id="@+id/bottom_section"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center"
-        android:paddingBottom="16dp">
+        android:orientation="vertical"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_pause"
+        <!-- Name + Info -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingBottom="8dp">
+
+            <TextView
+                android:id="@+id/tv_exercise_name"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="EXERCISE NAME"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:ellipsize="end"
+                android:singleLine="true"
+                android:gravity="center" />
+
+            <ImageView
+                android:id="@+id/iv_info"
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:layout_marginStart="8dp"
+                android:src="@android:drawable/ic_dialog_info"
+                android:contentDescription="Info"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:tint="@color/black"
+                tools:ignore="UseAppTint" />
+        </LinearLayout>
+
+        <!-- NOTE: inner tv_instructions REMOVED on purpose to avoid duplicates -->
+
+        <!-- Exercise Details (Reps/Sets) -->
+        <TextView
+            android:id="@+id/tv_exercise_details"
             android:layout_width="wrap_content"
-            android:layout_height="60dp"
-            android:layout_marginEnd="8dp"
-            android:paddingHorizontal="90dp"
-            android:text="PAUSE"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Each Side x 6"
             android:textSize="16sp"
+            android:textColor="#808080"
+            android:paddingBottom="8dp" />
+
+        <!-- Exercise Timer -->
+        <TextView
+            android:id="@+id/tv_exercise_timer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Timer: 60s"
+            android:textSize="18sp"
+            android:textColor="@android:color/holo_red_dark"
+            android:paddingBottom="16dp" />
+
+        <!-- Exercise Progress Counter -->
+        <TextView
+            android:id="@+id/tv_exercise_progress"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="1/12"
+            android:textSize="48sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white"
-            android:background="@drawable/black_button_bg"
-            android:gravity="center" />
+            android:textColor="@android:color/black"
+            android:paddingBottom="32dp" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_done"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
-            android:layout_marginStart="8dp"
-            android:text="▶"
-            android:textSize="20sp"
-            android:textColor="@android:color/white"
-            android:background="@drawable/black_circular_button_bg"
-            android:gravity="center" />
+        <!-- Control Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:paddingBottom="16dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_pause"
+                android:layout_width="wrap_content"
+                android:layout_height="50dp"
+                android:layout_marginEnd="8dp"
+                android:paddingHorizontal="90dp"
+                android:text="PAUSE"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/white"
+                android:background="@drawable/black_button_bg"
+                android:gravity="center" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_done"
+                android:layout_width="56dp"
+                android:layout_height="50dp"
+                android:layout_marginStart="8dp"
+                android:text="▶"
+                android:textSize="20sp"
+                android:textColor="@android:color/white"
+                android:background="@drawable/black_circular_button_bg"
+                android:gravity="center" />
+        </LinearLayout>
+
+        <!-- Navigation Buttons (Previous and Skip) -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:paddingHorizontal="32dp">
+
+            <TextView
+                android:id="@+id/btn_previous"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text=" ⏮ Previous"
+                android:textSize="16sp"
+                android:textColor="#808080"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="8dp"
+                android:drawablePadding="8dp"
+                android:gravity="start|center_vertical"
+                android:background="@null" />
+
+            <TextView
+                android:id="@+id/btn_skip"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Skip ⏭"
+                android:textSize="16sp"
+                android:textColor="#808080"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="8dp"
+                android:drawablePadding="8dp"
+                android:gravity="end|center_vertical"
+                android:background="@null" />
+        </LinearLayout>
     </LinearLayout>
 
-    <!-- Navigation Buttons (Previous and Skip) -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingHorizontal="32dp">
 
-        <TextView
-            android:id="@+id/btn_previous"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text=" ⏮ Previous"
-            android:textSize="16sp"
-            android:textColor="#808080"
+        <!-- Overlay on top -->
+        <FrameLayout
+            android:id="@+id/fl_instructions_overlay"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="#CC000000"
+            android:visibility="gone"
             android:clickable="true"
             android:focusable="true"
-            android:padding="8dp"
-            android:drawablePadding="8dp"
-            android:gravity="start|center_vertical"
-            android:background="@null" />
+            android:elevation="32dp"
+            android:clipToPadding="false"
+            android:clipChildren="false">
 
-        <TextView
-            android:id="@+id/btn_skip"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Skip ⏭"
-            android:textSize="16sp"
-            android:textColor="#808080"
-            android:clickable="true"
-            android:focusable="true"
-            android:padding="8dp"
-            android:drawablePadding="8dp"
-            android:gravity="end|center_vertical"
-            android:background="@null" />
-    </LinearLayout>
+            <TextView
+                android:id="@+id/tv_instructions"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:text="Exercise instructions..."
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:padding="24dp" />
+        </FrameLayout>
 
-</LinearLayout>
+    </androidx.constraintlayout.widget.ConstraintLayout>

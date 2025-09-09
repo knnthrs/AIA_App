@@ -10,21 +10,23 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.widget.ProgressBar;
 import android.content.DialogInterface;
+import android.widget.FrameLayout;
 import androidx.appcompat.app.AlertDialog;
-import java.util.Locale;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class WorkoutSessionActivity extends AppCompatActivity {
 
     private TextView tvExerciseName, tvExerciseDetails, tvExerciseTimer, tvExerciseProgress, tvNoImage;
-    private TextView btnPrevious, btnSkip; // Added Previous and Skip buttons
+    private TextView btnPrevious, btnSkip; // Previous and Skip buttons
     private ImageView ivExerciseImage;
     private Button btnPause, btnNext;
-    private ProgressBar progressBar; // Added progress bar
+    private ProgressBar progressBar; // Progress bar
 
     private ArrayList<String> exerciseNames;
     private ArrayList<String> exerciseDetails;
@@ -36,29 +38,49 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private CountDownTimer timer;
     private boolean isTimerRunning = false;
     private long timeLeftMillis;
-    private long workoutStartTime;
+    private long workoutStartTime; // For duration calculation
+
+    private ImageView ivInfo;
+    private TextView tvInstructions;
+    private FrameLayout flInstructionsOverlay;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_workout_session);
 
-        // Initialize existing views
+        // ✅ Fix notch / status bar overlap
+        View rootView = findViewById(R.id.root_layout);
+        rootView.setOnApplyWindowInsetsListener((v, insets) -> {
+            v.setPadding(
+                    v.getPaddingLeft(),
+                    insets.getSystemWindowInsetTop(),
+                    v.getPaddingRight(),
+                    v.getPaddingBottom()
+            );
+            return insets.consumeSystemWindowInsets();
+        });
+
+        // Initialize views
         tvExerciseName = findViewById(R.id.tv_exercise_name);
         tvExerciseDetails = findViewById(R.id.tv_exercise_details);
         tvExerciseTimer = findViewById(R.id.tv_exercise_timer);
         tvExerciseProgress = findViewById(R.id.tv_exercise_progress);
         ivExerciseImage = findViewById(R.id.iv_exercise_image);
-        tvNoImage = findViewById(R.id.tvNoImage);
+        tvNoImage = findViewById(R.id.tv_no_image);
         btnPause = findViewById(R.id.btn_pause);
         btnNext = findViewById(R.id.btn_done);
-
-        // Initialize new views
         btnPrevious = findViewById(R.id.btn_previous);
         btnSkip = findViewById(R.id.btn_skip);
         progressBar = findViewById(R.id.progress_bar);
+        ivInfo = findViewById(R.id.iv_info);
+        tvInstructions = findViewById(R.id.tv_instructions); // This is the TextView inside the overlay
+        flInstructionsOverlay = findViewById(R.id.fl_instructions_overlay);
 
-        // ✅ Use "exerciseImageUrls" instead of "exerciseVideoUrls"
+
+
+        // Get exercise data
         exerciseNames = getIntent().getStringArrayListExtra("exerciseNames");
         exerciseDetails = getIntent().getStringArrayListExtra("exerciseDetails");
         exerciseImageUrls = getIntent().getStringArrayListExtra("exerciseImageUrls");
@@ -83,12 +105,15 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             return;
         }
 
-        // Get current index if coming from rest
+        // ✅ Start workout timer reference
+        workoutStartTime = System.currentTimeMillis();
+
+        // Restore current index if coming from rest
         currentIndex = getIntent().getIntExtra("currentIndex", 0);
 
         showExercise(currentIndex);
 
-        // Set up button click listeners
+        // Button listeners
         btnNext.setOnClickListener(v -> moveToNextExercise());
         btnPause.setOnClickListener(v -> {
             if (isTimerRunning) {
@@ -99,23 +124,46 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 startTimer((int) (timeLeftMillis / 1000));
             }
         });
-
-        // ✅ Previous button functionality
         btnPrevious.setOnClickListener(v -> moveToPreviousExercise());
-
-        // ✅ Skip button functionality
         btnSkip.setOnClickListener(v -> skipCurrentExercise());
+
+
+        // ivInfo OnClickListener
+        ivInfo.setOnClickListener(v -> {
+            if (exerciseDetails != null && currentIndex < exerciseDetails.size()) {
+                tvInstructions.setText(exerciseDetails.get(currentIndex));
+            }
+            tvInstructions.setVisibility(View.VISIBLE); // Ensure TextView is visible
+            flInstructionsOverlay.setVisibility(View.VISIBLE);
+            flInstructionsOverlay.setAlpha(0f);
+            flInstructionsOverlay.animate().alpha(1f).setDuration(300).start();
+        });
+        // Make the overlay itself clickable to hide
+        flInstructionsOverlay.setOnClickListener(v -> {
+            flInstructionsOverlay.animate().alpha(0f).setDuration(300)
+                    .withEndAction(() -> flInstructionsOverlay.setVisibility(View.GONE))
+                    .start();
+        });
+
+
+
+
     }
 
     private void showExercise(int index) {
         tvExerciseName.setText(exerciseNames.get(index));
-        tvExerciseDetails.setText(exerciseDetails.get(index));
+        // The original tvExerciseDetails is kept for reps/sets or other short details if needed.
+        // tvExerciseDetails.setText(exerciseDetails.get(index)); 
         tvExerciseProgress.setText((index + 1) + "/" + exerciseNames.size());
 
-        // Update progress bar
-        updateProgressBar();
+        // Set instructions for the toggleable TextView
+        if (tvInstructions != null && exerciseDetails != null && index < exerciseDetails.size()) {
+            String details = exerciseDetails.get(index);
+            tvInstructions.setText(details);
+            tvInstructions.setVisibility(View.GONE); // always start hidden
+        }
 
-        // Update button states
+        updateProgressBar();
         updateButtonStates();
 
         String imageUrl = exerciseImageUrls.get(index);
@@ -124,8 +172,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             tvNoImage.setVisibility(View.GONE);
             ivExerciseImage.setVisibility(View.VISIBLE);
 
+            // ✅ Use Glide with GIF support
             Glide.with(this)
+                    .asGif()
                     .load(imageUrl)
+                    .diskCacheStrategy(DiskCacheStrategy.ALL) // cache full version
+                    .dontTransform() // prevent automatic scaling
+                    .override(800, 800) // HD but safe for memory (tweak size if needed)
                     .into(ivExerciseImage);
 
         } else {
@@ -144,75 +197,57 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
     private void updateButtonStates() {
-        // Disable/enable Previous button based on current position
         if (btnPrevious != null) {
             btnPrevious.setEnabled(currentIndex > 0);
             btnPrevious.setAlpha(currentIndex > 0 ? 1.0f : 0.5f);
         }
-
-        // Disable/enable Skip button based on current position
         if (btnSkip != null) {
             btnSkip.setEnabled(currentIndex < exerciseNames.size() - 1);
             btnSkip.setAlpha(currentIndex < exerciseNames.size() - 1 ? 1.0f : 0.5f);
         }
     }
 
-    // ✅ New method: Move to previous exercise
     private void moveToPreviousExercise() {
         if (currentIndex <= 0) {
             Toast.makeText(this, "This is the first exercise", Toast.LENGTH_SHORT).show();
             return;
         }
-
-        // Cancel current timer
         if (timer != null) timer.cancel();
         isTimerRunning = false;
-
-        // Move to previous exercise
         currentIndex--;
         showExercise(currentIndex);
     }
 
-    // ✅ New method: Skip current exercise
     private void skipCurrentExercise() {
-        // Cancel current timer
         if (timer != null) timer.cancel();
         isTimerRunning = false;
 
-        // If this is the last exercise, show confirmation dialog
         if (currentIndex >= exerciseNames.size() - 1) {
             showSkipLastExerciseDialog();
             return;
         }
 
-        // Move to next exercise directly (without rest)
         currentIndex++;
         showExercise(currentIndex);
     }
 
-    // ✅ Show dialog when user wants to skip the last exercise
     private void showSkipLastExerciseDialog() {
         new AlertDialog.Builder(this)
                 .setTitle("Finish Workout?")
                 .setMessage("This is the last exercise. Skipping it will end your workout session. Do you want to finish the workout now?")
                 .setPositiveButton("Yes, Finish Workout", (dialog, which) -> {
-                    // End the workout - redirect to completion activity
                     Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
-
-                    // Pass workout details for Firebase saving
                     intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
                     intent.putExtra("total_exercises", exerciseNames.size());
                     intent.putExtra("workout_duration", calculateWorkoutDuration());
-
                     startActivity(intent);
                     finish();
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> {
-                    // User cancelled - resume the current exercise
                     startTimer((int) (timeLeftMillis / 1000));
                     dialog.dismiss();
                 })
-                .setCancelable(false) // Prevent dismissing by clicking outside
+                .setCancelable(false)
                 .show();
     }
 
@@ -243,27 +278,23 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         isTimerRunning = false;
 
         if (currentIndex >= exerciseNames.size() - 1) {
-
             Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames.size());
             intent.putExtra("workout_duration", calculateWorkoutDuration());
-
             startActivity(intent);
             finish();
             return;
         }
 
-
-        // Go to RestTimerActivity with nextIndex
         int nextIndex = currentIndex + 1;
         Intent intent = new Intent(WorkoutSessionActivity.this, RestTimerActivity.class);
-        intent.putExtra("nextIndex", nextIndex); // Integer
-        intent.putStringArrayListExtra("exerciseNames", exerciseNames); // String list
-        intent.putStringArrayListExtra("exerciseDetails", exerciseDetails); // String list
-        intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls); // String list
-        intent.putIntegerArrayListExtra("exerciseTimes", exerciseDurations); // Integer list
-        intent.putIntegerArrayListExtra("exerciseRests", exerciseRests); // Integer list
+        intent.putExtra("nextIndex", nextIndex);
+        intent.putStringArrayListExtra("exerciseNames", exerciseNames);
+        intent.putStringArrayListExtra("exerciseDetails", exerciseDetails);
+        intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls);
+        intent.putIntegerArrayListExtra("exerciseTimes", exerciseDurations);
+        intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
 
         startActivity(intent);
         finish();
@@ -285,7 +316,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         if (timer != null) timer.cancel();
     }
 
-    // ✅ Helper method to calculate workout duration
     private String calculateWorkoutDuration() {
         long durationMillis = System.currentTimeMillis() - workoutStartTime;
         long minutes = (durationMillis / 1000) / 60;

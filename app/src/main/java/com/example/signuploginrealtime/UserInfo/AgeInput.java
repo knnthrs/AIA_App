@@ -1,11 +1,10 @@
-package com.example.signuploginrealtime;
+package com.example.signuploginrealtime.UserInfo;
 
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.Button;
-import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -13,6 +12,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.signuploginrealtime.R;
+import com.example.signuploginrealtime.UserProfileHelper;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;

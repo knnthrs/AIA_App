@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:paddingTop="50dp"
-    android:background="@drawable/yellowbg">
+    android:background="@drawable/yellowbackg">
 
     <!-- Back Button Header -->
     <LinearLayout

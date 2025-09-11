@@ -15,11 +15,10 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -37,8 +36,9 @@ public class QR extends AppCompatActivity {
     private boolean isActive = false;
 
     // Firebase references
-    private DatabaseReference userRef;
-    private ValueEventListener userDataListener;
+    private FirebaseFirestore firestore;
+    private DocumentReference userDocRef;
+    private ListenerRegistration userDataListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -72,78 +72,60 @@ public class QR extends AppCompatActivity {
     private void loadUserData() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
-            userRef = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(currentUser.getUid());
+            firestore = FirebaseFirestore.getInstance();
+            userDocRef = firestore.collection("users").document(currentUser.getUid());
 
-            // Set up real-time listener for user data
-            userDataListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(DataSnapshot snapshot) {
-                    if (snapshot.exists()) {
-                        // Get user name
-                        userName = snapshot.child("name").getValue(String.class);
-                        if (userName == null || userName.isEmpty()) {
-                            userName = "Unknown User";
-                        }
-
-                        // Get member ID from database
-                        String dbMemberId = snapshot.child("memberId").getValue(String.class);
-                        if (dbMemberId != null && !dbMemberId.isEmpty()) {
-                            userMemberId = dbMemberId;
-                        } else {
-                            userMemberId = generateMemberId();
-                            userRef.child("memberId").setValue(userMemberId);
-                        }
-
-                        // Get membership info
-                        String membershipPlanCode = snapshot.child("membershipPlanCode").getValue(String.class);
-                        String membershipPlanLabel = snapshot.child("membershipPlanLabel").getValue(String.class);
-
-                        if (membershipPlanCode != null && !membershipPlanCode.isEmpty()) {
-                            membershipType = getMembershipTypeFromCode(membershipPlanCode);
-                            isActive = true;
-
-                            if (membershipPlanLabel != null && !membershipPlanLabel.isEmpty()) {
-                                membershipStatusText = formatMembershipDisplay(membershipPlanLabel);
-                            } else {
-                                membershipStatusText = membershipType.toUpperCase() + " MEMBER";
-                            }
-                        } else {
-                            membershipType = snapshot.child("membershipType").getValue(String.class);
-                            if (membershipType == null) membershipType = "No Plan Selected";
-
-                            Boolean activeStatus = snapshot.child("membershipActive").getValue(Boolean.class);
-                            isActive = activeStatus != null ? activeStatus : false;
-
-                            String dbMembershipStatus = snapshot.child("membershipStatus").getValue(String.class);
-                            if (dbMembershipStatus != null && !dbMembershipStatus.isEmpty()) {
-                                membershipStatusText = dbMembershipStatus.toUpperCase();
-                            } else {
-                                membershipStatusText = "NO PLAN SELECTED";
-                                isActive = false;
-                            }
-                        }
-
-                        updateUserInfoRealtime();
-
-                        // Generate permanent QR (or load if exists)
-                        ensurePermanentQRCode();
-                    } else {
-                        createDefaultUserData(currentUser);
-                    }
-                }
-
-                @Override
-                public void onCancelled(DatabaseError error) {
+            userDataListener = userDocRef.addSnapshotListener((snapshot, error) -> {
+                if (error != null) {
                     Toast.makeText(QR.this, "Failed to load user data: " + error.getMessage(),
                             Toast.LENGTH_SHORT).show();
                     updateUserInfoRealtime();
                     ensurePermanentQRCode();
+                    return;
                 }
-            };
+                if (snapshot != null && snapshot.exists()) {
+                    userName = snapshot.getString("name");
+                    if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
-            userRef.addValueEventListener(userDataListener);
+                    String dbMemberId = snapshot.getString("memberId");
+                    if (dbMemberId != null && !dbMemberId.isEmpty()) {
+                        userMemberId = dbMemberId;
+                    } else {
+                        userMemberId = generateMemberId();
+                        userDocRef.update("memberId", userMemberId);
+                    }
+
+                    String membershipPlanCode = snapshot.getString("membershipPlanCode");
+                    String membershipPlanLabel = snapshot.getString("membershipPlanLabel");
+
+                    if (membershipPlanCode != null && !membershipPlanCode.isEmpty()) {
+                        membershipType = getMembershipTypeFromCode(membershipPlanCode);
+                        isActive = true;
+                        if (membershipPlanLabel != null && !membershipPlanLabel.isEmpty()) {
+                            membershipStatusText = formatMembershipDisplay(membershipPlanLabel);
+                        } else {
+                            membershipStatusText = membershipType.toUpperCase() + " MEMBER";
+                        }
+                    } else {
+                        membershipType = snapshot.getString("membershipType");
+                        if (membershipType == null) membershipType = "No Plan Selected";
+                        Boolean activeStatus = snapshot.getBoolean("membershipActive");
+                        isActive = activeStatus != null ? activeStatus : false;
+                        String dbMembershipStatus = snapshot.getString("membershipStatus");
+                        if (dbMembershipStatus != null && !dbMembershipStatus.isEmpty()) {
+                            membershipStatusText = dbMembershipStatus.toUpperCase();
+                        } else {
+                            membershipStatusText = "NO PLAN SELECTED";
+                            isActive = false;
+                        }
+                    }
+
+                    updateUserInfoRealtime();
+                    ensurePermanentQRCode();
+                } else {
+                    createDefaultUserData(currentUser);
+                }
+            });
         } else {
             updateUserInfoRealtime();
         }
@@ -162,10 +144,9 @@ public class QR extends AppCompatActivity {
         membershipType = "No Plan Selected";
         isActive = false;
 
-        userRef.child("name").setValue(defaultName);
-        userRef.child("email").setValue(email);
-        userRef.child("memberId").setValue(memberId);
-        userRef.child("membershipStatus").setValue("No Plan Selected");
+        if (userDocRef != null) {
+            userDocRef.set(new UserProfileFirestore(defaultName, email, memberId));
+        }
 
         updateUserInfoRealtime();
         ensurePermanentQRCode();
@@ -250,25 +231,27 @@ public class QR extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) return;
 
-        userRef.child("qrCode").get().addOnCompleteListener(task -> {
-            if (task.isSuccessful()) {
-                String savedQr = task.getResult().getValue(String.class);
-                if (savedQr != null && !savedQr.isEmpty()) {
-                    generateQRCode(savedQr);
+        if (userDocRef != null) {
+            userDocRef.get().addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    DocumentSnapshot snapshot = task.getResult();
+                    String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
+                    if (savedQr != null && !savedQr.isEmpty()) {
+                        generateQRCode(savedQr);
+                    } else {
+                        String qrData = String.format("%s_%s_%s_%s",
+                                userMemberId,
+                                userName.replaceAll("[\\s\\W]", ""),
+                                membershipType.replaceAll("[\\s\\W]", ""),
+                                currentUser.getUid());
+                        userDocRef.update("qrCode", qrData);
+                        generateQRCode(qrData);
+                    }
                 } else {
-                    String qrData = String.format("%s_%s_%s_%s",
-                            userMemberId,
-                            userName.replaceAll("[\\s\\W]", ""),
-                            membershipType.replaceAll("[\\s\\W]", ""),
-                            currentUser.getUid());
-
-                    userRef.child("qrCode").setValue(qrData);
-                    generateQRCode(qrData);
+                    Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
                 }
-            } else {
-                Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
-            }
-        });
+            });
+        }
     }
 
     private void generateQRCode(String text) {
@@ -293,24 +276,87 @@ public class QR extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (userRef != null && userDataListener != null) {
-            userRef.removeEventListener(userDataListener);
+        if (userDataListener != null) {
+            userDataListener.remove();
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        if (userRef != null && userDataListener != null) {
-            userRef.removeEventListener(userDataListener);
+        if (userDataListener != null) {
+            userDataListener.remove();
         }
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        if (userRef != null && userDataListener != null) {
-            userRef.addValueEventListener(userDataListener);
+        if (userDocRef != null && userDataListener == null) {
+            userDataListener = userDocRef.addSnapshotListener((snapshot, error) -> {
+                if (error != null) {
+                    Toast.makeText(QR.this, "Failed to load user data: " + error.getMessage(),
+                            Toast.LENGTH_SHORT).show();
+                    updateUserInfoRealtime();
+                    ensurePermanentQRCode();
+                    return;
+                }
+                if (snapshot != null && snapshot.exists()) {
+                    userName = snapshot.getString("name");
+                    if (userName == null || userName.isEmpty()) userName = "Unknown User";
+
+                    String dbMemberId = snapshot.getString("memberId");
+                    if (dbMemberId != null && !dbMemberId.isEmpty()) {
+                        userMemberId = dbMemberId;
+                    } else {
+                        userMemberId = generateMemberId();
+                        userDocRef.update("memberId", userMemberId);
+                    }
+
+                    String membershipPlanCode = snapshot.getString("membershipPlanCode");
+                    String membershipPlanLabel = snapshot.getString("membershipPlanLabel");
+
+                    if (membershipPlanCode != null && !membershipPlanCode.isEmpty()) {
+                        membershipType = getMembershipTypeFromCode(membershipPlanCode);
+                        isActive = true;
+                        if (membershipPlanLabel != null && !membershipPlanLabel.isEmpty()) {
+                            membershipStatusText = formatMembershipDisplay(membershipPlanLabel);
+                        } else {
+                            membershipStatusText = membershipType.toUpperCase() + " MEMBER";
+                        }
+                    } else {
+                        membershipType = snapshot.getString("membershipType");
+                        if (membershipType == null) membershipType = "No Plan Selected";
+                        Boolean activeStatus = snapshot.getBoolean("membershipActive");
+                        isActive = activeStatus != null ? activeStatus : false;
+                        String dbMembershipStatus = snapshot.getString("membershipStatus");
+                        if (dbMembershipStatus != null && !dbMembershipStatus.isEmpty()) {
+                            membershipStatusText = dbMembershipStatus.toUpperCase();
+                        } else {
+                            membershipStatusText = "NO PLAN SELECTED";
+                            isActive = false;
+                        }
+                    }
+
+                    updateUserInfoRealtime();
+                    ensurePermanentQRCode();
+                } else {
+                    createDefaultUserData(FirebaseAuth.getInstance().getCurrentUser());
+                }
+            });
+        }
+    }
+
+    // Helper Firestore user profile class
+    private static class UserProfileFirestore {
+        public String name, email, memberId, phone, dateOfBirth, membershipStatus;
+        public UserProfileFirestore(String name, String email, String memberId) {
+            this.name = name;
+            this.email = email;
+            this.memberId = memberId;
+            this.phone = "";
+            this.dateOfBirth = "";
+            this.membershipStatus = "Active Member";
         }
     }
 }

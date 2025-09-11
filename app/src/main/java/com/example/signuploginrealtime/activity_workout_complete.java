@@ -4,21 +4,24 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.speech.tts.TextToSpeech;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Set;
 
-// ADD ONLY THESE FIREBASE IMPORTS
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.example.signuploginrealtime.ExercisePerformanceData;
 
 public class activity_workout_complete extends AppCompatActivity {
 
@@ -26,9 +29,11 @@ public class activity_workout_complete extends AppCompatActivity {
     private SharedPreferences workoutPrefs;
     private TextToSpeech tts;
 
-    // ADD ONLY THESE FIREBASE VARIABLES
     private FirebaseAuth mAuth;
     private FirebaseFirestore db;
+
+    private ArrayList<ExercisePerformanceData> performanceDataList;
+    private static final String TAG = "WorkoutComplete";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,47 +45,52 @@ public class activity_workout_complete extends AppCompatActivity {
 
         workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
 
-        // ADD ONLY THESE FIREBASE INITIALIZATIONS
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
 
-        // Initialize TTS
-       // tts = new TextToSpeech(this, status -> {
-        //      if (status == TextToSpeech.SUCCESS) {
-              //  tts.setLanguage(Locale.US);
-              //  tts.speak("Well done! Congratulations!", TextToSpeech.QUEUE_FLUSH, null, "well_done");
-          //  }
-       // });
+        performanceDataList = (ArrayList<ExercisePerformanceData>) getIntent().getSerializableExtra("performanceData");
+        if (performanceDataList == null) {
+            performanceDataList = new ArrayList<>();
+            Log.d(TAG, "onCreate: performanceDataList was null, initialized to empty list.");
+        } else {
+            Log.d(TAG, "onCreate: Retrieved performanceDataList. Size: " + performanceDataList.size());
+            if (!performanceDataList.isEmpty()) {
+                for (ExercisePerformanceData data : performanceDataList) {
+                    Log.d(TAG, "onCreate: Performance Data: " + data.toString());
+                }
+            } else {
+                Log.d(TAG, "onCreate: performanceDataList is empty.");
+            }
+        }
 
-
-        // Save flag so MainActivity knows to show tomorrow's activities
         SharedPreferences prefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
         prefs.edit().putBoolean("showTomorrow", true).apply();
 
-
-        // End session → save workout → update streaks → go to MainActivity
         btnFinish.setOnClickListener(v -> {
+            Log.d(TAG, "btnFinish clicked."); // <<< LOG BUTTON CLICK
             if (!isWorkoutRecordedToday()) {
+                Log.d(TAG, "btnFinish: Workout NOT recorded today. Calling saveWorkoutForToday, updateStreakData, and saveWorkoutToFirebase."); // <<< LOG BEFORE CALLING SAVE
                 saveWorkoutForToday();
                 updateStreakData();
-                // ADD ONLY THIS FIREBASE SAVE CALL
-                saveWorkoutToFirebase();
+                saveWorkoutToFirebase(performanceDataList);
                 Toast.makeText(this, "Workout recorded! Keep up the streak!", Toast.LENGTH_SHORT).show();
             } else {
+                Log.d(TAG, "btnFinish: Workout ALREADY recorded today."); // <<< LOG IF ALREADY RECORDED
                 Toast.makeText(this, "Workout already recorded for today!", Toast.LENGTH_SHORT).show();
             }
             goToMain();
         });
 
-        // View streak calendar
         btnViewStreak.setOnClickListener(v -> {
+            Log.d(TAG, "btnViewStreak clicked."); // <<< LOG BUTTON CLICK
             if (!isWorkoutRecordedToday()) {
+                Log.d(TAG, "btnViewStreak: Workout NOT recorded today. Calling saveWorkoutForToday, updateStreakData, and saveWorkoutToFirebase."); // <<< LOG BEFORE CALLING SAVE
                 saveWorkoutForToday();
                 updateStreakData();
-                // ADD ONLY THIS FIREBASE SAVE CALL
-                saveWorkoutToFirebase();
+                saveWorkoutToFirebase(performanceDataList);
+            } else {
+                Log.d(TAG, "btnViewStreak: Workout ALREADY recorded today."); // <<< LOG IF ALREADY RECORDED
             }
-
             Intent intent = new Intent(activity_workout_complete.this, StreakCalendar.class);
             startActivity(intent);
         });
@@ -88,48 +98,42 @@ public class activity_workout_complete extends AppCompatActivity {
 
     private boolean isWorkoutRecordedToday() {
         Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
-        return workoutDates != null && workoutDates.contains(getCurrentDateString());
+        String currentDate = getCurrentDateString();
+        boolean isRecorded = workoutDates != null && workoutDates.contains(currentDate);
+        // Log.d(TAG, "isWorkoutRecordedToday: Date - " + currentDate + ", Recorded - " + isRecorded); // Optional: more verbose logging
+        return isRecorded;
     }
 
     private void saveWorkoutForToday() {
+        // ... (rest of the method remains the same)
         String today = getCurrentDateString();
-
-        // Get workout details from intent if available
         String workoutName = getIntent().getStringExtra("workout_name");
         if (workoutName == null || workoutName.isEmpty()) {
             workoutName = "Workout session";
         }
         String workoutDetails = workoutName + " completed";
 
-        // Get existing workout dates
         Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
         if (workoutDates == null) {
             workoutDates = new HashSet<>();
         } else {
-            workoutDates = new HashSet<>(workoutDates); // Create new set to avoid issues
+            workoutDates = new HashSet<>(workoutDates);
         }
-
-        // Add today's date
         workoutDates.add(today);
 
-        // Save to preferences
         SharedPreferences.Editor editor = workoutPrefs.edit();
         editor.putStringSet("workout_dates", workoutDates);
         editor.putString("workout_details_" + today, workoutDetails);
-        editor.commit(); // Use commit for immediate save
+        editor.commit();
     }
 
     private void updateStreakData() {
-        // Calculate current streak
+        // ... (rest of the method remains the same)
         int currentStreak = calculateCurrentStreak();
         int longestStreak = workoutPrefs.getInt("longest_streak", 0);
-
-        // Update longest streak if current streak is higher
         if (currentStreak > longestStreak) {
             longestStreak = currentStreak;
         }
-
-        // Save streaks
         SharedPreferences.Editor editor = workoutPrefs.edit();
         editor.putInt("current_streak", currentStreak);
         editor.putInt("longest_streak", longestStreak);
@@ -138,34 +142,30 @@ public class activity_workout_complete extends AppCompatActivity {
     }
 
     private int calculateCurrentStreak() {
+        // ... (rest of the method remains the same)
         Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", new HashSet<>());
         if (workoutDates == null || workoutDates.isEmpty()) {
             return 0;
         }
-
         String today = getCurrentDateString();
         int streak = 0;
-
         try {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
             Calendar cal = Calendar.getInstance();
             cal.setTime(sdf.parse(today));
-
-            // Check each day backwards from today
-            for (int i = 0; i < 365; i++) { // Prevent infinite loop
+            for (int i = 0; i < 365; i++) {
                 String dateStr = sdf.format(cal.getTime());
-
                 if (workoutDates.contains(dateStr)) {
                     streak++;
-                    cal.add(Calendar.DAY_OF_MONTH, -1); // Go back one day
+                    cal.add(Calendar.DAY_OF_MONTH, -1);
                 } else {
                     break;
                 }
             }
         } catch (Exception e) {
+            Log.e(TAG, "Error calculating streak", e);
             return 0;
         }
-
         return streak;
     }
 
@@ -181,70 +181,69 @@ public class activity_workout_complete extends AppCompatActivity {
         finish();
     }
 
-    // ADD ONLY THESE NEW FIREBASE METHODS
-    private void saveWorkoutToFirebase() {
-        // Check if user is authenticated
+    private void saveWorkoutToFirebase(ArrayList<ExercisePerformanceData> performances) {
+        Log.d(TAG, "saveWorkoutToFirebase method entered."); // <<< LOG AT THE START OF THE METHOD
         if (mAuth.getCurrentUser() == null) {
-            return; // User not logged in, can't save data
+            Log.w(TAG, "User not logged in, cannot save workout to Firebase.");
+            return;
         }
-
         String userId = mAuth.getCurrentUser().getUid();
         String currentDate = getCurrentDateString();
         String currentTime = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
 
-        // Get workout details from intent
         String workoutName = getIntent().getStringExtra("workout_name");
         int totalExercises = getIntent().getIntExtra("total_exercises", 0);
         String workoutDuration = getIntent().getStringExtra("workout_duration");
 
-        // Create workout data map
         Map<String, Object> workoutData = new HashMap<>();
         workoutData.put("workoutName", workoutName != null ? workoutName : "Workout session");
         workoutData.put("totalExercises", totalExercises);
-        workoutData.put("completedExercises", totalExercises); // Assuming all exercises were completed
+        workoutData.put("completedExercises", totalExercises);
         workoutData.put("duration", workoutDuration != null ? workoutDuration : "Unknown");
         workoutData.put("date", currentDate);
         workoutData.put("time", currentTime);
         workoutData.put("timestamp", System.currentTimeMillis());
         workoutData.put("status", "completed");
 
-        // Save to Firestore: users/{userId}/progress/{date}
+        if (performances != null && !performances.isEmpty()) {
+            Log.d(TAG, "Adding " + performances.size() + " exercise performances to Firebase map.");
+            workoutData.put("exercisePerformances", performances);
+        } else {
+            Log.d(TAG, "No exercise performances to add to Firebase map.");
+        }
+
         db.collection("users")
                 .document(userId)
                 .collection("progress")
                 .document(currentDate)
                 .set(workoutData)
                 .addOnSuccessListener(aVoid -> {
-                    // Successfully saved
+                    Log.d(TAG, "Workout data successfully written to Firestore for date: " + currentDate);
                     updateUserStats(userId);
                 })
                 .addOnFailureListener(e -> {
-                    // Handle error
-                    e.printStackTrace();
+                    Log.e(TAG, "Error writing workout data to Firestore", e);
                 });
     }
 
     private void updateUserStats(String userId) {
-        // Update user's overall statistics
+        // ... (rest of the method remains the same)
         Map<String, Object> statsUpdate = new HashMap<>();
-
         String currentDate = getCurrentDateString();
-
         statsUpdate.put("lastWorkoutDate", currentDate);
         statsUpdate.put("lastActive", System.currentTimeMillis());
         statsUpdate.put("totalWorkouts", com.google.firebase.firestore.FieldValue.increment(1));
 
-        // Update or create user stats
         db.collection("users")
                 .document(userId)
                 .collection("stats")
                 .document("overall")
                 .set(statsUpdate, com.google.firebase.firestore.SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
-                    // Stats updated successfully
+                    Log.d(TAG, "User stats successfully updated in Firestore.");
                 })
                 .addOnFailureListener(e -> {
-                    e.printStackTrace();
+                    Log.e(TAG, "Error updating user stats in Firestore", e);
                 });
     }
 

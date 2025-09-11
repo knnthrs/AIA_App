@@ -11,11 +11,12 @@ import androidx.cardview.widget.CardView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.firestore.FirebaseFirestore; // Changed import
 
 import java.util.Arrays;
+import java.util.HashMap; // Added import
 import java.util.List;
+import java.util.Map; // Added import
 
 public class SelectMembership extends AppCompatActivity {
 
@@ -32,10 +33,14 @@ public class SelectMembership extends AppCompatActivity {
     private String selectedPlanCode = null;
     private String selectedPlanLabel = null;
 
+    private FirebaseFirestore db; // Added Firestore instance
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select_membership);
+
+        db = FirebaseFirestore.getInstance(); // Initialize Firestore
 
         // ---- find views (match your XML ids) ----
         backButton = findViewById(R.id.back_button);
@@ -104,23 +109,26 @@ public class SelectMembership extends AppCompatActivity {
             }
 
             String uid = user.getUid();
-            DatabaseReference userRef = FirebaseDatabase.getInstance()
-                    .getReference("users")
-                    .child(uid);
+            
+            Map<String, Object> membershipData = new HashMap<>();
+            membershipData.put("membershipPlanCode", selectedPlanCode);
+            membershipData.put("membershipPlanLabel", selectedPlanLabel);
+            membershipData.put("membershipStatus", "active"); // Added membership status
 
-            // Save both a stable code and a human-readable label
-            userRef.child("membershipPlanCode").setValue(selectedPlanCode);
-            userRef.child("membershipPlanLabel").setValue(selectedPlanLabel)
+            db.collection("users").document(uid)
+                    .update(membershipData) // Using update to only change these fields
                     .addOnSuccessListener(aVoid -> {
                         Toast.makeText(this, "Plan saved: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
                         Intent resultIntent = new Intent();
                         resultIntent.putExtra("selectedPlanCode", selectedPlanCode);
                         resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
+                        // You might want to pass the status back too if needed by the calling activity
+                        // resultIntent.putExtra("membershipStatus", "active"); 
                         setResult(RESULT_OK, resultIntent);
                         finish();
                     })
                     .addOnFailureListener(e ->
-                            Toast.makeText(this, "Failed to save plan: " + e.getMessage(), Toast.LENGTH_LONG).show());
+                            Toast.makeText(this, "Failed to save plan to Firestore: " + e.getMessage(), Toast.LENGTH_LONG).show());
         });
 
         // Confirm hidden until a selection is made

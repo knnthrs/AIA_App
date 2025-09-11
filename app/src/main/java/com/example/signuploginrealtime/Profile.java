@@ -11,25 +11,23 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-import android.widget.Switch;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.annotation.NonNull;
 
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.AuthCredential;
 import com.google.firebase.auth.EmailAuthProvider;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import com.google.android.gms.tasks.OnCompleteListener;
-import com.google.android.gms.tasks.Task;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -43,8 +41,11 @@ public class Profile extends AppCompatActivity {
     private FirebaseAuth mAuth;
     private TextView profileName, profileEmail, tvMemberId, tvPhone, tvDob, tvStatus;
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
-    private DatabaseReference userRef;
-    private ValueEventListener userDataListener;
+
+    // Firestore references
+    private FirebaseFirestore firestore;
+    private DocumentReference userDocRef;
+    private ListenerRegistration userDataListener;
 
     // Date picker components
     private Calendar selectedDate;
@@ -86,9 +87,12 @@ public class Profile extends AppCompatActivity {
         setupEditableFields();
         setupSecurityClickListeners();
 
+        // Initialize Firestore
+        firestore = FirebaseFirestore.getInstance();
+
         if (currentUser != null) {
-            // Set up database reference
-            userRef = FirebaseDatabase.getInstance().getReference("users").child(currentUser.getUid());
+            // Set up Firestore document reference
+            userDocRef = firestore.collection("users").document(currentUser.getUid());
 
             // Set up real-time listener for user data
             setupUserDataListener();
@@ -143,16 +147,12 @@ public class Profile extends AppCompatActivity {
         // Change Password click listener
         LinearLayout layoutChangePassword = findViewById(R.id.layout_change_password);
         layoutChangePassword.setOnClickListener(v -> showChangePasswordDialog());
-
-        // Two-Factor Authentication click listener
-        LinearLayout layoutTwoFactor = findViewById(R.id.layout_two_factor);
-        layoutTwoFactor.setOnClickListener(v -> showTwoFactorDialog());
     }
 
     private void showChangePasswordDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Change Password");
-        builder.setMessage("To change your password, you'll need to verify your current password first.");
+        builder.setMessage("To change your password, you\'ll need to verify your current password first.");
 
         // Create a LinearLayout to hold multiple EditText views
         LinearLayout layout = new LinearLayout(this);
@@ -213,7 +213,7 @@ public class Profile extends AppCompatActivity {
         }
 
         if (!newPassword.equals(confirmPassword)) {
-            Toast.makeText(this, "Passwords don't match", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Passwords don\'t match", Toast.LENGTH_SHORT).show();
             return false;
         }
 
@@ -249,9 +249,9 @@ public class Profile extends AppCompatActivity {
                             if (passwordTask.isSuccessful()) {
                                 Toast.makeText(Profile.this, "Password changed successfully!", Toast.LENGTH_LONG).show();
 
-                                // Save password change timestamp to Firebase
-                                if (userRef != null) {
-                                    userRef.child("lastPasswordChange").setValue(System.currentTimeMillis());
+                                // Save password change timestamp to Firestore
+                                if (userDocRef != null) {
+                                    userDocRef.update("lastPasswordChange", System.currentTimeMillis());
                                 }
                             } else {
                                 String errorMessage = passwordTask.getException() != null ?
@@ -266,164 +266,6 @@ public class Profile extends AppCompatActivity {
                 }
             }
         });
-    }
-
-    private void showTwoFactorDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
-        builder.setTitle("Two-Factor Authentication");
-
-        // Create layout for the dialog
-        LinearLayout layout = new LinearLayout(this);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        layout.setPadding(padding, padding, padding, padding);
-
-        // Check current 2FA status from SharedPreferences
-        SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
-        boolean is2FAEnabled = prefs.getBoolean("two_factor_enabled", false);
-
-        // Status text
-        TextView statusText = new TextView(this);
-        if (is2FAEnabled) {
-            statusText.setText("Two-Factor Authentication is currently ENABLED");
-            statusText.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-        } else {
-            statusText.setText("Two-Factor Authentication is currently DISABLED");
-            statusText.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
-        }
-        statusText.setTextSize(16);
-        statusText.setPadding(0, 0, 0, 20);
-        layout.addView(statusText);
-
-        // Info text
-        TextView infoText = new TextView(this);
-        infoText.setText("Two-Factor Authentication adds an extra layer of security to your account by requiring a verification code from your phone in addition to your password.");
-        infoText.setTextSize(14);
-        infoText.setPadding(0, 0, 0, 20);
-        layout.addView(infoText);
-
-        // Toggle switch
-        Switch twoFactorSwitch = new Switch(this);
-        twoFactorSwitch.setText(is2FAEnabled ? "Disable 2FA" : "Enable 2FA");
-        twoFactorSwitch.setChecked(is2FAEnabled);
-        layout.addView(twoFactorSwitch);
-
-        // Phone number field (only show if enabling 2FA)
-        final EditText phoneInput = new EditText(this);
-        phoneInput.setInputType(InputType.TYPE_CLASS_PHONE);
-        phoneInput.setHint("Enter your phone number for SMS codes");
-        String currentPhone = tvPhone.getText().toString();
-        if (!currentPhone.equals("Phone not set") && !currentPhone.isEmpty()) {
-            phoneInput.setText(currentPhone);
-        }
-
-        // Initially hide phone input if 2FA is already enabled
-        if (is2FAEnabled) {
-            phoneInput.setVisibility(LinearLayout.GONE);
-        }
-        layout.addView(phoneInput);
-
-        // Switch listener to show/hide phone input
-        twoFactorSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked && !is2FAEnabled) {
-                // Enabling 2FA - show phone input
-                phoneInput.setVisibility(LinearLayout.VISIBLE);
-                twoFactorSwitch.setText("Enable 2FA");
-            } else if (!isChecked && is2FAEnabled) {
-                // Disabling 2FA - hide phone input
-                phoneInput.setVisibility(LinearLayout.GONE);
-                twoFactorSwitch.setText("Disable 2FA");
-            }
-        });
-
-        builder.setView(layout);
-
-        builder.setPositiveButton("Save Changes", (dialog, which) -> {
-            boolean newStatus = twoFactorSwitch.isChecked();
-
-            if (newStatus && !is2FAEnabled) {
-                // Enabling 2FA
-                String phoneNumber = phoneInput.getText().toString().trim();
-                if (phoneNumber.isEmpty()) {
-                    Toast.makeText(this, "Please enter a phone number for 2FA", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                if (!validatePhone(phoneNumber)) {
-                    Toast.makeText(this, "Please enter a valid phone number", Toast.LENGTH_SHORT).show();
-                    return;
-                }
-                enableTwoFactor(phoneNumber);
-            } else if (!newStatus && is2FAEnabled) {
-                // Disabling 2FA
-                disableTwoFactor();
-            } else {
-                Toast.makeText(this, "No changes made", Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
-
-        AlertDialog dialog = builder.create();
-        dialog.show();
-    }
-
-    private void enableTwoFactor(String phoneNumber) {
-        // Save 2FA settings
-        SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
-        SharedPreferences.Editor editor = prefs.edit();
-        editor.putBoolean("two_factor_enabled", true);
-        editor.putString("two_factor_phone", phoneNumber);
-        editor.putLong("two_factor_enabled_date", System.currentTimeMillis());
-        editor.apply();
-
-        // Save to Firebase
-        if (userRef != null) {
-            userRef.child("twoFactorEnabled").setValue(true);
-            userRef.child("twoFactorPhone").setValue(phoneNumber);
-            userRef.child("twoFactorEnabledDate").setValue(System.currentTimeMillis());
-        }
-
-        // Update phone number if it's different
-        if (!phoneNumber.equals(tvPhone.getText().toString())) {
-            updatePhone(phoneNumber);
-        }
-
-        // Show success message
-        Toast.makeText(this, "Two-Factor Authentication enabled successfully!", Toast.LENGTH_LONG).show();
-
-        // Show info about next login
-        new AlertDialog.Builder(this)
-                .setTitle("2FA Enabled")
-                .setMessage("Two-Factor Authentication is now active on your account. Next time you log in, you'll receive an SMS verification code on " + phoneNumber)
-                .setPositiveButton("OK", null)
-                .show();
-    }
-
-    private void disableTwoFactor() {
-        // Show confirmation dialog
-        new AlertDialog.Builder(this)
-                .setTitle("Disable Two-Factor Authentication")
-                .setMessage("Are you sure you want to disable 2FA? This will make your account less secure.")
-                .setPositiveButton("Yes, Disable", (dialog, which) -> {
-                    // Remove 2FA settings
-                    SharedPreferences prefs = getSharedPreferences("security_settings", MODE_PRIVATE);
-                    SharedPreferences.Editor editor = prefs.edit();
-                    editor.putBoolean("two_factor_enabled", false);
-                    editor.remove("two_factor_phone");
-                    editor.putLong("two_factor_disabled_date", System.currentTimeMillis());
-                    editor.apply();
-
-                    // Update Firebase
-                    if (userRef != null) {
-                        userRef.child("twoFactorEnabled").setValue(false);
-                        userRef.child("twoFactorPhone").removeValue();
-                        userRef.child("twoFactorDisabledDate").setValue(System.currentTimeMillis());
-                    }
-
-                    Toast.makeText(Profile.this, "Two-Factor Authentication disabled", Toast.LENGTH_LONG).show();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
     }
 
     private void setupEditableFields() {
@@ -522,15 +364,15 @@ public class Profile extends AppCompatActivity {
         // Remove spaces, dashes, and parentheses for validation
         String cleanPhone = phone.replaceAll("[\\s\\-\\(\\)]", "");
 
-        // Check if it's a valid format (at least 10 digits, can start with +)
+        // Check if it\'s a valid format (at least 10 digits, can start with +)
         return cleanPhone.length() >= 10 &&
                 (cleanPhone.matches("^\\+?[1-9]\\d{9,14}$") ||
                         cleanPhone.matches("^[0-9]{10,15}$"));
     }
 
     private void updateEmail(String newEmail) {
-        if (userRef != null) {
-            userRef.child("email").setValue(newEmail)
+        if (userDocRef != null) {
+            userDocRef.update("email", newEmail)
                     .addOnSuccessListener(aVoid -> {
                         profileEmail.setText(newEmail);
                         Toast.makeText(this, "Email updated successfully", Toast.LENGTH_SHORT).show();
@@ -543,8 +385,8 @@ public class Profile extends AppCompatActivity {
     }
 
     private void updatePhone(String newPhone) {
-        if (userRef != null) {
-            userRef.child("phone").setValue(newPhone)
+        if (userDocRef != null) {
+            userDocRef.update("phone", newPhone)
                     .addOnSuccessListener(aVoid -> {
                         tvPhone.setText(newPhone);
                         Toast.makeText(this, "Phone number updated successfully", Toast.LENGTH_SHORT).show();
@@ -611,9 +453,9 @@ public class Profile extends AppCompatActivity {
         editor.putLong("date_of_birth_timestamp", selectedDate.getTimeInMillis());
         editor.apply();
 
-        // Save to Firebase
-        if (userRef != null) {
-            userRef.child("dateOfBirth").setValue(dateOfBirth);
+        // Save to Firestore
+        if (userDocRef != null) {
+            userDocRef.update("dateOfBirth", dateOfBirth);
         }
     }
 
@@ -634,35 +476,34 @@ public class Profile extends AppCompatActivity {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) return;
 
-        userDataListener = new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    // Get user data from Firebase
-                    String name = snapshot.child("name").getValue(String.class);
-                    String email = snapshot.child("email").getValue(String.class);
-                    String phone = snapshot.child("phone").getValue(String.class);
-                    String memberId = snapshot.child("memberId").getValue(String.class);
-                    String dateOfBirth = snapshot.child("dateOfBirth").getValue(String.class);
-                    String membershipStatus = snapshot.child("membershipStatus").getValue(String.class);
-
-                    // Update UI with real-time data
-                    updateProfileDisplay(name, email, phone, memberId, dateOfBirth, membershipStatus, currentUser);
-                } else {
-                    // If no data exists, create default profile
-                    createDefaultUserProfile(currentUser);
-                }
-            }
-
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Handle error - maybe show toast or log error
+        userDataListener = userDocRef.addSnapshotListener((snapshot, error) -> {
+            if (error != null) {
                 Toast.makeText(Profile.this, "Failed to load profile data", Toast.LENGTH_SHORT).show();
+                return;
             }
-        };
+            if (snapshot != null && snapshot.exists()) {
+                // Get user data from Firestore
+                String name = snapshot.getString("name");
+                String email = snapshot.getString("email");
+                String phone = snapshot.getString("phone");
+                String memberId = snapshot.getString("memberId");
+                String dateOfBirth = snapshot.getString("dateOfBirth");
+                String membershipStatus = snapshot.getString("membershipStatus");
 
-        // Attach the listener for real-time updates
-        userRef.addValueEventListener(userDataListener);
+                // --- Add this block to upgrade old users ---
+                String userType = snapshot.getString("userType");
+                if (userType == null || userType.isEmpty()) {
+                    // Automatically add userType: "user" for old users
+                    userDocRef.update("userType", "user");
+                }
+                // --- end upgrade block ---
+
+                updateProfileDisplay(name, email, phone, memberId, dateOfBirth, membershipStatus, currentUser);
+            } else {
+                // If no data exists, create default profile
+                createDefaultUserProfile(currentUser);
+            }
+        });
     }
 
     private void updateProfileDisplay(String name, String email, String phone, String memberId, String dateOfBirth, String membershipStatus, FirebaseUser currentUser) {
@@ -672,8 +513,7 @@ public class Profile extends AppCompatActivity {
         } else {
             String defaultName = getDefaultName(currentUser.getEmail());
             profileName.setText(defaultName);
-            // Save default name to Firebase
-            userRef.child("name").setValue(defaultName);
+            if (userDocRef != null) userDocRef.update("name", defaultName);
         }
 
         // Update Email
@@ -682,10 +522,7 @@ public class Profile extends AppCompatActivity {
         } else {
             String currentEmail = currentUser.getEmail();
             profileEmail.setText(currentEmail != null ? currentEmail : "No email");
-            // Save email to Firebase
-            if (currentEmail != null) {
-                userRef.child("email").setValue(currentEmail);
-            }
+            if (currentEmail != null && userDocRef != null) userDocRef.update("email", currentEmail);
         }
 
         // Update Phone
@@ -699,24 +536,18 @@ public class Profile extends AppCompatActivity {
         if (memberId != null && !memberId.isEmpty()) {
             tvMemberId.setText("Member ID: #" + memberId);
         } else {
-            // Generate member ID if not exists
             String generatedMemberId = generateMemberId();
             tvMemberId.setText("Member ID: #" + generatedMemberId);
-            // Save generated member ID to Firebase
-            userRef.child("memberId").setValue(generatedMemberId);
+            if (userDocRef != null) userDocRef.update("memberId", generatedMemberId);
         }
 
         // Update Date of Birth - prioritize Firebase data
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
             tvDob.setText(dateOfBirth);
-            // Parse the date back to Calendar if needed for date picker
             try {
                 selectedDate.setTime(dateFormat.parse(dateOfBirth));
-            } catch (Exception e) {
-                // If parsing fails, keep current date
-            }
+            } catch (Exception e) {}
         } else {
-            // Load from SharedPreferences as fallback
             loadDateOfBirthFromPrefs();
             if (tvDob.getText().toString().equals("Not set")) {
                 tvDob.setText("Select your date of birth");
@@ -728,8 +559,7 @@ public class Profile extends AppCompatActivity {
             tvStatus.setText(membershipStatus.toUpperCase());
         } else {
             tvStatus.setText("ACTIVE MEMBER");
-            // Save default status
-            userRef.child("membershipStatus").setValue("Active Member");
+            if (userDocRef != null) userDocRef.update("membershipStatus", "Active Member");
         }
     }
 
@@ -740,15 +570,17 @@ public class Profile extends AppCompatActivity {
         String defaultName = getDefaultName(email);
         String memberId = generateMemberId();
 
-        // Create user profile in Firebase
-        userRef.child("name").setValue(defaultName);
-        userRef.child("email").setValue(email);
-        userRef.child("memberId").setValue(memberId);
-        userRef.child("phone").setValue(""); // Empty phone initially
-        userRef.child("dateOfBirth").setValue(""); // Empty DOB initially
-        userRef.child("membershipStatus").setValue("Active Member");
+        // Create user profile in Firestore with userType field
+        if (userDocRef != null) {
+            // Add userType: "user" to the Firestore document
+            UserProfileFirestore profile = new UserProfileFirestore(defaultName, email, memberId);
+            firestore.runTransaction(transaction -> {
+                transaction.set(userDocRef, profile);
+                transaction.update(userDocRef, "userType", "user");
+                return null;
+            });
+        }
 
-        // Update UI
         profileName.setText(defaultName);
         profileEmail.setText(email != null ? email : "No email");
         tvPhone.setText("Phone not set");
@@ -794,9 +626,9 @@ public class Profile extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Remove the listener to prevent memory leaks
-        if (userRef != null && userDataListener != null) {
-            userRef.removeEventListener(userDataListener);
+        // Remove Firestore listener
+        if (userDataListener != null) {
+            userDataListener.remove();
         }
     }
 
@@ -811,5 +643,19 @@ public class Profile extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
                 .show();
+    }
+
+    // Helper Firestore user profile class
+    private static class UserProfileFirestore {
+        public String name, email, memberId, phone, dateOfBirth, membershipStatus, userType;
+        public UserProfileFirestore(String name, String email, String memberId) {
+            this.name = name;
+            this.email = email;
+            this.memberId = memberId;
+            this.phone = "";
+            this.dateOfBirth = "";
+            this.membershipStatus = "Active Member";
+            this.userType = "user"; // Always set userType for new users
+        }
     }
 }

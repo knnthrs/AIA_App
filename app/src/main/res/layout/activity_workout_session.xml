@@ -4,7 +4,7 @@
     android:id="@+id/root_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/yellowbg"
+    android:background="@drawable/yellowbackg"
     android:padding="16dp">
 
     <!-- Exercise Image with Rounded Corners + Progress Bar inside -->
@@ -86,7 +86,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="EXERCISE NAME"
-                android:textSize="20sp"
+                android:textSize="30sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
                 android:ellipsize="end"
@@ -113,7 +113,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="Each Side x 6"
+            android:text="1 sets x 6 reps"
             android:textSize="16sp"
             android:textColor="#808080"
             android:paddingBottom="8dp" />
@@ -124,18 +124,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
-            android:text="Timer: 60s"
-            android:textSize="18sp"
-            android:textColor="@android:color/holo_red_dark"
-            android:paddingBottom="16dp" />
-
-        <!-- Exercise Progress Counter -->
-        <TextView
-            android:id="@+id/tv_exercise_progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:text="1/12"
+            android:text="0/6"
             android:textSize="48sp"
             android:textStyle="bold"
             android:textColor="@android:color/black"

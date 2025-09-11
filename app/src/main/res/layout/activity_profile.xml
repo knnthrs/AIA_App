@@ -3,7 +3,7 @@
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/yellowbg">
+    android:background="@drawable/yellowbackg">
 
     <!-- Main Content -->
     <LinearLayout
@@ -441,41 +441,6 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:text="Change Password"
-                                android:textSize="16sp"
-                                android:textColor="#333333" />
-
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:src="@drawable/ic_arrow_right"
-                                app:tint="#CCCCCC" />
-
-                        </LinearLayout>
-
-                        <!-- Two-Factor Authentication -->
-                        <LinearLayout
-                            android:id="@+id/layout_two_factor"
-                            android:layout_width="match_parent"
-                            android:layout_height="56dp"
-                            android:orientation="horizontal"
-                            android:gravity="center_vertical"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:background="?attr/selectableItemBackground"
-                            android:paddingHorizontal="8dp">
-
-                            <ImageView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:src="@drawable/ic_security"
-                                android:layout_marginEnd="16dp"
-                                app:tint="#666666" />
-
-                            <TextView
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:text="Two-Factor Authentication"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
 

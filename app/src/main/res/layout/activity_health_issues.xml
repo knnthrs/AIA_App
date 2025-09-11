@@ -5,8 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/main"
-    android:background="@drawable/yellowbg"
-    tools:context=".HealthIssues">
+    android:background="@drawable/yellowbackg"
+    tools:context=".UserInfo.HealthIssues">
 
     <!-- Fixed Header Section -->
     <LinearLayout

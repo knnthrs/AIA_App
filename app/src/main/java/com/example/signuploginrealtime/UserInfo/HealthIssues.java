@@ -1,7 +1,9 @@
-package com.example.signuploginrealtime;
+package com.example.signuploginrealtime.UserInfo;
 
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
@@ -13,15 +15,29 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.signuploginrealtime.MainActivity;
+import com.example.signuploginrealtime.R;
+import com.example.signuploginrealtime.UserProfileHelper;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.SetOptions;
+
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 public class HealthIssues extends AppCompatActivity {
+
+    private static final String TAG = "HealthIssues";
 
     private CheckBox cbJointPain, cbBackPain, cbHeartCondition, cbHighBloodPressure, cbRespiratoryIssues, cbNone, cbOther;
     private EditText etOther;
     private Button btnNext;
 
     private UserProfileHelper.UserProfile userProfile;
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,6 +50,10 @@ public class HealthIssues extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        // Initialize Firebase
+        mAuth = FirebaseAuth.getInstance();
+        db = FirebaseFirestore.getInstance();
 
         // Get full UserProfile from previous activity
         userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
@@ -112,14 +132,91 @@ public class HealthIssues extends AppCompatActivity {
             // Save health issues into full UserProfile
             userProfile.setHealthIssues(healthIssues);
 
-            // Pass full UserProfile to WorkoutList
-            Intent intent = new Intent(HealthIssues.this, WorkoutList.class);
-            intent.putExtra("userProfile", userProfile);
-            startActivity(intent);
+            // Save complete profile to Firestore
+            saveUserProfileToFirestore();
         });
 
         // Initialize button state
         updateButtonState();
+    }
+
+    private void saveUserProfileToFirestore() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String uid = currentUser.getUid();
+
+        // Create map with all user profile data
+        Map<String, Object> userProfileData = new HashMap<>();
+
+        // Add user's name (email prefix or display name)
+        String displayName = currentUser.getDisplayName();
+        String email = currentUser.getEmail();
+        String name = displayName;
+        if (name == null || name.trim().isEmpty()) {
+            if (email != null && email.contains("@")) {
+                name = email.split("@")[0];
+            } else {
+                name = "User";
+            }
+        }
+        userProfileData.put("name", name);
+
+        // Add all profile data
+        userProfileData.put("gender", userProfile.getGender());
+        userProfileData.put("age", userProfile.getAge());
+        userProfileData.put("height", userProfile.getHeight());
+        userProfileData.put("weight", userProfile.getWeight());
+        userProfileData.put("fitnessLevel", userProfile.getFitnessLevel());
+        userProfileData.put("fitnessGoal", userProfile.getFitnessGoal());
+        userProfileData.put("healthIssues", userProfile.getHealthIssues());
+
+        // Add additional fields with default values
+        userProfileData.put("availableEquipment", new ArrayList<>());
+        userProfileData.put("dislikedExercises", new ArrayList<>());
+        userProfileData.put("hasGymAccess", false);
+
+        // Add timestamp
+        userProfileData.put("profileCompletedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+
+        Log.d(TAG, "Saving user profile to Firestore for uid: " + uid);
+        Log.d(TAG, "Profile data: " + userProfileData.toString());
+
+        // Disable button to prevent multiple submissions
+        btnNext.setEnabled(false);
+        btnNext.setText("Saving...");
+
+        // Save to Firestore
+        db.collection("users").document(uid)
+                .set(userProfileData, SetOptions.merge())
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "User profile successfully saved to Firestore!");
+
+                    // Mark profile as complete in SharedPreferences
+                    SharedPreferences prefs = getSharedPreferences("user_profile_prefs", MODE_PRIVATE);
+                    SharedPreferences.Editor editor = prefs.edit();
+                    editor.putBoolean("profile_complete_firebase", true);
+                    editor.apply();
+
+                    Toast.makeText(HealthIssues.this, "Profile setup complete!", Toast.LENGTH_SHORT).show();
+
+                    // Navigate to MainActivity
+                    Intent intent = new Intent(HealthIssues.this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error saving user profile to Firestore", e);
+                    Toast.makeText(HealthIssues.this, "Error saving profile: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+                    // Re-enable button
+                    btnNext.setEnabled(true);
+                    btnNext.setText("Complete Setup");
+                });
     }
 
     // Helper method to enable/disable button based on selection

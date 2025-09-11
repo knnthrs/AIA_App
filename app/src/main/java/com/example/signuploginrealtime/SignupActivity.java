@@ -10,7 +10,10 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.*;
+import com.google.firebase.firestore.FirebaseFirestore; // Changed import
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SignupActivity extends AppCompatActivity {
 
@@ -20,8 +23,7 @@ public class SignupActivity extends AppCompatActivity {
     ProgressBar loadingProgressBar;
     TextView loadingText;
     FirebaseAuth mAuth;
-    FirebaseDatabase database;
-    DatabaseReference reference;
+    FirebaseFirestore db; // Changed from FirebaseDatabase and DatabaseReference
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,8 +41,7 @@ public class SignupActivity extends AppCompatActivity {
         loadingText = findViewById(R.id.loadingText);
 
         mAuth = FirebaseAuth.getInstance();
-        database = FirebaseDatabase.getInstance();
-        reference = database.getReference("users");
+        db = FirebaseFirestore.getInstance(); // Changed to Firestore instance
 
         signupButton.setOnClickListener(v -> {
             String fullname = signupFullname.getText().toString().trim();
@@ -75,13 +76,21 @@ public class SignupActivity extends AppCompatActivity {
 
                                 String userId = firebaseUser.getUid();
                                 HelperClass helperClass = new HelperClass(fullname, email, phone);
-                                reference.child(userId).setValue(helperClass)
+
+                                // Add userType field to Firestore document
+                                Map<String, Object> userData = new HashMap<>();
+                                userData.put("name", fullname);
+                                userData.put("email", email);
+                                userData.put("phone", phone);
+                                userData.put("userType", "user");
+
+                                db.collection("users").document(userId).set(userData)
                                         .addOnCompleteListener(dbTask -> {
                                             hideLoading();
                                             if (dbTask.isSuccessful()) {
                                                 showSuccessDialog();
                                             } else {
-                                                Toast.makeText(SignupActivity.this, "Failed to save user data", Toast.LENGTH_SHORT).show();
+                                                Toast.makeText(SignupActivity.this, "Failed to save user data to Firestore", Toast.LENGTH_SHORT).show();
                                             }
                                         });
                             }
@@ -141,3 +150,7 @@ public class SignupActivity extends AppCompatActivity {
         builder.show();
     }
 }
+
+// Make sure LoginActivity.java exists in the same package and is declared as:
+// package com.example.signuploginrealtime;
+// public class LoginActivity extends AppCompatActivity { ... }

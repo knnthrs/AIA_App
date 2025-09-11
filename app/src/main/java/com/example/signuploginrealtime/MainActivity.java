@@ -10,17 +10,31 @@ import android.widget.Toast;
 import android.util.Log;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 
 import com.bumptech.glide.Glide;
-import com.google.android.material.badge.BadgeDrawable;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.*;
+
+// RTDB imports (for exercises)
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.DataSnapshot; // Explicitly keep for RTDB
+import com.google.firebase.database.DatabaseError;
+
+// Firestore imports (for user data and promotions)
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.DocumentSnapshot; // Explicitly keep for Firestore
+import com.google.firebase.firestore.EventListener;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FirebaseFirestoreException;
+import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -32,16 +46,13 @@ import android.widget.LinearLayout;
 import android.view.LayoutInflater;
 import android.view.View;
 
-import com.google.firebase.firestore.FirebaseFirestore;
-import com.google.firebase.firestore.DocumentReference;
-
-// Import the necessary classes for workout generation
 import com.example.signuploginrealtime.models.ExerciseInfo;
 import com.example.signuploginrealtime.logic.AdvancedWorkoutDecisionMaker;
 import com.example.signuploginrealtime.logic.WorkoutProgression;
 import com.example.signuploginrealtime.models.UserProfile;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
+import com.example.signuploginrealtime.UserInfo.AgeInput;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -51,66 +62,70 @@ public class MainActivity extends AppCompatActivity {
     TextView membershipStatus;
     TextView planType;
     TextView expiryDate;
-    TextView streakDisplay; // New streak display
-    CardView streakCard; // New streak card
-    CardView activitiesCard; // Today's activities card
-    LinearLayout activitiesContainer; // Container for exercise cards
+    TextView streakDisplay;
+    CardView streakCard;
+    CardView activitiesCard;
+    LinearLayout activitiesContainer;
     FloatingActionButton fab;
     FirebaseAuth mAuth;
-    DatabaseReference userRef;
-    DatabaseReference exercisesRef; // Firebase reference for exercises
     BottomNavigationView bottomNavigationView;
-    ValueEventListener userDataListener;
-    SharedPreferences workoutPrefs; // For streak data
+    SharedPreferences workoutPrefs;
+
+    FirebaseFirestore dbFirestore;
+    DocumentReference userDocRefFS;
+    ListenerRegistration userDataListenerRegistrationFS;
+
+    DatabaseReference exercisesRefRTDB;
+    ValueEventListener exercisesRTDBListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // Initialize Firebase Auth
         mAuth = FirebaseAuth.getInstance();
+        dbFirestore = FirebaseFirestore.getInstance();
 
-        // Check if user is authenticated first
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
-            // User not logged in, redirect to login
-            Intent intent = new Intent(MainActivity.this, LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-            finish();
+            goToLogin();
             return;
         }
 
-        // Initialize SharedPreferences for workout data
         workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
+        exercisesRefRTDB = FirebaseDatabase.getInstance().getReference("exercises");
 
-        // Initialize Firebase Database reference for exercises
-        exercisesRef = FirebaseDatabase.getInstance().getReference("exercises"); // Assuming "exercises" is your node
+        initializeViews();
+        setupPromoListener();
+        setupClickListeners();
 
-        // Initialize views
+        loadUserDataFromFirestore();
+        loadTodaysActivitiesFromRTDB();
+        updateStreakDisplay();
+
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showLogoutDialog();
+            }
+        });
+    }
+
+    private void initializeViews() {
         fab = findViewById(R.id.fab);
         greetingText = findViewById(R.id.greeting_text);
         membershipStatus = findViewById(R.id.membershipStatus);
         planType = findViewById(R.id.planType);
         expiryDate = findViewById(R.id.expiryDate);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
-
-        // Initialize new streak views
         streakDisplay = findViewById(R.id.streak_number);
         streakCard = findViewById(R.id.streak_counter_card);
-
-        // Initialize activities views
         activitiesCard = findViewById(R.id.activities_card);
         activitiesContainer = findViewById(R.id.activities_horizontal_container);
+    }
 
-        ImageView testImage = findViewById(R.id.testImage);
-        LinearLayout promoLayout = findViewById(R.id.promoLayout);
-
-        // Firestore instance for promotions
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
-        DocumentReference latestPromoRef = db.collection("promotions").document("latest");
-
+    private void setupPromoListener() {
+        DocumentReference latestPromoRef = dbFirestore.collection("promotions").document("latest");
         latestPromoRef.addSnapshotListener((snapshot, e) -> {
             if (e != null) {
                 Log.w(TAG, "Listen failed for promotions.", e);
@@ -119,11 +134,12 @@ public class MainActivity extends AppCompatActivity {
             if (snapshot != null && snapshot.exists()) {
                 String imageUrl = snapshot.getString("imageUrl");
                 if (imageUrl != null && !imageUrl.isEmpty()) {
-                    Glide.with(this)
-                            .load(imageUrl)
-                            .placeholder(android.R.drawable.ic_menu_report_image)
-                            .error(android.R.drawable.ic_delete)
+                    ImageView testImage = findViewById(R.id.testImage);
+                    Glide.with(this).load(imageUrl)
+                            .placeholder(R.drawable.no_image_placeholder)
+                            .error(R.drawable.no_image_placeholder)
                             .into(testImage);
+                    LinearLayout promoLayout = findViewById(R.id.promoLayout);
                     promoLayout.setOnClickListener(v -> {
                         Intent intent = new Intent(MainActivity.this, Promo.class);
                         intent.putExtra("promoUrl", imageUrl);
@@ -134,12 +150,13 @@ public class MainActivity extends AppCompatActivity {
                 Log.d(TAG, "No data found in latest promotion document");
             }
         });
+    }
 
+    private void setupClickListeners() {
         findViewById(R.id.membershipCard).setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, SelectMembership.class);
             startActivity(intent);
         });
-
         if (streakCard != null) {
             streakCard.setOnClickListener(v -> {
                 Intent intent = new Intent(MainActivity.this, StreakCalendar.class);
@@ -147,7 +164,6 @@ public class MainActivity extends AppCompatActivity {
                 overridePendingTransition(0, 0);
             });
         }
-
         if (activitiesCard != null) {
             activitiesCard.setOnClickListener(v -> {
                 Intent intent = new Intent(MainActivity.this, WorkoutList.class);
@@ -155,7 +171,6 @@ public class MainActivity extends AppCompatActivity {
                 overridePendingTransition(0, 0);
             });
         }
-
         ImageView bellIcon = findViewById(R.id.bell_icon);
         if (bellIcon != null) {
             bellIcon.setOnClickListener(v -> {
@@ -164,109 +179,67 @@ public class MainActivity extends AppCompatActivity {
                 overridePendingTransition(0, 0);
             });
         }
-
         fab.setOnClickListener(v -> {
             Intent intent = new Intent(this, QR.class);
             startActivity(intent);
         });
-
         bottomNavigationView.setSelectedItemId(R.id.item_1);
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
-            if (itemId == R.id.item_1) {
-                return true;
-            } else if (itemId == R.id.item_2) {
+            if (itemId == R.id.item_1) return true;
+            else if (itemId == R.id.item_2) {
                 startActivity(new Intent(getApplicationContext(), Profile.class));
-                overridePendingTransition(0, 0);
-                return true;
-            } else if (itemId == R.id.item_3) {
+                overridePendingTransition(0, 0); finish(); return true;
+            }
+            else if (itemId == R.id.item_3) {
                 startActivity(new Intent(getApplicationContext(), WorkoutList.class));
-                overridePendingTransition(0, 0);
-                return true;
-            } else if (itemId == R.id.item_4) {
+                overridePendingTransition(0, 0); return true;
+            }
+            else if (itemId == R.id.item_4) {
                 startActivity(new Intent(getApplicationContext(), Achievement.class));
-                overridePendingTransition(0, 0);
-                return true;
+                overridePendingTransition(0, 0); return true;
             }
             return false;
         });
-
-        // Badge for Profile (variable 'badgeDrawable' was unused, you might want to customize or use it)
-        BadgeDrawable badgeDrawable = bottomNavigationView.getOrCreateBadge(R.id.item_2);
-        // badgeDrawable.setVisible(true); // Example: make it visible
-        // badgeDrawable.setNumber(5); // Example: set a number
-
-        loadUserData();
-        updateStreakDisplay();
-        loadTodaysActivities();
-
-        // Handle back press for logout dialog
-        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
-            @Override
-            public void handleOnBackPressed() {
-                new AlertDialog.Builder(MainActivity.this)
-                        .setTitle("Log out?")
-                        .setMessage("Do you want to log out?")
-                        .setPositiveButton("Yes", (dialog, which) -> logoutUser())
-                        .setNegativeButton("No", null)
-                        .show();
-            }
-        });
     }
 
-    private void loadTodaysActivities() {
-        exercisesRef.addListenerForSingleValueEvent(new ValueEventListener() {
+    private void loadTodaysActivitiesFromRTDB() {
+        if (exercisesRefRTDB != null && exercisesRTDBListener != null) {
+            exercisesRefRTDB.removeEventListener(exercisesRTDBListener);
+        }
+        exercisesRTDBListener = new ValueEventListener() {
             @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
+            public void onDataChange(@NonNull DataSnapshot rtdbSnapshot) {
                 List<ExerciseInfo> exercises = new ArrayList<>();
-                if (snapshot.exists()) {
-                    for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                if (rtdbSnapshot.exists()) {
+                    for (DataSnapshot exerciseSnap : rtdbSnapshot.getChildren()) {
                         ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
                         if (exercise != null) {
-                            // Ensure ExerciseInfo has a name field populated from Firebase
-                            // If your ExerciseDB data in Firebase doesn't directly map to ExerciseInfo.name,
-                            // you might need to adjust ExerciseInfo.class or mapping here.
-                            // For example, if name is under a different field:
-                            // String nameFromDb = exerciseSnap.child("exerciseName").getValue(String.class);
-                            // exercise.setName(nameFromDb);
                             exercises.add(exercise);
                         }
                     }
                 }
-
                 if (!exercises.isEmpty()) {
                     generateTodaysWorkout(exercises);
                 } else {
-                    Log.d(TAG, "No exercises found in Firebase or list is empty, using dummy activities.");
+                    Log.d(TAG, "No exercises found in RTDB, using dummy activities.");
                     useDummyActivities();
                 }
             }
-
             @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e(TAG, "Failed to fetch exercises from Firebase: " + error.getMessage());
+            public void onCancelled(@NonNull DatabaseError databaseError) {
+                Log.e(TAG, "Failed to fetch exercises from RTDB: " + databaseError.getMessage());
                 useDummyActivities();
             }
-        });
+        };
+        exercisesRefRTDB.addValueEventListener(exercisesRTDBListener);
     }
 
     private void generateTodaysWorkout(List<ExerciseInfo> availableExercises) {
         UserProfile userProfile = createEmptyProfileForProgression();
-        // TODO: Ideally, fetch or use actual user profile data here
-        userProfile.setFitnessGoal("lose weight");
-        userProfile.setAge(25);
-
-        Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
-                availableExercises,
-                userProfile
-        );
-
-        Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(
-                baseWorkout,
-                1, // Current day
-                userProfile
-        );
-
+        userProfile.setFitnessGoal("lose weight"); userProfile.setAge(25);
+        Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(availableExercises, userProfile);
+        Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(baseWorkout, 1, userProfile);
         if (finalWorkout != null && finalWorkout.getExercises() != null && !finalWorkout.getExercises().isEmpty()) {
             displayTodaysActivities(finalWorkout.getExercises());
         } else {
@@ -279,20 +252,15 @@ public class MainActivity extends AppCompatActivity {
         activitiesContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
         int maxExercises = Math.min(workoutExercises.size(), 5);
-
         for (int i = 0; i < maxExercises; i++) {
             WorkoutExercise exercise = workoutExercises.get(i);
             View exerciseCard = inflater.inflate(R.layout.item_activity_card, activitiesContainer, false);
             TextView exerciseNameView = exerciseCard.findViewById(R.id.tv_activity_name);
-
             if (exercise.getExerciseInfo() != null && exercise.getExerciseInfo().getName() != null) {
                 String name = exercise.getExerciseInfo().getName();
-                if (name.length() > 15) {
-                    name = name.substring(0, 12) + "...";
-                }
-                exerciseNameView.setText(name);
+                exerciseNameView.setText(name.length() > 15 ? name.substring(0, 12) + "..." : name);
             } else {
-                exerciseNameView.setText("Exercise " + (i + 1)); // Consider using string resources
+                exerciseNameView.setText("Exercise " + (i + 1));
             }
             activitiesContainer.addView(exerciseCard);
         }
@@ -301,8 +269,7 @@ public class MainActivity extends AppCompatActivity {
     private void useDummyActivities() {
         activitiesContainer.removeAllViews();
         LayoutInflater inflater = LayoutInflater.from(this);
-        String[] dummyExercises = {"Push-ups", "Squats", "Plank", "Lunges", "Burpees"}; // Consider using string resources
-
+        String[] dummyExercises = {"Push-ups", "Squats", "Plank", "Lunges", "Burpees"};
         for (String exerciseName : dummyExercises) {
             View exerciseCard = inflater.inflate(R.layout.item_activity_card, activitiesContainer, false);
             TextView exerciseNameView = exerciseCard.findViewById(R.id.tv_activity_name);
@@ -312,56 +279,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private UserProfile createEmptyProfileForProgression() {
-        UserProfile p = new UserProfile();
-        p.setFitnessGoal("general fitness");
-        p.setFitnessLevel("beginner");
-        p.setAge(25);
-        p.setGender("not specified");
-        p.setHealthIssues(new ArrayList<>());
-        p.setAvailableEquipment(new ArrayList<>());
-        p.setDislikedExercises(new ArrayList<>());
-        p.setHasGymAccess(false);
-        return p;
-    }
-
-    private void saveWorkoutForToday() { // This method is unused according to analysis
-        String today = getCurrentDateString();
-        String workoutDetails = "Gym session completed"; // Consider using string resources
-        StreakCalendar.saveWorkoutForDate(workoutPrefs, today, workoutDetails);
-        updateCurrentStreak();
-        updateStreakDisplay();
-        Toast.makeText(this, "Workout recorded for today!", Toast.LENGTH_SHORT).show(); // Consider string resources
-    }
-
-    private void updateCurrentStreak() {
-        int newStreak = calculateCurrentStreak();
-        SharedPreferences.Editor editor = workoutPrefs.edit();
-        editor.putInt("current_streak", newStreak);
-        editor.apply();
-    }
-
-    private int calculateCurrentStreak() {
-        // String today = getCurrentDateString(); // Variable 'today' is never used
-        int streak = 0;
-        try {
-            // SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()); // 'sdf' is never used
-            Calendar cal = Calendar.getInstance();
-            while (true) {
-                String dateStr = formatCalendarToString(cal);
-                // Potential NPE warning: workoutPrefs.getStringSet("workout_dates", null).contains(dateStr)
-                // Add a null check for the Set
-                java.util.Set<String> workoutDates = workoutPrefs.getStringSet("workout_dates", null);
-                if (workoutDates != null && workoutDates.contains(dateStr)) {
-                    streak++;
-                    cal.add(Calendar.DAY_OF_MONTH, -1);
-                } else {
-                    break;
-                }
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error calculating streak", e); // Replaced e.printStackTrace()
-        }
-        return streak;
+        UserProfile p = new UserProfile(); p.setFitnessGoal("general fitness"); p.setFitnessLevel("beginner");
+        p.setAge(25); p.setGender("not specified"); p.setHealthIssues(new ArrayList<>());
+        p.setAvailableEquipment(new ArrayList<>()); p.setDislikedExercises(new ArrayList<>());
+        p.setHasGymAccess(false); return p;
     }
 
     private void updateStreakDisplay() {
@@ -371,125 +292,128 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private String getCurrentDateString() {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        return sdf.format(new Date());
-    }
-
-    private String formatCalendarToString(Calendar cal) {
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        return sdf.format(cal.getTime());
-    }
-
-    private void loadUserData() {
+    private void loadUserDataFromFirestore() {
         FirebaseUser currentUserAuth = mAuth.getCurrentUser();
         if (currentUserAuth != null) {
             String uid = currentUserAuth.getUid();
-            userRef = FirebaseDatabase.getInstance().getReference("users").child(uid);
+            userDocRefFS = dbFirestore.collection("users").document(uid);
 
-            if (userDataListener != null) { // Remove existing listener before adding a new one
-                userRef.removeEventListener(userDataListener);
+            if (userDataListenerRegistrationFS != null) {
+                userDataListenerRegistrationFS.remove();
             }
-            userDataListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    if (snapshot.exists()) {
-                        updateGreeting(snapshot);
-                        updateMembershipDisplay(snapshot);
+            userDataListenerRegistrationFS = userDocRefFS.addSnapshotListener((firestoreSnapshot, e) -> {
+                if (e != null) {
+                    Log.w(TAG, "Firestore listen failed for user data.", e);
+                    setDefaultValues(); return;
+                }
+                if (firestoreSnapshot != null && firestoreSnapshot.exists()) {
+                    if (firestoreSnapshot.contains("name") && firestoreSnapshot.contains("age") &&
+                        firestoreSnapshot.contains("gender") && firestoreSnapshot.contains("height") &&
+                        firestoreSnapshot.contains("weight") && firestoreSnapshot.contains("fitnessLevel") &&
+                        firestoreSnapshot.contains("fitnessGoal")) {
+                        Log.d(TAG, "User data complete in Firestore. Updating UI.");
+                        updateGreeting(firestoreSnapshot);
+                        updateMembershipDisplay(firestoreSnapshot);
+                        SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
+                        editor.putBoolean("profile_complete_firebase", true); editor.apply();
                     } else {
-                        setDefaultValues();
+                        Log.d(TAG, "User data INCOMPLETE in Firestore. Redirecting to AgeInput.");
+                        redirectToProfileCompletion();
                     }
+                } else {
+                    Log.d(TAG, "User document does NOT exist in Firestore. Redirecting to AgeInput.");
+                    redirectToProfileCompletion();
                 }
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e(TAG, "User data fetch cancelled: " + error.getMessage());
-                    setDefaultValues();
-                }
-            };
-            userRef.addValueEventListener(userDataListener);
+            });
         } else {
-            setDefaultValues();
+            Log.d(TAG, "No authenticated user in loadUserDataFromFirestore. Should have been caught by onCreate.");
+            goToLogin();
         }
     }
 
-    @SuppressLint("SetTextI18n") // Acknowledge for "Hi, " + name
-    private void updateGreeting(DataSnapshot snapshot) {
-        String name = null;
-        if (snapshot.child("name").exists()) {
-            name = snapshot.child("name").getValue(String.class);
-        } else if (snapshot.child("fullname").exists()) {
-            name = snapshot.child("fullname").getValue(String.class);
-        }
-
-        if (name != null && !name.trim().isEmpty()) {
-            greetingText.setText("Hi, " + name); // Consider string resources for "Hi, %s"
-        } else {
-            greetingText.setText("Hi, User"); // Consider string resources
-        }
+    private void redirectToProfileCompletion() {
+        SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
+        editor.putBoolean("profile_complete_firebase", false); editor.apply();
+        Intent intent = new Intent(MainActivity.this, AgeInput.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent); finish();
     }
 
     @SuppressLint("SetTextI18n")
-    private void updateMembershipDisplay(DataSnapshot snapshot) {
-        String planCode = snapshot.child("membershipPlanCode").getValue(String.class);
-        String planLabel = snapshot.child("membershipPlanLabel").getValue(String.class);
+    private void updateGreeting(DocumentSnapshot firestoreSnapshot) {
+        String name = firestoreSnapshot.getString("name");
+        greetingText.setText((name != null && !name.trim().isEmpty()) ? "Hi, " + name : "Hi, User");
+    }
 
-        boolean hasValidPlan = (planCode != null && !planCode.trim().isEmpty() && !planCode.equals("null")) ||
-                (planLabel != null && !planLabel.trim().isEmpty() && !planLabel.equals("null"));
+    @SuppressLint("SetTextI18n")
+    private void updateMembershipDisplay(DocumentSnapshot firestoreSnapshot) {
+        String planCode = firestoreSnapshot.getString("membershipPlanCode");
+        String planLabel = firestoreSnapshot.getString("membershipPlanLabel");
+
+        Log.d(TAG, "updateMembershipDisplay: planCode from Firestore: '" + planCode + "'");
+        Log.d(TAG, "updateMembershipDisplay: planLabel from Firestore: '" + planLabel + "'");
+
+        boolean planCodeValid = (planCode != null && !planCode.trim().isEmpty() && !"null".equals(planCode));
+        boolean planLabelValid = (planLabel != null && !planLabel.trim().isEmpty() && !"null".equals(planLabel));
+        boolean hasValidPlan = planCodeValid || planLabelValid;
+
+        Log.d(TAG, "updateMembershipDisplay: planCodeValid: " + planCodeValid);
+        Log.d(TAG, "updateMembershipDisplay: planLabelValid: " + planLabelValid);
+        Log.d(TAG, "updateMembershipDisplay: hasValidPlan: " + hasValidPlan);
 
         if (hasValidPlan) {
-            membershipStatus.setText("ACTIVE"); // Consider string resources
-            membershipStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark)); // getColor is deprecated, consider ContextCompat.getColor
-            String planDisplay = extractPlanName(planLabel != null ? planLabel : planCode);
-            planType.setText(planDisplay);
-            String expiryDateStr = calculateExpiryDate(planCode != null ? planCode : "STANDARD_1M"); // Default to prevent NPE if both null
-            expiryDate.setText(expiryDateStr);
+            Log.d(TAG, "Setting membership to ACTIVE");
+            membershipStatus.setText("ACTIVE");
+            try {
+                membershipStatus.setTextColor(getColor(R.color.green));
+            } catch (Exception colorEx) {
+                Log.e(TAG, "Error setting green color: " + colorEx.getMessage());
+                membershipStatus.setTextColor(android.graphics.Color.GREEN);
+            }
+            planType.setText(extractPlanName(planLabel != null ? planLabel : planCode));
+            expiryDate.setText(calculateExpiryDate(planCode != null ? planCode : "STANDARD_1M"));
         } else {
+            Log.d(TAG, "Setting membership to INACTIVE");
             setDefaultMembershipValues();
         }
     }
 
     private String extractPlanName(String planLabel) {
         if (planLabel != null) {
-            if (planLabel.contains(" – ")) {
-                return planLabel.split(" – ")[0];
-            } else if (planLabel.contains("\n")) {
-                return planLabel.split("\n")[0];
-            }
+            if (planLabel.contains(" – ")) return planLabel.split(" – ")[0];
+            if (planLabel.contains("\n")) return planLabel.split("\n")[0];
             return planLabel;
         }
-        return "Unknown Plan"; // Consider string resources
+        return "Unknown Plan";
     }
 
     private String calculateExpiryDate(String planCode) {
         Calendar calendar = Calendar.getInstance();
-        if (planCode == null) planCode = ""; // Avoid NPE
-
-        if (planCode.contains("1M") && !planCode.contains("12M")) {
-            calendar.add(Calendar.MONTH, 1);
-        } else if (planCode.contains("3M")) {
-            calendar.add(Calendar.MONTH, 3);
-        } else if (planCode.contains("6M")) {
-            calendar.add(Calendar.MONTH, 6);
-        } else if (planCode.contains("12M")) {
-            calendar.add(Calendar.MONTH, 12);
-        }
-        // else: no change to calendar if planCode is unknown, effectively "expires now" or "no valid duration"
-
+        if (planCode == null) planCode = "";
+        if (planCode.contains("1M") && !planCode.contains("12M")) calendar.add(Calendar.MONTH, 1);
+        else if (planCode.contains("3M")) calendar.add(Calendar.MONTH, 3);
+        else if (planCode.contains("6M")) calendar.add(Calendar.MONTH, 6);
+        else if (planCode.contains("12M")) calendar.add(Calendar.MONTH, 12);
         SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
         return sdf.format(calendar.getTime());
     }
 
     @SuppressLint("SetTextI18n")
     private void setDefaultMembershipValues() {
-        membershipStatus.setText("INACTIVE"); // Consider string resources
-        membershipStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark)); // getColor is deprecated
-        planType.setText("No plan selected"); // Consider string resources
+        membershipStatus.setText("INACTIVE");
+        try {
+            membershipStatus.setTextColor(getColor(R.color.red));
+        } catch (Exception colorEx) {
+            Log.e(TAG, "Error setting red color: " + colorEx.getMessage());
+            membershipStatus.setTextColor(android.graphics.Color.RED);
+        }
+        planType.setText("No plan selected");
         expiryDate.setText("—");
     }
 
     @SuppressLint("SetTextI18n")
     private void setDefaultValues() {
-        greetingText.setText("Hi, User"); // Consider string resources
+        greetingText.setText("Hi, User");
         setDefaultMembershipValues();
     }
 
@@ -497,25 +421,39 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (mAuth.getCurrentUser() != null) {
-            loadUserData();
             updateStreakDisplay();
-            loadTodaysActivities();
+        } else {
+            goToLogin();
         }
     }
 
-    private void logoutUser() {
-        FirebaseAuth.getInstance().signOut();
+    private void goToLogin(){
         Intent intent = new Intent(MainActivity.this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-        startActivity(intent);
-        finish();
+        startActivity(intent); finish();
+    }
+
+    private void showLogoutDialog() {
+        new AlertDialog.Builder(MainActivity.this)
+                .setTitle("Log out?").setMessage("Do you want to log out?")
+                .setPositiveButton("Yes", (dialog, which) -> logoutUser())
+                .setNegativeButton("No", null).show();
+    }
+
+    private void logoutUser() {
+        if (userDataListenerRegistrationFS != null) userDataListenerRegistrationFS.remove();
+        mAuth.signOut();
+        getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit().clear().apply();
+        getSharedPreferences("workout_prefs", MODE_PRIVATE).edit().clear().apply();
+        goToLogin();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        if (userRef != null && userDataListener != null) {
-            userRef.removeEventListener(userDataListener);
+        if (userDataListenerRegistrationFS != null) userDataListenerRegistrationFS.remove();
+        if (exercisesRefRTDB != null && exercisesRTDBListener != null) {
+            exercisesRefRTDB.removeEventListener(exercisesRTDBListener);
         }
     }
 }

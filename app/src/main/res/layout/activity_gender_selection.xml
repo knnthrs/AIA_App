@@ -5,9 +5,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/main"
-    android:background="@drawable/yellowbg"
+    android:background="@drawable/yellowbackg"
     android:padding="24dp"
-    tools:context=".GenderSelection">
+    tools:context=".UserInfo.GenderSelection">
 
     <!-- Progress Indicator -->
     <TextView

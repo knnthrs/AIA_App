@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.drawerlayout.widget.DrawerLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/drawer_layout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".coach_clients">
+
+    <!-- Main Content -->
+    <LinearLayout
+        android:id="@+id/main"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@drawable/yellowbackg">
+
+        <!-- Top Bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="16dp"
+            android:gravity="center_vertical">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Welcome Coach!"
+                    android:textColor="@color/white"
+                    android:textSize="24sp"
+                    android:textStyle="bold"/>
+
+                <TextView
+                    android:id="@+id/assigned_users_count"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Managing 0 clients"
+                    android:textColor="@color/white"
+                    android:textSize="14sp"
+                    android:alpha="0.8"
+                    android:layout_marginTop="4dp"/>
+
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/coach_profile_icon"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/grey_boarder"
+                android:padding="8dp"
+                android:src="@drawable/ic_profile"
+                android:clickable="true"
+                android:focusable="true"
+                app:tint="@color/black" />
+
+        </LinearLayout>
+
+        <!-- Search Section -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            app:cardCornerRadius="20dp"
+            android:elevation="10dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Search Your Clients"
+                    android:textColor="@color/black"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:layout_marginBottom="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <EditText
+                        android:id="@+id/search_clients_edittext"
+                        android:layout_width="0dp"
+                        android:layout_height="45dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/grey_boarder"
+                        android:hint="Search by client name"
+                        android:padding="12dp"
+                        android:textColor="@color/black"
+                        android:layout_marginEnd="8dp"/>
+
+                    <!-- FIXED: MaterialButton -->
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/search_button"
+                        android:layout_width="wrap_content"
+                        android:layout_height="45dp"
+                        android:text="Search"
+                        android:textColor="@color/white"
+                        android:backgroundTint="@color/black"
+                        app:cornerRadius="10dp"/>
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Filter and Actions -->
+        <androidx.cardview.widget.CardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="15dp"
+            android:elevation="5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:padding="12dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Filter:"
+                    android:textColor="@color/black"
+                    android:textStyle="bold"
+                    android:layout_marginEnd="12dp"/>
+
+                <Spinner
+                    android:id="@+id/filter_spinner"
+                    android:layout_width="0dp"
+                    android:layout_height="35dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/grey_boarder"
+                    android:layout_marginEnd="8dp"/>
+
+                <Button
+                    android:id="@+id/clear_filter_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="35dp"
+                    android:text="Clear"
+                    android:textSize="12sp"
+                    android:textColor="@color/black"
+                    android:backgroundTint="@android:color/transparent"
+                    android:minHeight="0dp"
+                    android:padding="8dp"/>
+
+                <!-- FIXED: MaterialButton -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/refresh_clients_button"
+                    android:layout_width="wrap_content"
+                    android:layout_height="35dp"
+                    android:text="Refresh"
+                    android:textSize="12sp"
+                    android:textColor="@color/white"
+                    android:backgroundTint="@color/black"
+                    android:minHeight="0dp"
+                    android:padding="8dp"
+                    app:cornerRadius="8dp"/>
+            </LinearLayout>
+
+        </androidx.cardview.widget.CardView>
+
+        <!-- Assigned Clients List -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/assigned_clients_recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:layout_margin="16dp"
+            android:background="@android:color/transparent"/>
+
+        <!-- Loading Indicator -->
+        <LinearLayout
+            android:id="@+id/loading_layout"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:visibility="gone">
+
+            <ProgressBar
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:indeterminateTint="@color/white"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Loading your clients..."
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+        </LinearLayout>
+
+        <!-- Empty State -->
+        <LinearLayout
+            android:id="@+id/empty_state_layout"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:padding="32dp"
+            android:visibility="gone">
+
+            <ImageView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:src="@android:drawable/ic_menu_manage"
+                android:alpha="0.5"
+                app:tint="@color/white" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="No clients assigned yet"
+                android:textColor="@color/white"
+                android:textSize="18sp"
+                android:layout_marginTop="16dp"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Once users are assigned to you, they will appear here"
+                android:textColor="@color/white"
+                android:textSize="14sp"
+                android:textAlignment="center"
+                android:layout_marginTop="8dp"
+                android:alpha="0.7"/>
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Sidebar -->
+    <LinearLayout
+        android:id="@+id/sidebar_layout"
+        android:layout_width="280dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="end"
+        android:background="@color/white"
+        android:orientation="vertical"
+        android:elevation="8dp">
+
+        <!-- Profile Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="120dp"
+            android:background="@drawable/yellowbackg"
+            android:orientation="vertical"
+            android:padding="20dp"
+            android:gravity="center_vertical">
+
+            <ImageView
+                android:id="@+id/sidebar_profile_image"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/grey_boarder"
+                android:padding="8dp"
+                android:src="@android:drawable/ic_menu_manage"
+                app:tint="@color/black" />
+
+            <TextView
+                android:id="@+id/sidebar_coach_name"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Coach Name"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/sidebar_coach_email"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="coach@email.com"
+                android:textColor="@color/white"
+                android:textSize="12sp"
+                android:alpha="0.8" />
+        </LinearLayout>
+
+        <!-- Menu Items -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingTop="16dp">
+
+            <LinearLayout
+                android:id="@+id/menu_clients"
+                style="@style/SidebarMenuItem">
+                <ImageView
+                    style="@style/SidebarMenuIcon"
+                    android:src="@android:drawable/ic_menu_agenda" />
+                <TextView
+                    style="@style/SidebarMenuText"
+                    android:text="My Clients" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/menu_workouts"
+                style="@style/SidebarMenuItem">
+                <ImageView
+                    style="@style/SidebarMenuIcon"
+                    android:src="@android:drawable/ic_menu_edit" />
+                <TextView
+                    style="@style/SidebarMenuText"
+                    android:text="Workouts" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/menu_logout"
+                style="@style/SidebarMenuItem">
+                <ImageView
+                    style="@style/SidebarMenuIcon"
+                    android:src="@android:drawable/ic_lock_power_off" />
+                <TextView
+                    style="@style/SidebarMenuText"
+                    android:text="Logout" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+
+</androidx.drawerlayout.widget.DrawerLayout>

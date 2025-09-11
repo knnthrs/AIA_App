@@ -31,12 +31,10 @@ import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map; // Added for useDummyWorkout
-import java.util.HashMap; // Added for useDummyWorkout
 
 public class WorkoutList extends AppCompatActivity {
 
-    private static final String TAG = "WorkoutList"; // Tag for logging
+    private static final String TAG = "WorkoutList";
 
     private LinearLayout exercisesContainer;
     private TextView exerciseCount, workoutDuration;
@@ -92,39 +90,62 @@ public class WorkoutList extends AppCompatActivity {
             for (WorkoutExercise we : currentWorkoutExercises) {
                 ExerciseInfo info = we.getExerciseInfo();
                 String currentExerciseName = (info != null && info.getName() != null) ? info.getName() : "Unknown Exercise";
+
+                // ✅ Keep exercise name clean - sets/reps will be extracted from details
                 exerciseNames.add(currentExerciseName);
 
-                // Updated based on user feedback for instructions in showExercises
-                String desc = "No instructions available.";
-                if (info != null && info.getInstructions() != null && !info.getInstructions().isEmpty()) {
-                    desc = String.join("\n\n", info.getInstructions());
+                // ✅ Create detailed instructions with proper formatting for parsing
+                StringBuilder detailsBuilder = new StringBuilder();
+
+                // Add sets/reps information in the expected format
+                if (we.getSets() > 0 && we.getReps() > 0) {
+                    detailsBuilder.append("Sets: ").append(we.getSets()).append("\n");
+                    detailsBuilder.append("Reps: ").append(we.getReps()).append("\n\n");
                 }
 
-                exerciseDetails.add(desc);
+                // Add original instructions
+                if (info != null && info.getInstructions() != null && !info.getInstructions().isEmpty()) {
+                    detailsBuilder.append("Instructions:\n");
+                    detailsBuilder.append(String.join("\n", info.getInstructions()));
+                } else {
+                    detailsBuilder.append("Follow proper form and technique.");
+                }
 
-                int baseRest = we.getRestSeconds() > 0 ? we.getRestSeconds() : 60;
+                exerciseDetails.add(detailsBuilder.toString());
+
+                int baseRest = we.getRestSeconds() > 0 ? we.getRestSeconds() : 20;
                 exerciseRests.add(adaptRestTime(baseRest, userProfile.getFitnessLevel()));
 
-                exerciseTimes.add(30); // Placeholder duration, consider making this dynamic
+                // ✅ Set appropriate time based on exercise type
+                if (we.getSets() > 0 && we.getReps() > 0) {
+                    // For rep-based exercises, calculate estimated time
+                    int estimatedTime = we.getSets() * we.getReps() * 3; // 3 seconds per rep
+                    exerciseTimes.add(Math.max(estimatedTime, 60)); // Minimum 1 minute
+                } else {
+                    // For time-based exercises
+                    exerciseTimes.add(30);
+                }
 
                 exerciseImageUrls.add(info != null && info.getGifUrl() != null && !info.getGifUrl().isEmpty()
                         ? info.getGifUrl()
-                        : "https://via.placeholder.com/150"); // Placeholder GIF
+                        : "https://via.placeholder.com/150");
             }
 
             Intent intent = new Intent(WorkoutList.this, WorkoutSessionActivity.class);
-            intent.putExtra("userProfile", userProfile); // Make sure UserProfile is Serializable
+            intent.putExtra("userProfile", userProfile);
+            intent.putExtra("workout_name", "Personalized Workout");
             intent.putStringArrayListExtra("exerciseNames", exerciseNames);
             intent.putStringArrayListExtra("exerciseDetails", exerciseDetails);
             intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls);
             intent.putIntegerArrayListExtra("exerciseTimes", exerciseTimes);
             intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
+
             startActivity(intent);
         });
     }
 
     private int adaptRestTime(int baseRest, String fitnessLevel) {
-        if (fitnessLevel == null) fitnessLevel = "beginner"; // Default if null
+        if (fitnessLevel == null) fitnessLevel = "beginner";
         switch (fitnessLevel.toLowerCase()) {
             case "intermediate":
                 return (int) (baseRest * 0.9);
@@ -139,7 +160,7 @@ public class WorkoutList extends AppCompatActivity {
         loadingIndicator.setVisibility(View.VISIBLE);
         Log.d(TAG, "Fetching exercises from Firebase root...");
 
-        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference(); 
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
         dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
@@ -155,7 +176,6 @@ public class WorkoutList extends AppCompatActivity {
                         if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
                             ExerciseInfo e = exerciseSnap.getValue(ExerciseInfo.class);
 
-                            // ---- START: USER PROVIDED SNIPPET for logging (from a previous step) ----
                             Log.d(TAG, "Parsed ExerciseInfo: " + (e != null ? "ID: " + e.getExerciseId() + ", Name: " + e.getName() : "NULL ExerciseInfo object"));
 
                             if (e != null) {
@@ -169,13 +189,11 @@ public class WorkoutList extends AppCompatActivity {
                                 allExercises.add(e);
                                 if (allExercises.size() <= 3) {
                                     Log.d(TAG, "Equipments for " + e.getName() + ": " + e.getEquipments());
-
                                     Log.d(TAG, "Parsed Exercise: Name=" + e.getName() + ", GifUrl=" + e.getGifUrl() + ", ID=" + e.getExerciseId());
                                 }
                             } else {
                                 Log.w(TAG, "Parsed null ExerciseInfo from snapshot key: " + exerciseSnap.getKey());
                             }
-                            // ---- END: USER PROVIDED SNIPPET ----
                         } else {
                             Log.d(TAG, "Skipping non-numeric child key at root: " + exerciseSnap.getKey());
                         }
@@ -216,12 +234,11 @@ public class WorkoutList extends AppCompatActivity {
         int numberOfExercisesToPick = Math.min(6, exercises.size());
 
         int attempts = 0;
-        int maxAttempts = exercises.size() * 3; 
+        int maxAttempts = exercises.size() * 3;
 
         while (randomExercises.size() < numberOfExercisesToPick && attempts < maxAttempts && !exercises.isEmpty()) {
             int index = (int) (Math.random() * exercises.size());
             ExerciseInfo candidate = exercises.get(index);
-            // In pickRandomExercises (USER PROVIDED)
             if (candidate != null && candidate.getExerciseId() != null && !pickedIds.contains(candidate.getExerciseId())) {
                 randomExercises.add(candidate);
                 pickedIds.add(candidate.getExerciseId());
@@ -234,7 +251,6 @@ public class WorkoutList extends AppCompatActivity {
         generateWorkout(randomExercises);
     }
 
-    // useDummyWorkout() (USER PROVIDED)
     private void useDummyWorkout() {
         Log.d(TAG, "Using dummy workout.");
         List<ExerciseInfo> dummy = new ArrayList<>();
@@ -244,13 +260,10 @@ public class WorkoutList extends AppCompatActivity {
             e.setGifUrl("https://via.placeholder.com/150");
             e.setExerciseId("dummy_id_" + i);
 
-            // Add some fake instructions
-            // ✅ correct
             List<String> dummyInstructions = new ArrayList<>();
             dummyInstructions.add("Sample step 1 for exercise " + i);
             dummyInstructions.add("Sample step 2 for exercise " + i);
             e.setInstructions(dummyInstructions);
-
 
             dummy.add(e);
         }
@@ -280,9 +293,9 @@ public class WorkoutList extends AppCompatActivity {
             startWorkoutButton.setEnabled(true);
         } else {
             Log.e(TAG, "Workout generation resulted in null or empty workout/exercises.");
-            Toast.makeText(this, "⚠️ Could not generate a valid workout.", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Could not generate a valid workout.", Toast.LENGTH_SHORT).show();
             startWorkoutButton.setEnabled(false);
-            useDummyWorkout(); 
+            useDummyWorkout();
         }
     }
 
@@ -318,12 +331,15 @@ public class WorkoutList extends AppCompatActivity {
 
         Log.d(TAG, "Displaying " + workoutExercises.size() + " exercises.");
         exerciseCount.setText("Exercises: " + workoutExercises.size());
+
         int totalDurationSeconds = 0;
         for(WorkoutExercise we : workoutExercises) {
-            totalDurationSeconds += (we.getSets() * we.getReps() * 3); 
-            totalDurationSeconds += we.getSets() * (we.getRestSeconds() > 0 ? we.getRestSeconds() : 60); 
+            // Calculate exercise time
+            totalDurationSeconds += (we.getSets() * we.getReps() * 3);
+            // Add rest time
+            totalDurationSeconds += we.getSets() * (we.getRestSeconds() > 0 ? we.getRestSeconds() : 60);
         }
-        workoutDuration.setText("Duration: " + (totalDurationSeconds / 60) + " mins");
+        workoutDuration.setText("Duration: " + Math.max(1, totalDurationSeconds / 60) + " mins");
 
         LayoutInflater inflater = LayoutInflater.from(this);
         int order = 1;
@@ -338,55 +354,41 @@ public class WorkoutList extends AppCompatActivity {
             TextView targetMuscles = card.findViewById(R.id.tv_exercise_target_muscles);
             TextView equipment = card.findViewById(R.id.tv_exercise_equipment);
 
-
             number.setText(String.valueOf(order));
             if (we.getExerciseInfo() != null) {
                 ExerciseInfo info = we.getExerciseInfo();
                 String exerciseNameStr = info.getName() != null ? info.getName() : "Unknown Exercise";
                 name.setText(exerciseNameStr);
 
-                // ✅ Show target muscles
+                // Show target muscles
                 if (info.getTargetMuscles() != null && !info.getTargetMuscles().isEmpty()) {
                     targetMuscles.setText("Target: " + String.join(", ", info.getTargetMuscles()));
                 } else {
                     targetMuscles.setText("Target: N/A");
                 }
 
-                // ✅ Show equipment
+                // Show equipment
                 if (info.getEquipments() != null && !info.getEquipments().isEmpty()) {
                     equipment.setText("Equipment: " + String.join(", ", info.getEquipments()));
                 } else {
                     equipment.setText("Equipment: None");
                 }
 
-
-                // ✅ Show sets and reps
+                // Show sets and reps
                 if (we.getSets() > 0 && we.getReps() > 0) {
                     setsReps.setText(we.getSets() + " sets x " + we.getReps() + " reps");
                 } else {
-                    setsReps.setText("");
+                    setsReps.setText("Time-based exercise");
                 }
-
-
-                // Updated with user provided snippet (info.getInstructionsList())
-                String desc = "No instructions available.";
-                if (info != null && info.getInstructions() != null && !info.getInstructions().isEmpty()) {
-                    desc = String.join("\n\n", info.getInstructions());
-                }
-
-
-                String setsRepsInfo = (we.getSets() > 0 && we.getReps() > 0)
-                                ? we.getSets() + " sets x " + we.getReps() + " reps\n"
-                                : "";
 
                 String gifUrl = info.getGifUrl() != null && !info.getGifUrl().isEmpty()
-                                ? info.getGifUrl()
-                                : "https://via.placeholder.com/150";
+                        ? info.getGifUrl()
+                        : "https://via.placeholder.com/150";
                 Glide.with(this)
                         .asGif()
                         .load(gifUrl)
-                        .placeholder(R.drawable.loading_placeholder) 
-                        .error(R.drawable.no_image_placeholder) 
+                        .placeholder(R.drawable.loading_placeholder)
+                        .error(R.drawable.no_image_placeholder)
                         .into(image);
             }
 

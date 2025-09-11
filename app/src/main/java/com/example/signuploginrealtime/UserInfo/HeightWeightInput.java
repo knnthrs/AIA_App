@@ -1,4 +1,4 @@
-package com.example.signuploginrealtime;
+package com.example.signuploginrealtime.UserInfo;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -12,6 +12,8 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.example.signuploginrealtime.R;
+import com.example.signuploginrealtime.UserProfileHelper;
 import com.google.android.material.textfield.TextInputEditText;
 
 public class HeightWeightInput extends AppCompatActivity {

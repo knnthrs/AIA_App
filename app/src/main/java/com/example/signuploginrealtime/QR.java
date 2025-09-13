@@ -343,10 +343,10 @@ public class QR extends AppCompatActivity {
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String full_name, email, memberId, phone, dateOfBirth, membershipStatus;
+        public String fullname, email, memberId, phone, dateOfBirth, membershipStatus;
 
         public UserProfileFirestore(String fullname, String email, String memberId) {
-            this.full_name = fullname;
+            this.fullname = fullname;
             this.email = email;
             this.memberId = memberId;
             this.phone = "";

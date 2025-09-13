@@ -87,7 +87,7 @@ public class SignupActivity extends AppCompatActivity {
 
                                 // Add userType field to Firestore document
                                 Map<String, Object> userData = new HashMap<>();
-                                userData.put("full name", fullname);
+                                userData.put("fullname", fullname);
                                 userData.put("email", email);
                                 userData.put("phone", phone);
                                 userData.put("userType", "user");

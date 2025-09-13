@@ -57,7 +57,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     private ArrayList<ExercisePerformanceData> performanceDataList;
     private long currentExerciseStartTimeMillis;
+    private final java.util.Map<String, Runnable> utteranceCallbacks = new java.util.HashMap<>();
+
     private static final String TAG = "WorkoutSessionActivity"; // For logging
+    private boolean isTTSReady = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,8 +72,26 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.getDefault());
+                isTTSReady = true; // Mark TTS as ready
+
+                // Set listener ONCE when TTS is ready
+                tts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
+                    @Override public void onStart(String utteranceId) {}
+                    @Override public void onError(String utteranceId) {}
+                    @Override
+                    public void onDone(String utteranceId) {
+                        runOnUiThread(() -> {
+                            Runnable next = utteranceCallbacks.remove(utteranceId);
+                            if (next != null) next.run();
+                        });
+                    }
+                });
+            } else {
+                isTTSReady = false;
+                Log.e(TAG, "TTS initialization failed");
             }
         });
+
 
         View rootView = findViewById(R.id.root_layout);
         rootView.setOnApplyWindowInsetsListener((v, insets) -> {
@@ -127,6 +148,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         btnNext.setOnClickListener(v -> {
             if (!isReadyCountdown) {
+                stopAllTTS(); // Stop TTS when moving to next exercise
                 if (isRepetitionBased) {
                     recordAndLogExercisePerformance(currentRepCount, 0, "completed");
                 } else {
@@ -146,10 +168,12 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         btnPause.setOnClickListener(v -> {
             if (isReadyCountdown) {
                 if (isTimerRunning) {
-                    if (readyTimer != null) readyTimer.cancel();
+                    // Pause ready countdown
+                    stopAllTTS(); // Stop current TTS
                     isTimerRunning = false;
                     btnPause.setText("RESUME");
                 } else {
+                    // Resume ready countdown
                     startReadyCountdown();
                 }
             } else if (isRepetitionBased) {
@@ -168,6 +192,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 }
             }
         });
+
+
         btnPrevious.setOnClickListener(v -> moveToPreviousExercise());
         btnSkip.setOnClickListener(v -> skipCurrentExercise());
 
@@ -236,7 +262,23 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         updateButtonStates();
         loadExerciseImage(index);
 
-        startReadyCountdown();
+        // Start ready countdown immediately when showing exercise
+        // Wait for TTS to be ready before starting countdown
+        if (isTTSReady) {
+            startReadyCountdown();
+        } else {
+            // Wait for TTS to initialize, then start
+            tvExerciseTimer.postDelayed(() -> {
+                if (isTTSReady) {
+                    startReadyCountdown();
+                } else {
+                    // TTS still not ready, start without voice
+                    Log.w(TAG, "TTS not ready, starting countdown without voice");
+                    startReadyCountdown();
+                }
+            }, 1000); // Give TTS 1 second to initialize
+        }
+
     }
 
     private String getCleanExerciseName(String fullName) {
@@ -295,47 +337,48 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     // FIXED: Updated ready countdown method
     private void startReadyCountdown() {
+        stopAllTTS(); // Stop any ongoing TTS first
         isReadyCountdown = true;
         isTimerRunning = true;
         btnPause.setText("PAUSE");
-
-        // FIXED: Hide timer during ready countdown (as you wanted)
         tvExerciseTimer.setVisibility(View.INVISIBLE);
 
-        readyTimer = new CountDownTimer(5000, 1000) { // 5 seconds: 4,3,2,1,Start
-            int countdownNumber = 4;
-
-            @Override
-            public void onTick(long millisUntilFinished) {
-                if (countdownNumber > 0) {
-                    // FIXED: Only TTS, no visual display during ready countdown
-                    if (tts != null) {
-                        if (countdownNumber == 4) {
-                            // First announcement with exercise name
-                            String exerciseName = getCleanExerciseName(exerciseNames.get(currentIndex));
-                            tts.speak("Get ready for " + exerciseName, TextToSpeech.QUEUE_FLUSH, null, "GET_READY");
-                            // Then start countdown
-                            tts.speak(String.valueOf(countdownNumber), TextToSpeech.QUEUE_ADD, null, "READY_" + countdownNumber);
-                        } else {
-                            tts.speak(String.valueOf(countdownNumber), TextToSpeech.QUEUE_ADD, null, "READY_" + countdownNumber);
-                        }
-                    }
-                    countdownNumber--;
-                } else {
-                    // Final "Start!" announcement
-                    if (tts != null) {
-                        tts.speak("Start!", TextToSpeech.QUEUE_ADD, null, "READY_START");
-                    }
-                }
-            }
-
-            @Override
-            public void onFinish() {
-                startActualExercise();
-            }
-        };
-        readyTimer.start();
+        // First speak exercise name with a longer delay before countdown
+        String exerciseName = getCleanExerciseName(exerciseNames.get(currentIndex));
+        speakAndThen("Get ready for " + exerciseName, () -> {
+            // Add a longer delay to ensure the first speech is heard completely
+            tvExerciseTimer.postDelayed(() -> startReadyCountDownFrom(3), 1000); // Increased delay
+        });
     }
+    private void startReadyCountDownFrom(int number) {
+        if (number <= 0) {
+            speakAndThen("Go!", this::startActualExercise); // changed "Start!" → "Go!"
+            return;
+        }
+
+        // small delay between numbers so voices don’t overlap
+        tvExerciseTimer.postDelayed(() ->
+                speakAndThen(String.valueOf(number), () -> startReadyCountDownFrom(number - 1)), 800);
+    }
+
+
+    // Utility: speak text, then run action after finished
+    private void speakAndThen(String text, Runnable onDone) {
+        if (tts != null && isTTSReady) {
+            String utteranceId = "UTTERANCE_" + System.currentTimeMillis();
+            if (onDone != null) {
+                utteranceCallbacks.put(utteranceId, onDone);
+            }
+            tts.speak(text, TextToSpeech.QUEUE_ADD, null, utteranceId);
+        } else {
+            // TTS not ready, just run the callback immediately
+            Log.w(TAG, "TTS not ready for: " + text);
+            if (onDone != null) {
+                onDone.run();
+            }
+        }
+    }
+
 
     // FIXED: Updated startActualExercise method
     private void startActualExercise() {
@@ -387,47 +430,37 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     // FIXED: Updated startActualRepCounting method
     private void startActualRepCounting(int targetReps) {
-        if (repTimer != null) repTimer.cancel();
+        currentRepCount = 0;
+        speakNextRep(targetReps);
+    }
 
-        repTimer = new CountDownTimer(Long.MAX_VALUE, 3000) { // 3s per rep
-            @Override
-            public void onTick(long millisUntilFinished) {
-                if (!isCounterPaused && currentRepCount < targetReps) {
-                    currentRepCount++;
+    private void speakNextRep(int targetReps) {
+        if (isCounterPaused) {
+            return; // Don't continue if paused
+        }
+        if (currentRepCount >= targetReps) {
+            speakAndThen("Exercise complete!", () -> {
+                recordAndLogExercisePerformance(currentRepCount, 0, "completed");
+                tvExerciseTimer.postDelayed(this::moveToNextExercise, 2000);
+            });
+            return;
+        }
 
-                    // FIXED: Update visual reps counter
-                    tvExerciseTimer.setText(currentRepCount + "/" + targetReps);
+        currentRepCount++;
+        tvExerciseTimer.setText(currentRepCount + "/" + targetReps);
 
-                    // FIXED: TTS announces each rep count
-                    if (tts != null) {
-                        // Add motivational phrases at key points
-                        if (currentRepCount == targetReps / 2 && targetReps > 4) {
-                            tts.speak("Halfway! " + currentRepCount, TextToSpeech.QUEUE_ADD, null, "REP_HALFWAY");
-                        } else if (currentRepCount == targetReps - 2 && targetReps > 3) {
-                            tts.speak("Last 2! " + currentRepCount, TextToSpeech.QUEUE_ADD, null, "REP_LAST2");
-                        } else {
-                            // FIXED: Always announce each rep count
-                            tts.speak(String.valueOf(currentRepCount), TextToSpeech.QUEUE_ADD, null, "REP_" + currentRepCount);
-                        }
-                    }
+        String announcement;
+        if (currentRepCount == targetReps - 2) {
+            announcement = "Last 2!";
+        } else {
+            announcement = String.valueOf(currentRepCount);
+        }
 
-                    if (currentRepCount >= targetReps) {
-                        repTimer.cancel();
-                        isTimerRunning = false;
-                        if (tts != null) {
-                            tts.speak("Exercise complete! Great job!", TextToSpeech.QUEUE_ADD, null, "REP_COMPLETE");
-                        }
-                        recordAndLogExercisePerformance(currentRepCount, 0, "completed");
-                        tvExerciseTimer.postDelayed(() -> moveToNextExercise(), 2000);
-                    }
-                }
-            }
 
-            @Override
-            public void onFinish() { }
-        };
-
-        repTimer.start();
+        speakAndThen(announcement, () -> {
+            // small pause between reps
+            tvExerciseTimer.postDelayed(() -> speakNextRep(targetReps), 1000);
+        });
     }
 
     private int getTargetReps(int exerciseIndex) {
@@ -490,13 +523,14 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             Toast.makeText(this, "This is the first exercise", Toast.LENGTH_SHORT).show();
             return;
         }
+        stopAllTTS(); // Stop TTS before switching
         cancelAllTimers();
         currentIndex--;
         showExercise(currentIndex);
     }
-
     private void skipCurrentExercise() {
         Log.d(TAG, "Skipping exercise: " + exerciseNames.get(currentIndex));
+        stopAllTTS();
         recordAndLogExercisePerformance(0, 0, "skipped");
         cancelAllTimers();
         if (currentIndex >= exerciseNames.size() - 1) {
@@ -514,6 +548,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         isTimerRunning = false;
         isReadyCountdown = false;
     }
+
 
     private void showSkipLastExerciseDialog() {
         new AlertDialog.Builder(this)
@@ -561,16 +596,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 // TTS announcements for timed exercises
                 if (tts != null) {
                     switch (secondsLeft) {
-                        case 30:
-                            if (totalDurationForThisExercise > 30) {
-                                tts.speak("30 seconds remaining", TextToSpeech.QUEUE_ADD, null, "THIRTY_SEC");
-                            }
-                            break;
-                        case 20:
-                            if (totalDurationForThisExercise > 20) {
-                                tts.speak("20 seconds", TextToSpeech.QUEUE_ADD, null, "TWENTY_SEC");
-                            }
-                            break;
                         case 10:
                             tts.speak("10 seconds left", TextToSpeech.QUEUE_ADD, null, "TEN_SEC");
                             break;
@@ -583,14 +608,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                             break;
                     }
 
-                    // Motivational phrase at halfway point
-                    if (secondsLeft == totalDurationForThisExercise / 2 && totalDurationForThisExercise >= 20) {
-                        String[] motivationalPhrases = {
-                                "Keep going!", "You're doing great!", "Halfway there!", "Stay strong!"
-                        };
-                        String phrase = motivationalPhrases[currentIndex % motivationalPhrases.length];
-                        tts.speak(phrase, TextToSpeech.QUEUE_ADD, null, "MOTIVATION");
-                    }
+
                 }
             }
 
@@ -683,5 +701,12 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         long minutes = (durationMillis / 1000) / 60;
         long seconds = (durationMillis / 1000) % 60;
         return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+    }
+
+    private void stopAllTTS() {
+        if (tts != null && isTTSReady) {
+            tts.stop(); // This stops all current and queued utterances
+            utteranceCallbacks.clear(); // Clear all pending callbacks
+        }
     }
 }

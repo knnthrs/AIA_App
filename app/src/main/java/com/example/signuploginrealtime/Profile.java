@@ -482,7 +482,7 @@ public class Profile extends AppCompatActivity {
             }
             if (snapshot != null && snapshot.exists()) {
                 // Get user data from Firestore
-                String name = snapshot.getString("full name");
+                String name = snapshot.getString("fullname");
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
                 String memberId = snapshot.getString("memberId");

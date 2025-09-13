@@ -14,6 +14,7 @@ public class UserProfile implements Serializable {
 
     // Enhanced fields for better personalization
     private List<String> healthIssues;
+    private String otherHealthIssue; // NEW: for free-text health issues
     private List<String> availableEquipment;
     private List<String> preferredMuscleGroups;
     private List<String> dislikedExercises;
@@ -72,7 +73,7 @@ public class UserProfile implements Serializable {
         return baseRest;
     }
 
-    // All getters and setters...
+    // Getters and Setters
     public String getFitnessGoal() { return fitnessGoal; }
     public void setFitnessGoal(String fitnessGoal) { this.fitnessGoal = fitnessGoal; }
 
@@ -93,6 +94,9 @@ public class UserProfile implements Serializable {
 
     public List<String> getHealthIssues() { return healthIssues; }
     public void setHealthIssues(List<String> healthIssues) { this.healthIssues = healthIssues; }
+
+    public String getOtherHealthIssue() { return otherHealthIssue; } // NEW getter
+    public void setOtherHealthIssue(String otherHealthIssue) { this.otherHealthIssue = otherHealthIssue; } // NEW setter
 
     public List<String> getAvailableEquipment() { return availableEquipment; }
     public void setAvailableEquipment(List<String> availableEquipment) { this.availableEquipment = availableEquipment; }

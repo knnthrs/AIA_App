@@ -10,7 +10,7 @@ import android.widget.*;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-
+import android.graphics.Paint;
 import com.example.signuploginrealtime.UserInfo.GenderSelection;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
@@ -51,6 +51,11 @@ public class LoginActivity extends AppCompatActivity {
         aboutUsRedirectText = findViewById(R.id.AboutusRedirectText);
         progressBar = findViewById(R.id.progressBar);
 
+        TextView forgotPasswordText = findViewById(R.id.forgotPasswordText);
+
+        forgotPasswordText.setPaintFlags(
+                forgotPasswordText.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+
         // Initialize new radio button components
         userTypeGroup = findViewById(R.id.userTypeGroup);
         radioUser = findViewById(R.id.radioUser);
@@ -58,6 +63,25 @@ public class LoginActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         mDatabase = FirebaseFirestore.getInstance();
+
+        forgotPasswordText.setOnClickListener(v -> {
+            String email = loginEmail.getText().toString().trim();
+
+            if (email.isEmpty()) {
+                loginEmail.setError("Please enter your email first");
+                loginEmail.requestFocus();
+                return;
+            }
+
+            mAuth.sendPasswordResetEmail(email)
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this, "Reset link sent to your email.", Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(LoginActivity.this, "Error: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
+                        }
+                    });
+        });
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String role = prefs.getString("LOGGED_IN_ROLE", "");
@@ -84,8 +108,10 @@ public class LoginActivity extends AppCompatActivity {
         userTypeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.radioCoach) {
                 loginButton.setText("Login as Coach");
+                signupRedirectText.setVisibility(View.GONE); // hide sign up text for coach
             } else {
                 loginButton.setText("Login as User");
+                signupRedirectText.setVisibility(View.VISIBLE); // show sign up text for user
             }
         });
 

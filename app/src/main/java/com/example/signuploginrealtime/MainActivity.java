@@ -307,7 +307,7 @@ public class MainActivity extends AppCompatActivity {
                     setDefaultValues(); return;
                 }
                 if (firestoreSnapshot != null && firestoreSnapshot.exists()) {
-                    if (firestoreSnapshot.contains("name") && firestoreSnapshot.contains("age") &&
+                    if (firestoreSnapshot.contains("full name") && firestoreSnapshot.contains("age") &&
                         firestoreSnapshot.contains("gender") && firestoreSnapshot.contains("height") &&
                         firestoreSnapshot.contains("weight") && firestoreSnapshot.contains("fitnessLevel") &&
                         firestoreSnapshot.contains("fitnessGoal")) {
@@ -341,8 +341,10 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("SetTextI18n")
     private void updateGreeting(DocumentSnapshot firestoreSnapshot) {
-        String name = firestoreSnapshot.getString("name");
-        greetingText.setText((name != null && !name.trim().isEmpty()) ? "Hi, " + name : "Hi, User");
+        String name = firestoreSnapshot.getString("full name");
+        greetingText.setText((name != null && !name.trim().isEmpty())
+                ? "Hi, " + name
+                : "Hi, User");
     }
 
     @SuppressLint("SetTextI18n")

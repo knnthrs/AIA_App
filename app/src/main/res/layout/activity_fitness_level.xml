@@ -37,7 +37,7 @@
         android:id="@+id/tvHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="What's your fitness level?"
+        android:text="What's your current activity level?"
         android:textSize="28sp"
         android:textStyle="bold"
         android:textColor="@color/black"
@@ -46,9 +46,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Fitness Level Options -->
+    <!-- Activity Level Options -->
     <LinearLayout
-        android:id="@+id/llFitnessOptions"
+        android:id="@+id/llActivityOptions"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
@@ -59,8 +59,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Sedentary -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardBeginner"
+            android:id="@+id/cardSedentary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -78,7 +79,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Beginner"
+                    android:text="Sedentary"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/black"
@@ -87,16 +88,16 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="New to fitness or just getting started"
+                    android:text="Little to no exercise, mostly sitting"
                     android:textSize="14sp"
                     android:textColor="@color/black" />
 
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Lightly Active -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardIntermediate"
+            android:id="@+id/cardLight"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -114,7 +115,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Intermediate"
+                    android:text="Lightly Active"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/black"
@@ -123,16 +124,52 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Regular exercise for 6+ months"
+                    android:text="Light exercise 1–3 days/week"
                     android:textSize="14sp"
                     android:textColor="@color/black" />
 
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
+        <!-- Moderately Active -->
         <com.google.android.material.card.MaterialCardView
-            android:id="@+id/cardAdvanced"
+            android:id="@+id/cardModerate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="2dp"
+            app:strokeWidth="2dp"
+            app:strokeColor="@color/white">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:padding="20dp">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Moderately Active"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/black"
+                    android:layout_marginBottom="4dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Moderate exercise 3–5 days/week"
+                    android:textSize="14sp"
+                    android:textColor="@color/black" />
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Very Active -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardVeryActive"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             app:cardCornerRadius="12dp"
@@ -149,7 +186,7 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Advanced"
+                    android:text="Very Active"
                     android:textSize="18sp"
                     android:textStyle="bold"
                     android:textColor="@color/black"
@@ -158,12 +195,11 @@
                 <TextView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="Experienced with consistent training"
+                    android:text="Hard exercise 6–7 days/week"
                     android:textSize="14sp"
                     android:textColor="@color/black" />
 
             </LinearLayout>
-
         </com.google.android.material.card.MaterialCardView>
 
     </LinearLayout>

@@ -19,9 +19,9 @@ import com.bumptech.glide.Glide;
 import com.example.signuploginrealtime.logic.AdvancedWorkoutDecisionMaker;
 import com.example.signuploginrealtime.logic.WorkoutProgression;
 import com.example.signuploginrealtime.models.ExerciseInfo;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
-import com.example.signuploginrealtime.UserProfileHelper.UserProfile;
 
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;

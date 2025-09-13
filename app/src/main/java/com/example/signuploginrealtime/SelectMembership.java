@@ -23,7 +23,7 @@ public class SelectMembership extends AppCompatActivity {
     // Header
     private View backButton;
 
-    // All packages (standard + PT)
+    // All packages (daily + standard + PT)
     private List<CardView> membershipCards;
 
     // Confirm button
@@ -45,11 +45,16 @@ public class SelectMembership extends AppCompatActivity {
         // ---- find views (match your XML ids) ----
         backButton = findViewById(R.id.back_button);
 
+        // Daily package
+        CardView dailyCard = findViewById(R.id.daily_card);
+
+        // Standard packages
         CardView oneMonthCard = findViewById(R.id.one_month_card);
         CardView threeMonthCard = findViewById(R.id.three_month_card);
         CardView sixMonthCard = findViewById(R.id.six_month_card);
         CardView oneYearCard = findViewById(R.id.one_year_card);
 
+        // PT packages
         CardView oneMonth10PtCard = findViewById(R.id.one_month_10pt_card);
         CardView threeMonth10PtCard = findViewById(R.id.three_month_10pt_card);
         CardView threeMonth15PtCard = findViewById(R.id.three_month_15pt_card);
@@ -59,39 +64,44 @@ public class SelectMembership extends AppCompatActivity {
 
         // Put all cards in a list for easy reset
         membershipCards = Arrays.asList(
-                oneMonthCard, threeMonthCard, sixMonthCard, oneYearCard,
+                dailyCard, oneMonthCard, threeMonthCard, sixMonthCard, oneYearCard,
                 oneMonth10PtCard, threeMonth10PtCard, threeMonth15PtCard, threeMonth24PtCard
         );
 
         // ---- interactions ----
         backButton.setOnClickListener(v -> finish());
 
+        // Daily package click
+        setPlanClick(dailyCard,
+                "DAILY",
+                "Daily Pass — ₱150\nFull gym access • All equipment • Locker room");
+
         // Standard package clicks
         setPlanClick(oneMonthCard,
-                "STANDARD_1M",
+                "1 MONTH STANDARD",
                 "1 Month — ₱1,500\nFull gym access • All equipment • Locker room");
         setPlanClick(threeMonthCard,
-                "STANDARD_3M",
+                "3 MONTHS STANDARD",
                 "3 Months — ₱3,600 (₱1,200/month)");
         setPlanClick(sixMonthCard,
-                "STANDARD_6M",
+                "6 MONTHS STANDARD",
                 "6 Months — ₱6,000 (₱1,000/month)");
         setPlanClick(oneYearCard,
-                "STANDARD_12M",
+                "1 YEAR STANDARD",
                 "12 Months / 1 Year — ₱9,000 (₱750/month)");
 
         // PT package clicks
         setPlanClick(oneMonth10PtCard,
-                "PT_1M_10PT",
+                "1 MONTH WITH 10PT",
                 "1 Month + 10 PT Sessions — ₱4,500");
         setPlanClick(threeMonth10PtCard,
-                "PT_3M_10PT",
-                "3 Months + 10 PT Sessions — ₱6,000");
+                "3 MONTHS WITH 10PT",
+                "MONTHLY_3 Months + 10 PT Sessions — ₱6,000");
         setPlanClick(threeMonth15PtCard,
-                "PT_3M_15PT",
-                "3 Months + 15 PT Sessions — ₱7,500");
+                "3 MONTHS WITH 15PT",
+                "MONTHLY_3 Months + 15 PT Sessions — ₱7,500");
         setPlanClick(threeMonth24PtCard,
-                "PT_3M_24PT",
+                "3 MONTHS WITH 24PT",
                 "3 Months + 24 PT Sessions — ₱9,000");
 
         // Confirm: save to Firebase and return result
@@ -109,7 +119,7 @@ public class SelectMembership extends AppCompatActivity {
             }
 
             String uid = user.getUid();
-            
+
             Map<String, Object> membershipData = new HashMap<>();
             membershipData.put("membershipPlanCode", selectedPlanCode);
             membershipData.put("membershipPlanLabel", selectedPlanLabel);
@@ -123,7 +133,7 @@ public class SelectMembership extends AppCompatActivity {
                         resultIntent.putExtra("selectedPlanCode", selectedPlanCode);
                         resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
                         // You might want to pass the status back too if needed by the calling activity
-                        // resultIntent.putExtra("membershipStatus", "active"); 
+                        // resultIntent.putExtra("membershipStatus", "active");
                         setResult(RESULT_OK, resultIntent);
                         finish();
                     })

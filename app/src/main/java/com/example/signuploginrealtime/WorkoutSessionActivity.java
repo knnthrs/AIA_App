@@ -128,7 +128,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         btnNext.setOnClickListener(v -> {
             if (!isReadyCountdown) {
                 if (isRepetitionBased) {
-                    recordAndLogExercisePerformance(currentRepCount, 0, "completed"); // MODIFIED
+                    recordAndLogExercisePerformance(currentRepCount, 0, "completed");
                 } else {
                     int actualDuration = 0;
                     if (exerciseDurations != null && currentIndex < exerciseDurations.size()) {
@@ -137,7 +137,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                             actualDuration = exerciseDurations.get(currentIndex);
                         }
                     }
-                    recordAndLogExercisePerformance(0, Math.max(0, actualDuration), "completed"); // MODIFIED
+                    recordAndLogExercisePerformance(0, Math.max(0, actualDuration), "completed");
                 }
                 moveToNextExercise();
             }
@@ -219,6 +219,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         performanceDataList.add(performance);
     }
 
+    // FIXED: Updated showExercise method
     private void showExercise(int index) {
         String cleanExerciseName = getCleanExerciseName(exerciseNames.get(index));
         tvExerciseName.setText(cleanExerciseName);
@@ -234,8 +235,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         updateProgressBar();
         updateButtonStates();
         loadExerciseImage(index);
-        startReadyCountdown();
 
+        startReadyCountdown();
     }
 
     private String getCleanExerciseName(String fullName) {
@@ -292,36 +293,51 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
     }
 
+    // FIXED: Updated ready countdown method
     private void startReadyCountdown() {
         isReadyCountdown = true;
-        tvExerciseTimer.setVisibility(View.INVISIBLE); // hide during ready
+        isTimerRunning = true;
+        btnPause.setText("PAUSE");
 
-        readyTimer = new CountDownTimer(5000, 1000) { // 4..3..2..1..Start
+        // FIXED: Hide timer during ready countdown (as you wanted)
+        tvExerciseTimer.setVisibility(View.INVISIBLE);
+
+        readyTimer = new CountDownTimer(5000, 1000) { // 5 seconds: 4,3,2,1,Start
             int countdownNumber = 4;
 
             @Override
             public void onTick(long millisUntilFinished) {
                 if (countdownNumber > 0) {
+                    // FIXED: Only TTS, no visual display during ready countdown
                     if (tts != null) {
-                        tts.speak(String.valueOf(countdownNumber), TextToSpeech.QUEUE_FLUSH, null, "READY_" + countdownNumber);
+                        if (countdownNumber == 4) {
+                            // First announcement with exercise name
+                            String exerciseName = getCleanExerciseName(exerciseNames.get(currentIndex));
+                            tts.speak("Get ready for " + exerciseName, TextToSpeech.QUEUE_FLUSH, null, "GET_READY");
+                            // Then start countdown
+                            tts.speak(String.valueOf(countdownNumber), TextToSpeech.QUEUE_ADD, null, "READY_" + countdownNumber);
+                        } else {
+                            tts.speak(String.valueOf(countdownNumber), TextToSpeech.QUEUE_ADD, null, "READY_" + countdownNumber);
+                        }
                     }
                     countdownNumber--;
                 } else {
+                    // Final "Start!" announcement
                     if (tts != null) {
-                        tts.speak("Start!", TextToSpeech.QUEUE_FLUSH, null, "READY_START");
+                        tts.speak("Start!", TextToSpeech.QUEUE_ADD, null, "READY_START");
                     }
                 }
             }
 
             @Override
             public void onFinish() {
-                startActualExercise(); // after "Start!" go to exercise
+                startActualExercise();
             }
         };
         readyTimer.start();
     }
 
-
+    // FIXED: Updated startActualExercise method
     private void startActualExercise() {
         currentExerciseStartTimeMillis = System.currentTimeMillis();
         isReadyCountdown = false;
@@ -340,11 +356,12 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             isRepetitionBased = true;
         }
 
+        // FIXED: Show timer only when actual exercise starts
+        tvExerciseTimer.setVisibility(View.VISIBLE);
+
         if (isRepetitionBased) {
-            tvExerciseTimer.setVisibility(View.VISIBLE); // 👈 show only now
             startRepCounter();
         } else {
-            tvExerciseTimer.setVisibility(View.VISIBLE); // 👈 show for timed
             if (exerciseDurations != null && currentIndex < exerciseDurations.size()) {
                 startTimer(exerciseDurations.get(currentIndex));
             } else {
@@ -353,19 +370,22 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
     }
 
+    // FIXED: Updated startRepCounter method
     private void startRepCounter() {
         currentRepCount = 0;
         isCounterPaused = false;
+        isTimerRunning = true;
         int targetReps = getTargetReps(currentIndex);
 
-        // Show initial reps (0/target)
+        // FIXED: Show reps counter immediately
+        tvExerciseTimer.setVisibility(View.VISIBLE);
         tvExerciseTimer.setText("0/" + targetReps);
         btnPause.setText("PAUSE");
 
-        // ✅ Directly start rep counting, no extra 3-2-1 countdown here
         startActualRepCounting(targetReps);
     }
 
+    // FIXED: Updated startActualRepCounting method
     private void startActualRepCounting(int targetReps) {
         if (repTimer != null) repTimer.cancel();
 
@@ -374,17 +394,31 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             public void onTick(long millisUntilFinished) {
                 if (!isCounterPaused && currentRepCount < targetReps) {
                     currentRepCount++;
+
+                    // FIXED: Update visual reps counter
                     tvExerciseTimer.setText(currentRepCount + "/" + targetReps);
 
+                    // FIXED: TTS announces each rep count
                     if (tts != null) {
-                        // 👈 use QUEUE_ADD so each rep waits its turn
-                        tts.speak(String.valueOf(currentRepCount), TextToSpeech.QUEUE_ADD, null, "REP_" + currentRepCount);
+                        // Add motivational phrases at key points
+                        if (currentRepCount == targetReps / 2 && targetReps > 4) {
+                            tts.speak("Halfway! " + currentRepCount, TextToSpeech.QUEUE_ADD, null, "REP_HALFWAY");
+                        } else if (currentRepCount == targetReps - 2 && targetReps > 3) {
+                            tts.speak("Last 2! " + currentRepCount, TextToSpeech.QUEUE_ADD, null, "REP_LAST2");
+                        } else {
+                            // FIXED: Always announce each rep count
+                            tts.speak(String.valueOf(currentRepCount), TextToSpeech.QUEUE_ADD, null, "REP_" + currentRepCount);
+                        }
                     }
 
                     if (currentRepCount >= targetReps) {
                         repTimer.cancel();
+                        isTimerRunning = false;
+                        if (tts != null) {
+                            tts.speak("Exercise complete! Great job!", TextToSpeech.QUEUE_ADD, null, "REP_COMPLETE");
+                        }
                         recordAndLogExercisePerformance(currentRepCount, 0, "completed");
-                        tvExerciseTimer.postDelayed(() -> moveToNextExercise(), 1500);
+                        tvExerciseTimer.postDelayed(() -> moveToNextExercise(), 2000);
                     }
                 }
             }
@@ -399,8 +433,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private int getTargetReps(int exerciseIndex) {
         if (exerciseNames != null && exerciseIndex < exerciseNames.size()){
             String exerciseName = exerciseNames.get(exerciseIndex);
-             // Attempt to parse reps like "... x 10 ..." or "... 10 reps ..."
-             if (exerciseName.toLowerCase().contains("x ")) {
+            // Attempt to parse reps like "... x 10 ..." or "... 10 reps ..."
+            if (exerciseName.toLowerCase().contains("x ")) {
                 try {
                     String afterX = exerciseName.substring(exerciseName.toLowerCase().indexOf("x ") + 2).trim();
                     String[] parts = afterX.split("\\s+");
@@ -423,13 +457,17 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         return 15; // Default target reps
     }
 
+    // FIXED: Updated pauseRepCounter method
     private void pauseRepCounter() {
         isCounterPaused = true;
+        isTimerRunning = false;
         btnPause.setText("RESUME");
     }
 
+    // FIXED: Updated resumeRepCounter method
     private void resumeRepCounter() {
         isCounterPaused = false;
+        isTimerRunning = true;
         btnPause.setText("PAUSE");
     }
 
@@ -459,7 +497,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     private void skipCurrentExercise() {
         Log.d(TAG, "Skipping exercise: " + exerciseNames.get(currentIndex));
-        recordAndLogExercisePerformance(0, 0, "skipped"); // MODIFIED
+        recordAndLogExercisePerformance(0, 0, "skipped");
         cancelAllTimers();
         if (currentIndex >= exerciseNames.size() - 1) {
             showSkipLastExerciseDialog();
@@ -503,24 +541,71 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 .show();
     }
 
+    // FIXED: Updated startTimer method with enhanced TTS
     private void startTimer(int seconds) {
         if (timer != null) timer.cancel();
         timeLeftMillis = seconds * 1000L;
         final int totalDurationForThisExercise = seconds;
 
+        // Show timer for timed exercises
+        tvExerciseTimer.setVisibility(View.VISIBLE);
+        tvExerciseTimer.setText(seconds + "s");
+
         timer = new CountDownTimer(timeLeftMillis, 1000) {
             @Override
             public void onTick(long millisUntilFinished) {
                 timeLeftMillis = millisUntilFinished;
-                tvExerciseTimer.setText((int) (millisUntilFinished / 1000) + "s");
+                int secondsLeft = (int) (millisUntilFinished / 1000);
+                tvExerciseTimer.setText(secondsLeft + "s");
+
+                // TTS announcements for timed exercises
+                if (tts != null) {
+                    switch (secondsLeft) {
+                        case 30:
+                            if (totalDurationForThisExercise > 30) {
+                                tts.speak("30 seconds remaining", TextToSpeech.QUEUE_ADD, null, "THIRTY_SEC");
+                            }
+                            break;
+                        case 20:
+                            if (totalDurationForThisExercise > 20) {
+                                tts.speak("20 seconds", TextToSpeech.QUEUE_ADD, null, "TWENTY_SEC");
+                            }
+                            break;
+                        case 10:
+                            tts.speak("10 seconds left", TextToSpeech.QUEUE_ADD, null, "TEN_SEC");
+                            break;
+                        case 5:
+                        case 4:
+                        case 3:
+                        case 2:
+                        case 1:
+                            tts.speak(String.valueOf(secondsLeft), TextToSpeech.QUEUE_ADD, null, "COUNT_" + secondsLeft);
+                            break;
+                    }
+
+                    // Motivational phrase at halfway point
+                    if (secondsLeft == totalDurationForThisExercise / 2 && totalDurationForThisExercise >= 20) {
+                        String[] motivationalPhrases = {
+                                "Keep going!", "You're doing great!", "Halfway there!", "Stay strong!"
+                        };
+                        String phrase = motivationalPhrases[currentIndex % motivationalPhrases.length];
+                        tts.speak(phrase, TextToSpeech.QUEUE_ADD, null, "MOTIVATION");
+                    }
+                }
             }
 
             @Override
             public void onFinish() {
-                tvExerciseTimer.setText("0s");
-                timeLeftMillis = 0; // Ensure timeLeftMillis is 0 when timer finishes
-                recordAndLogExercisePerformance(0, totalDurationForThisExercise, "completed"); // MODIFIED
-                moveToNextExercise();
+                tvExerciseTimer.setText("DONE!");
+                timeLeftMillis = 0;
+                isTimerRunning = false;
+
+                if (tts != null) {
+                    tts.speak("Exercise complete! Well done!", TextToSpeech.QUEUE_ADD, null, "TIMER_COMPLETE");
+                }
+
+                recordAndLogExercisePerformance(0, totalDurationForThisExercise, "completed");
+                tvExerciseTimer.postDelayed(() -> moveToNextExercise(), 2000);
             }
         }.start();
 
@@ -561,22 +646,25 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         finish(); // Finish current session, RestTimerActivity will start a new one
     }
 
+    // FIXED: Updated onPause method
     @Override
     protected void onPause() {
         super.onPause();
-        // Simplified pause logic: just cancel timers if they are running
-        if (isTimerRunning && !isReadyCountdown && !isRepetitionBased && timer != null) {
-            timer.cancel(); // Duration timer
-            // timeLeftMillis is preserved
-            btnPause.setText("RESUME");
-        }
-        if (isRepetitionBased && repTimer != null && isTimerRunning) { // Rep-based timer
-            pauseRepCounter(); // This already sets button to RESUME
-        }
+
         if (isReadyCountdown && readyTimer != null && isTimerRunning) {
-            readyTimer.cancel(); // Ready countdown
-            // timeLeftMillis is preserved for ready countdown
+            readyTimer.cancel();
+            isTimerRunning = false;
             btnPause.setText("RESUME");
+            // Keep timer hidden during ready countdown pause
+            tvExerciseTimer.setVisibility(View.INVISIBLE);
+        } else if (isRepetitionBased && isTimerRunning) {
+            pauseRepCounter();
+            // Keep reps counter visible during pause
+        } else if (!isRepetitionBased && timer != null && isTimerRunning) {
+            timer.cancel();
+            isTimerRunning = false;
+            btnPause.setText("RESUME");
+            // Keep time display visible during pause
         }
     }
 

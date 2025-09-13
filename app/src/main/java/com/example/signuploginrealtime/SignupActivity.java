@@ -8,6 +8,8 @@ import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.example.signuploginrealtime.UserInfo.GenderSelection;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore; // Changed import
@@ -55,6 +57,12 @@ public class SignupActivity extends AppCompatActivity {
                 return;
             }
 
+            // Validate full name (must contain at least first and last name)
+            if (!isValidFullName(fullname)) {
+                Toast.makeText(SignupActivity.this, "Please enter your full name (first and last name)", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (!password.equals(confirmPassword)) {
                 Toast.makeText(SignupActivity.this, "Passwords do not match", Toast.LENGTH_SHORT).show();
                 return;
@@ -79,7 +87,7 @@ public class SignupActivity extends AppCompatActivity {
 
                                 // Add userType field to Firestore document
                                 Map<String, Object> userData = new HashMap<>();
-                                userData.put("name", fullname);
+                                userData.put("full name", fullname);
                                 userData.put("email", email);
                                 userData.put("phone", phone);
                                 userData.put("userType", "user");
@@ -104,6 +112,34 @@ public class SignupActivity extends AppCompatActivity {
             Intent intent = new Intent(SignupActivity.this, LoginActivity.class);
             startActivity(intent);
         });
+    }
+
+    /**
+     * Validates if the input contains a full name (at least 2 words)
+     * @param fullname The name input to validate
+     * @return true if valid full name, false otherwise
+     */
+    private boolean isValidFullName(String fullname) {
+        if (fullname == null || fullname.trim().isEmpty()) {
+            return false;
+        }
+
+        // Split by spaces and filter out empty strings
+        String[] nameParts = fullname.trim().split("\\s+");
+
+        // Must have at least 2 parts (first name and last name)
+        if (nameParts.length < 2) {
+            return false;
+        }
+
+        // Each part must be at least 2 characters long and contain only letters
+        for (String part : nameParts) {
+            if (part.length() < 2 || !part.matches("[a-zA-Z]+")) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private void showLoading() {
@@ -140,17 +176,24 @@ public class SignupActivity extends AppCompatActivity {
     private void showSuccessDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(SignupActivity.this);
         builder.setTitle("Registration Successful");
-        builder.setMessage("You have successfully registered! You may now log in.");
+        builder.setMessage("You have successfully registered! Let's complete your profile.");
         builder.setCancelable(false);
         builder.setPositiveButton("OK", (dialog, which) -> {
-            Intent intent = new Intent(SignupActivity.this, LoginActivity.class);
+            // Create a UserProfile object
+            UserProfile userProfile = new UserProfile();
+            userProfile.setFitnessGoal("general fitness");
+            userProfile.setFitnessLevel("beginner");
+            userProfile.setGender(null); // will be set in GenderSelection
+            userProfile.setAge(0);
+            userProfile.setWeight(0);
+            userProfile.setHeight(0);
+
+            Intent intent = new Intent(SignupActivity.this, GenderSelection.class);
+            intent.putExtra("userProfile", userProfile);
             startActivity(intent);
             finish();
         });
         builder.show();
     }
-}
 
-// Make sure LoginActivity.java exists in the same package and is declared as:
-// package com.example.signuploginrealtime;
-// public class LoginActivity extends AppCompatActivity { ... }
+}

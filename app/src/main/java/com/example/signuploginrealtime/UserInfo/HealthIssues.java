@@ -17,7 +17,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.MainActivity;
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -34,8 +34,7 @@ public class HealthIssues extends AppCompatActivity {
     private CheckBox cbJointPain, cbBackPain, cbHeartCondition, cbHighBloodPressure, cbRespiratoryIssues, cbNone, cbOther;
     private EditText etOther;
     private Button btnNext;
-
-    private UserProfileHelper.UserProfile userProfile;
+    private UserProfile userProfile;
     private FirebaseFirestore db;
     private FirebaseAuth mAuth;
 
@@ -56,9 +55,9 @@ public class HealthIssues extends AppCompatActivity {
         db = FirebaseFirestore.getInstance();
 
         // Get full UserProfile from previous activity
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
             userProfile.setHealthIssues(new ArrayList<>());
             userProfile.setFitnessGoal("general fitness");
             userProfile.setFitnessLevel("beginner");
@@ -113,10 +112,12 @@ public class HealthIssues extends AppCompatActivity {
             if (cbHighBloodPressure.isChecked()) healthIssues.add("High Blood Pressure");
             if (cbRespiratoryIssues.isChecked()) healthIssues.add("Respiratory Issues");
 
+            // Capture free-text "Other" input
             if (cbOther.isChecked()) {
                 String otherInput = etOther.getText().toString().trim();
                 if (!otherInput.isEmpty()) {
-                    healthIssues.add(otherInput);
+                    healthIssues.add(otherInput); // Add to health issues list
+                    userProfile.setOtherHealthIssue(otherInput); // Save separately for generator use
                 }
             }
 
@@ -152,18 +153,6 @@ public class HealthIssues extends AppCompatActivity {
         // Create map with all user profile data
         Map<String, Object> userProfileData = new HashMap<>();
 
-        // Add user's name (email prefix or display name)
-        String displayName = currentUser.getDisplayName();
-        String email = currentUser.getEmail();
-        String name = displayName;
-        if (name == null || name.trim().isEmpty()) {
-            if (email != null && email.contains("@")) {
-                name = email.split("@")[0];
-            } else {
-                name = "User";
-            }
-        }
-        userProfileData.put("name", name);
 
         // Add all profile data
         userProfileData.put("gender", userProfile.getGender());
@@ -173,6 +162,8 @@ public class HealthIssues extends AppCompatActivity {
         userProfileData.put("fitnessLevel", userProfile.getFitnessLevel());
         userProfileData.put("fitnessGoal", userProfile.getFitnessGoal());
         userProfileData.put("healthIssues", userProfile.getHealthIssues());
+        userProfileData.put("otherHealthIssue", userProfile.getOtherHealthIssue());
+
 
         // Add additional fields with default values
         userProfileData.put("availableEquipment", new ArrayList<>());
@@ -194,8 +185,6 @@ public class HealthIssues extends AppCompatActivity {
                 .set(userProfileData, SetOptions.merge())
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "User profile successfully saved to Firestore!");
-
-                    // Mark profile as complete in SharedPreferences
                     SharedPreferences prefs = getSharedPreferences("user_profile_prefs", MODE_PRIVATE);
                     SharedPreferences.Editor editor = prefs.edit();
                     editor.putBoolean("profile_complete_firebase", true);
@@ -203,7 +192,6 @@ public class HealthIssues extends AppCompatActivity {
 
                     Toast.makeText(HealthIssues.this, "Profile setup complete!", Toast.LENGTH_SHORT).show();
 
-                    // Navigate to MainActivity
                     Intent intent = new Intent(HealthIssues.this, MainActivity.class);
                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                     startActivity(intent);
@@ -212,8 +200,6 @@ public class HealthIssues extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error saving user profile to Firestore", e);
                     Toast.makeText(HealthIssues.this, "Error saving profile: " + e.getMessage(), Toast.LENGTH_LONG).show();
-
-                    // Re-enable button
                     btnNext.setEnabled(true);
                     btnNext.setText("Complete Setup");
                 });

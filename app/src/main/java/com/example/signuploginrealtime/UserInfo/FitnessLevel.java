@@ -11,24 +11,24 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
 
 public class FitnessLevel extends AppCompatActivity {
 
-    private MaterialCardView cardBeginner, cardIntermediate, cardAdvanced;
+    private MaterialCardView cardSedentary, cardLight, cardModerate, cardVeryActive;
     private Button btnNext;
-    private String selectedFitnessLevel = "";
+    private String selectedActivityLevel = "";
 
-    private UserProfileHelper.UserProfile userProfile; // full profile
+    private UserProfile userProfile; // full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
-        setContentView(R.layout.activity_fitness_level);
+        setContentView(R.layout.activity_fitness_level); // use your XML
 
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
@@ -37,28 +37,30 @@ public class FitnessLevel extends AppCompatActivity {
         });
 
         // Get full UserProfile from previous activity
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
             userProfile.setHealthIssues(new ArrayList<>());
         }
 
         // Initialize views
-        cardBeginner = findViewById(R.id.cardBeginner);
-        cardIntermediate = findViewById(R.id.cardIntermediate);
-        cardAdvanced = findViewById(R.id.cardAdvanced);
+        cardSedentary = findViewById(R.id.cardSedentary);
+        cardLight = findViewById(R.id.cardLight);
+        cardModerate = findViewById(R.id.cardModerate);
+        cardVeryActive = findViewById(R.id.cardVeryActive);
         btnNext = findViewById(R.id.btnNext);
 
-        // Set click listeners for fitness level selection
-        cardBeginner.setOnClickListener(v -> { selectedFitnessLevel = "Beginner"; updateCardSelection(); });
-        cardIntermediate.setOnClickListener(v -> { selectedFitnessLevel = "Intermediate"; updateCardSelection(); });
-        cardAdvanced.setOnClickListener(v -> { selectedFitnessLevel = "Advanced"; updateCardSelection(); });
+        // Set click listeners for activity level selection
+        cardSedentary.setOnClickListener(v -> { selectedActivityLevel = "Sedentary"; updateCardSelection(); });
+        cardLight.setOnClickListener(v -> { selectedActivityLevel = "Lightly Active"; updateCardSelection(); });
+        cardModerate.setOnClickListener(v -> { selectedActivityLevel = "Moderately Active"; updateCardSelection(); });
+        cardVeryActive.setOnClickListener(v -> { selectedActivityLevel = "Very Active"; updateCardSelection(); });
 
         // Next button click listener
         btnNext.setOnClickListener(v -> {
-            if (!selectedFitnessLevel.isEmpty()) {
-                // Save selected fitness level in UserProfile
-                userProfile.setFitnessLevel(selectedFitnessLevel);
+            if (!selectedActivityLevel.isEmpty()) {
+                // Save selected activity level in UserProfile
+                userProfile.setFitnessLevel(selectedActivityLevel);
 
                 // Pass full userProfile to next activity (FitnessGoal)
                 Intent intent = new Intent(FitnessLevel.this, FitnessGoal.class);
@@ -70,15 +72,17 @@ public class FitnessLevel extends AppCompatActivity {
 
     private void updateCardSelection() {
         // Reset all cards to default state
-        cardBeginner.setStrokeColor(getResources().getColor(R.color.white));
-        cardIntermediate.setStrokeColor(getResources().getColor(R.color.white));
-        cardAdvanced.setStrokeColor(getResources().getColor(R.color.white));
+        cardSedentary.setStrokeColor(getResources().getColor(R.color.white));
+        cardLight.setStrokeColor(getResources().getColor(R.color.white));
+        cardModerate.setStrokeColor(getResources().getColor(R.color.white));
+        cardVeryActive.setStrokeColor(getResources().getColor(R.color.white));
 
         // Highlight selected card
-        switch (selectedFitnessLevel) {
-            case "Beginner": cardBeginner.setStrokeColor(getResources().getColor(R.color.black)); break;
-            case "Intermediate": cardIntermediate.setStrokeColor(getResources().getColor(R.color.black)); break;
-            case "Advanced": cardAdvanced.setStrokeColor(getResources().getColor(R.color.black)); break;
+        switch (selectedActivityLevel) {
+            case "Sedentary": cardSedentary.setStrokeColor(getResources().getColor(R.color.black)); break;
+            case "Lightly Active": cardLight.setStrokeColor(getResources().getColor(R.color.black)); break;
+            case "Moderately Active": cardModerate.setStrokeColor(getResources().getColor(R.color.black)); break;
+            case "Very Active": cardVeryActive.setStrokeColor(getResources().getColor(R.color.black)); break;
         }
 
         // Enable next button

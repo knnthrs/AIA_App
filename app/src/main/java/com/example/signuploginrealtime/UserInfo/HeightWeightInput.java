@@ -13,14 +13,14 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.textfield.TextInputEditText;
 
 public class HeightWeightInput extends AppCompatActivity {
 
     private TextInputEditText etHeight, etWeight;
     private Button btnNext;
-    private UserProfileHelper.UserProfile userProfile; // full profile object
+    private UserProfile userProfile; // full profile object
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -34,9 +34,9 @@ public class HeightWeightInput extends AppCompatActivity {
         });
 
         // Get full UserProfile from previous activity
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
         }
 
         // Initialize views

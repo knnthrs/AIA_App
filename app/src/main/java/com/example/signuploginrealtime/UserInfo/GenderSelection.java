@@ -12,7 +12,7 @@ import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.LoginActivity;
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.card.MaterialCardView;
 import com.google.firebase.auth.FirebaseAuth;
 
@@ -23,7 +23,7 @@ public class GenderSelection extends AppCompatActivity {
     private MaterialCardView cardMale, cardFemale;
     private Button btnNext;
     private String selectedGender = "";
-    private UserProfileHelper.UserProfile userProfile; // ✅ full profile
+    private UserProfile userProfile; // ✅ full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,9 +37,9 @@ public class GenderSelection extends AppCompatActivity {
         });
 
         // ✅ Initialize UserProfile
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
             userProfile.setHealthIssues(new ArrayList<>());
             userProfile.setFitnessGoal("general fitness");
             userProfile.setFitnessLevel("beginner");

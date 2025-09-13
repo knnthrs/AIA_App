@@ -84,7 +84,7 @@ public class QR extends AppCompatActivity {
                     return;
                 }
                 if (snapshot != null && snapshot.exists()) {
-                    userName = snapshot.getString("name");
+                    userName = snapshot.getString("full name");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
                     String dbMemberId = snapshot.getString("memberId");
@@ -135,29 +135,23 @@ public class QR extends AppCompatActivity {
         if (currentUser == null) return;
 
         String email = currentUser.getEmail();
-        String defaultName = getDefaultName(email);
+        String fullname = currentUser.getDisplayName(); // ✅ Firebase displayName
         String memberId = generateMemberId();
 
-        userName = defaultName;
+        userName = fullname != null ? fullname : "Gym Member";
         userMemberId = memberId;
         membershipStatusText = "NO PLAN SELECTED";
         membershipType = "No Plan Selected";
         isActive = false;
 
         if (userDocRef != null) {
-            userDocRef.set(new UserProfileFirestore(defaultName, email, memberId));
+            userDocRef.set(new UserProfileFirestore(fullname, email, memberId));
         }
 
         updateUserInfoRealtime();
         ensurePermanentQRCode();
     }
 
-    private String getDefaultName(String email) {
-        if (email != null && email.contains("@")) {
-            return email.split("@")[0];
-        }
-        return "Gym Member";
-    }
 
     private String generateMemberId() {
         long timestamp = System.currentTimeMillis();
@@ -302,7 +296,7 @@ public class QR extends AppCompatActivity {
                     return;
                 }
                 if (snapshot != null && snapshot.exists()) {
-                    userName = snapshot.getString("name");
+                    userName = snapshot.getString("full name");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
                     String dbMemberId = snapshot.getString("memberId");
@@ -349,9 +343,10 @@ public class QR extends AppCompatActivity {
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String name, email, memberId, phone, dateOfBirth, membershipStatus;
-        public UserProfileFirestore(String name, String email, String memberId) {
-            this.name = name;
+        public String full_name, email, memberId, phone, dateOfBirth, membershipStatus;
+
+        public UserProfileFirestore(String fullname, String email, String memberId) {
+            this.full_name = fullname;
             this.email = email;
             this.memberId = memberId;
             this.phone = "";

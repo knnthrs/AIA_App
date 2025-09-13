@@ -13,7 +13,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.textfield.TextInputEditText;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ public class AgeInput extends AppCompatActivity {
 
     private TextInputEditText etAge;
     private Button btnNext;
-    private UserProfileHelper.UserProfile userProfile; // ✅ full profile
+    private UserProfile userProfile; // ✅ full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,10 +37,10 @@ public class AgeInput extends AppCompatActivity {
         });
 
         // ✅ Get the UserProfile from previous activity (Gender selection)
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
             // fallback if somehow missing
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
             userProfile.setHealthIssues(new ArrayList<>());
             userProfile.setFitnessGoal("general fitness");
             userProfile.setFitnessLevel("beginner");

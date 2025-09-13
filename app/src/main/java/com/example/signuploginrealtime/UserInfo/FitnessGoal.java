@@ -11,7 +11,7 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
 import com.example.signuploginrealtime.R;
-import com.example.signuploginrealtime.UserProfileHelper;
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.card.MaterialCardView;
 
 import java.util.ArrayList;
@@ -21,7 +21,7 @@ public class FitnessGoal extends AppCompatActivity {
     private MaterialCardView cardWeightLoss, cardMuscleGain, cardEndurance, cardGeneralFitness;
     private Button btnNext;
     private String selectedFitnessGoal = "";
-    private UserProfileHelper.UserProfile userProfile; // full profile
+    private UserProfile userProfile; // full profile
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,10 +36,10 @@ public class FitnessGoal extends AppCompatActivity {
         });
 
         // Get the UserProfile from previous activity
-        userProfile = (UserProfileHelper.UserProfile) getIntent().getSerializableExtra("userProfile");
+        userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
         if (userProfile == null) {
             // fallback if somehow missing
-            userProfile = new UserProfileHelper.UserProfile();
+            userProfile = new UserProfile();
             userProfile.setHealthIssues(new ArrayList<>());
             userProfile.setFitnessLevel("Beginner");
             userProfile.setAge(25);

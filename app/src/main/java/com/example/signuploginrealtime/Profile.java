@@ -11,7 +11,6 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -483,7 +482,7 @@ public class Profile extends AppCompatActivity {
             }
             if (snapshot != null && snapshot.exists()) {
                 // Get user data from Firestore
-                String name = snapshot.getString("name");
+                String name = snapshot.getString("full name");
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
                 String memberId = snapshot.getString("memberId");
@@ -510,11 +509,12 @@ public class Profile extends AppCompatActivity {
         // Update Name
         if (name != null && !name.isEmpty()) {
             profileName.setText(name);
+        } else if (currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
+            profileName.setText(currentUser.getDisplayName()); // fallback to FirebaseAuth display name
         } else {
-            String defaultName = getDefaultName(currentUser.getEmail());
-            profileName.setText(defaultName);
-            if (userDocRef != null) userDocRef.update("name", defaultName);
+            profileName.setText("Gym Member");
         }
+
 
         // Update Email
         if (email != null && !email.isEmpty()) {
@@ -541,7 +541,7 @@ public class Profile extends AppCompatActivity {
             if (userDocRef != null) userDocRef.update("memberId", generatedMemberId);
         }
 
-        // Update Date of Birth - prioritize Firebase data
+        // Update Date of Birth
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
             tvDob.setText(dateOfBirth);
             try {
@@ -563,17 +563,20 @@ public class Profile extends AppCompatActivity {
         }
     }
 
+
     private void createDefaultUserProfile(FirebaseUser currentUser) {
         if (currentUser == null) return;
 
         String email = currentUser.getEmail();
-        String defaultName = getDefaultName(email);
+        String fullname = currentUser.getDisplayName(); // ✅ use fullname instead of defaultName
+        if (fullname == null || fullname.isEmpty()) {
+            fullname = "Gym Member"; // fallback if no display name
+        }
         String memberId = generateMemberId();
 
         // Create user profile in Firestore with userType field
         if (userDocRef != null) {
-            // Add userType: "user" to the Firestore document
-            UserProfileFirestore profile = new UserProfileFirestore(defaultName, email, memberId);
+            UserProfileFirestore profile = new UserProfileFirestore(fullname, email, memberId);
             firestore.runTransaction(transaction -> {
                 transaction.set(userDocRef, profile);
                 transaction.update(userDocRef, "userType", "user");
@@ -581,7 +584,7 @@ public class Profile extends AppCompatActivity {
             });
         }
 
-        profileName.setText(defaultName);
+        profileName.setText(fullname);
         profileEmail.setText(email != null ? email : "No email");
         tvPhone.setText("Phone not set");
         tvMemberId.setText("Member ID: #" + memberId);
@@ -589,12 +592,6 @@ public class Profile extends AppCompatActivity {
         tvDob.setText("Select your date of birth");
     }
 
-    private String getDefaultName(String email) {
-        if (email != null && email.contains("@")) {
-            return email.split("@")[0];
-        }
-        return "Gym Member";
-    }
 
     private String generateMemberId() {
         // Generate unique member ID - you can customize this format
@@ -647,15 +644,17 @@ public class Profile extends AppCompatActivity {
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String name, email, memberId, phone, dateOfBirth, membershipStatus, userType;
-        public UserProfileFirestore(String name, String email, String memberId) {
-            this.name = name;
+        public String fullname, email, memberId, phone, dateOfBirth, membershipStatus, userType;
+
+        public UserProfileFirestore(String fullname, String email, String memberId) {
+            this.fullname = fullname;
             this.email = email;
             this.memberId = memberId;
             this.phone = "";
             this.dateOfBirth = "";
             this.membershipStatus = "Active Member";
-            this.userType = "user"; // Always set userType for new users
+            this.userType = "user";
         }
     }
+
 }

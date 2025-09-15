@@ -17,6 +17,9 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
         <activity
+            android:name=".UserInfo.activity_select_workout_frequency"
+            android:exported="false" />
+        <activity
             android:name=".coach_clients"
             android:exported="false" />
         <activity

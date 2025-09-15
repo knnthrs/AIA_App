@@ -6,6 +6,7 @@ import com.example.signuploginrealtime.models.ExerciseInfo;
 import com.example.signuploginrealtime.models.UserProfile;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class WorkoutProgression {
@@ -55,15 +56,23 @@ public class WorkoutProgression {
             int baseReps = we.getReps();
             int baseRest = we.getRestSeconds();
 
-            int newReps = baseReps + (dayNumber / 2);
-            int newSets = baseSets + (dayNumber / 7);
-            int newRest = Math.max(20, baseRest - (dayNumber / 5) * 5);
+            // 🔹 Week-based progression
+            int week = userProfile.getCurrentWeek();
 
-            String exerciseNameForAdjustment = "unknown"; // Default
-            if (copyInfo.getName() != null) { // Use name from copyInfo which should be set
-                exerciseNameForAdjustment = copyInfo.getName().toLowerCase();
-            }
+            // ✅ 1️⃣ ADD: workout frequency factor
+            int workoutFrequency = userProfile.getWorkoutDaysPerWeek(); // 1–7 days
+            double frequencyFactor = 1.0 + (workoutFrequency - 3) * 0.1; // 3 days/week = factor 1
 
+            int maxExtraSets = 3;   // cap progression to +3 sets
+            int maxExtraReps = 10;  // cap progression to +10 reps
+
+            int newReps = baseReps + Math.min(maxExtraReps, week);
+            int newSets = baseSets + Math.min(maxExtraSets, week / 2);
+            int newRest = Math.max(20, baseRest - (week * 2)); // reduce rest slightly each week
+
+
+            // 🔹 Exercise-specific tweaks
+            String exerciseNameForAdjustment = copyInfo.getName() != null ? copyInfo.getName().toLowerCase() : "unknown";
             if (exerciseNameForAdjustment.contains("squat") || exerciseNameForAdjustment.contains("deadlift") || exerciseNameForAdjustment.contains("bench")) {
                 newReps = Math.max(5, newReps - 1);
                 newRest += 10;
@@ -107,21 +116,33 @@ public class WorkoutProgression {
             // Fitness level
             String level = userProfile.getFitnessLevel().toLowerCase();
             switch (level) {
-                case "beginner":
-                    newSets = Math.max(2, newSets - 1);
-                    newReps = Math.max(6, newReps - 2);
-                    newRest += 10; break;
-                case "intermediate":
-                    newRest -= 5; break;
-                case "advanced":
-                    newSets += 1; newReps += 2; newRest -= 10; break;
+                case "sedentary":
+                    newSets = 2;
+                    newReps = 8;
+                    newRest = 90;
+                    break;
+                case "lightly active":
+                    newSets = 3;
+                    newReps = 10;
+                    newRest = 75;
+                    break;
+                case "moderately active":
+                    newSets = 4;
+                    newReps = 12;
+                    newRest = 60;
+                    break;
+                case "very active":
+                    newSets = 5;
+                    newReps = 15;
+                    newRest = 45;
+                    break;
             }
 
-            // Health issues
+            // ✅ 2️⃣ Health issues loop (add knee check)
             if (userProfile.getHealthIssues() != null) {
                 for (String issue : userProfile.getHealthIssues()) {
                     issue = issue.toLowerCase();
-                    if (issue.contains("joint") || issue.contains("back")) {
+                    if (issue.contains("joint") || issue.contains("back") || issue.contains("knee")) {
                         newReps = Math.max(8, newReps - 2);
                         newSets = Math.max(2, newSets - 1);
                     }
@@ -133,9 +154,30 @@ public class WorkoutProgression {
                 }
             }
 
+            // ✅ 3️⃣ Optional: handle otherHealthIssue
+            String other = userProfile.getOtherHealthIssue();
+            if (other != null && !other.isEmpty()) {
+                String o = other.toLowerCase();
+                if (o.contains("shoulder") || o.contains("knee")) {
+                    newReps = Math.max(8, newReps - 1);
+                    newRest += 10;
+                }
+            }
+
+            // ✅ 1️⃣ APPLY frequency scaling here (after all other adjustments, before randomness)
+            newReps = (int)(newReps * frequencyFactor);
+            newSets = (int)(newSets * frequencyFactor);
+            newRest = (int)(newRest / frequencyFactor);
+
+            // Random adjustments
             newReps += (int) (Math.random() * 3) - 1;
             newSets += (int) (Math.random() * 2) - 1;
             newRest += ((int) (Math.random() * 11)) - 5;
+
+            // ✅ 4️⃣ Optional: cap sets/reps/rest
+            newReps = Math.min(newReps, 20);
+            newSets = Math.min(newSets, 6);
+            newRest = Math.min(newRest, 180);
 
             progressed.setReps(Math.max(1, newReps));
             progressed.setSets(Math.max(1, newSets));
@@ -143,6 +185,10 @@ public class WorkoutProgression {
 
             newExercises.add(progressed);
         }
+
+
+        // Shuffle exercises to vary order each day
+        Collections.shuffle(newExercises);
 
         Workout progressedWorkout = new Workout();
         progressedWorkout.setExercises(newExercises);

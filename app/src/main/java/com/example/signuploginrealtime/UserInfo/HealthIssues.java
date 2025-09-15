@@ -163,6 +163,8 @@ public class HealthIssues extends AppCompatActivity {
         userProfileData.put("fitnessGoal", userProfile.getFitnessGoal());
         userProfileData.put("healthIssues", userProfile.getHealthIssues());
         userProfileData.put("otherHealthIssue", userProfile.getOtherHealthIssue());
+        userProfileData.put("workoutDaysPerWeek", userProfile.getWorkoutDaysPerWeek());
+
 
 
         // Add additional fields with default values

@@ -11,6 +11,9 @@ public class UserProfile implements Serializable {
     private int age;
     private double weight;
     private double height;
+    private int currentWeek = 1; // start at week 1
+    private int completedWorkouts = 0; // count workouts done
+
 
     // Enhanced fields for better personalization
     private List<String> healthIssues;
@@ -24,6 +27,8 @@ public class UserProfile implements Serializable {
     private boolean hasGymAccess;
     private String experienceWithWeights; // none, basic, experienced
 
+
+
     public UserProfile() {
         this.healthIssues = new ArrayList<>();
         this.availableEquipment = new ArrayList<>();
@@ -31,7 +36,23 @@ public class UserProfile implements Serializable {
         this.dislikedExercises = new ArrayList<>();
     }
 
-    // BMI and health calculations
+
+    public int getCurrentWeek() {
+        return currentWeek;
+    }
+
+    public void setCurrentWeek(int currentWeek) {
+        this.currentWeek = currentWeek;
+    }
+
+    public int getCompletedWorkouts() {
+        return completedWorkouts;
+    }
+
+    public void setCompletedWorkouts(int completedWorkouts) {
+        this.completedWorkouts = completedWorkouts;
+    }
+
     public double calculateBMI() {
         if (height > 0) {
             double heightInMeters = height / 100.0; // assuming height in cm
@@ -40,6 +61,7 @@ public class UserProfile implements Serializable {
         return 0.0;
     }
 
+    // BMI and health calculations
     public String getBMICategory() {
         double bmi = calculateBMI();
         if (bmi < 18.5) return "Underweight";
@@ -52,9 +74,6 @@ public class UserProfile implements Serializable {
         return calculateBMI() >= 25;
     }
 
-    public boolean isBeginner() {
-        return "beginner".equalsIgnoreCase(fitnessLevel);
-    }
 
     public boolean hasHealthIssue(String issue) {
         return healthIssues != null && healthIssues.contains(issue);

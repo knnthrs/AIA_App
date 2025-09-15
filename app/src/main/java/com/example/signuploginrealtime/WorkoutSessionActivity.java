@@ -20,6 +20,11 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+
 import java.util.ArrayList;
 import java.util.Locale;
 
@@ -54,6 +59,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private int currentRepCount = 0;
     private boolean isRepetitionBased = false;
     private boolean isCounterPaused = false;
+    private FirebaseFirestore firestore;
+    private FirebaseUser currentUser;
 
     private ArrayList<ExercisePerformanceData> performanceDataList;
     private long currentExerciseStartTimeMillis;
@@ -103,6 +110,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             );
             return insets.consumeSystemWindowInsets();
         });
+
+        firestore = FirebaseFirestore.getInstance();
+        currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
 
         tvExerciseName = findViewById(R.id.tv_exercise_name);
         tvExerciseDetails = findViewById(R.id.tv_exercise_details);
@@ -531,15 +542,28 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void skipCurrentExercise() {
         Log.d(TAG, "Skipping exercise: " + exerciseNames.get(currentIndex));
         stopAllTTS();
-        recordAndLogExercisePerformance(0, 0, "skipped");
+        recordAndLogExercisePerformance(0, 0, "skipped"); // Log skipped exercise
         cancelAllTimers();
+
         if (currentIndex >= exerciseNames.size() - 1) {
-            showSkipLastExerciseDialog();
+            // Last exercise skipped → mark workout completed
+            markWorkoutCompletedInFirestore();
+
+            // Show completion
+            Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
+            intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
+            intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
+            intent.putExtra("workout_duration", calculateWorkoutDuration());
+            intent.putExtra("performanceData", performanceDataList);
+            startActivity(intent);
+            finish();
             return;
         }
+
         currentIndex++;
         showExercise(currentIndex);
     }
+
 
     private void cancelAllTimers() {
         if (timer != null) timer.cancel();
@@ -634,7 +658,16 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void moveToNextExercise() {
         cancelAllTimers();
 
-        if (exerciseNames == null || currentIndex >= exerciseNames.size() - 1) { // Last exercise completed or skipped
+        if (exerciseNames == null || currentIndex >= exerciseNames.size() - 1) { // Last exercise
+            // Record last exercise if needed
+            if (!isReadyCountdown && isRepetitionBased) {
+                recordAndLogExercisePerformance(currentRepCount, 0, "completed");
+            }
+
+            // Mark workout completed in Firestore
+            markWorkoutCompletedInFirestore();
+
+            // Launch completion activity
             Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
@@ -646,9 +679,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
 
         // Move to rest period before next exercise
-        int nextIndex = currentIndex + 1; // current exercise is done, prepare for rest then next one
+        int nextIndex = currentIndex + 1;
         Intent intent = new Intent(WorkoutSessionActivity.this, RestTimerActivity.class);
-        // Pass all necessary data for RestTimerActivity to eventually restart WorkoutSessionActivity
         intent.putExtra("nextIndex", nextIndex);
         intent.putStringArrayListExtra("exerciseNames", exerciseNames);
         intent.putStringArrayListExtra("exerciseDetails", exerciseDetails);
@@ -656,12 +688,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         intent.putIntegerArrayListExtra("exerciseTimes", exerciseDurations);
         intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
         intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
-        intent.putExtra("performanceData", performanceDataList); // Pass along accumulated performance data
-        intent.putExtra("workoutStartTime", workoutStartTime); // Pass workout start time
-
-
+        intent.putExtra("performanceData", performanceDataList);
+        intent.putExtra("workoutStartTime", workoutStartTime);
         startActivity(intent);
-        finish(); // Finish current session, RestTimerActivity will start a new one
+        finish();
     }
 
     // FIXED: Updated onPause method
@@ -709,4 +739,20 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             utteranceCallbacks.clear(); // Clear all pending callbacks
         }
     }
+
+    private void markWorkoutCompletedInFirestore() {
+        if (currentUser != null) {
+            String uid = currentUser.getUid();
+            int currentWeek = getIntent().getIntExtra("currentWeek", 1);
+            DocumentReference workoutRef = firestore.collection("users")
+                    .document(uid)
+                    .collection("currentWorkout")
+                    .document("week_" + currentWeek);
+
+            workoutRef.update("completed", true)
+                    .addOnSuccessListener(aVoid -> Log.d(TAG, "Workout marked as completed in Firestore."))
+                    .addOnFailureListener(e -> Log.e(TAG, "Failed to mark workout completed", e));
+        }
+    }
+
 }

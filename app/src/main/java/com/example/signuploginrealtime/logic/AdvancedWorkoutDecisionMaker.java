@@ -6,6 +6,7 @@ import com.example.signuploginrealtime.models.ExerciseInfo;
 import com.example.signuploginrealtime.models.UserProfile;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class AdvancedWorkoutDecisionMaker {
@@ -14,6 +15,9 @@ public class AdvancedWorkoutDecisionMaker {
                                                       UserProfile userProfile) {
 
         List<WorkoutExercise> exercises = new ArrayList<>();
+
+        Collections.shuffle(availableExercises);
+
 
         for (ExerciseInfo exInfo : availableExercises) {
             if (exInfo == null || exInfo.getName() == null) continue;
@@ -71,20 +75,20 @@ public class AdvancedWorkoutDecisionMaker {
             // 5️⃣ Fitness level adjustment
             String level = userProfile.getFitnessLevel().toLowerCase();
             switch (level) {
-                case "beginner":
-                    sets = Math.max(2, sets - 1);
-                    reps = Math.max(6, reps - 2);
-                    rest += 10;
+                case "sedentary":
+                    sets = 2; reps = 8; rest = 90;
                     break;
-                case "intermediate":
-                    rest -= 5;
+                case "lightly active":
+                    sets = 3; reps = 10; rest = 75;
                     break;
-                case "advanced":
-                    sets += 1;
-                    reps += 2;
-                    rest -= 10;
+                case "moderately active":
+                    sets = 4; reps = 12; rest = 60;
+                    break;
+                case "very active":
+                    sets = 5; reps = 15; rest = 45;
                     break;
             }
+
 
             // 6️⃣ Health issues adjustment
             if (userProfile.getHealthIssues() != null) {
@@ -102,12 +106,24 @@ public class AdvancedWorkoutDecisionMaker {
                 }
             }
 
-            // -------------------- SEQUENCE END --------------------
+            // 7️⃣ Progressive overload based on current week
+            int week = userProfile.getCurrentWeek();
+            int maxExtraSets = 3;  // cap progression to +3 sets max
+            int maxExtraReps = 10; // cap progression to +10 reps max
 
-            // Add small random variation per exercise for uniqueness
-            reps += (int) (Math.random() * 3) - 1; // ±1 rep
-            sets += (int) (Math.random() * 2) - 1; // ±1 set
-            rest += ((int) (Math.random() * 11)) - 5; // ±5 sec
+            if (week > 1) {
+                sets += Math.min(maxExtraSets, week / 2);
+                reps += Math.min(maxExtraReps, week);
+                rest = Math.max(20, rest - (week * 2));
+            }
+
+
+
+            // Tiny variation without reducing progression
+            reps += (int) (Math.random() * 2);  // +0 or +1
+            sets += (int) (Math.random() * 2);  // +0 or +1
+            rest -= (int) (Math.random() * 3);  // -0 to -2 sec (never adds rest)
+
 
             // Set final values
             we.setSets(Math.max(1, sets));

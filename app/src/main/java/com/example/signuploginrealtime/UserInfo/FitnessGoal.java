@@ -65,10 +65,11 @@ public class FitnessGoal extends AppCompatActivity {
                 // Save selected goal in UserProfile
                 userProfile.setFitnessGoal(selectedFitnessGoal);
 
-                // Pass full UserProfile to next activity (HealthIssues)
-                Intent intent = new Intent(FitnessGoal.this, HealthIssues.class);
+                // Pass full UserProfile to next activity (WorkoutFrequencyActivity)
+                Intent intent = new Intent(FitnessGoal.this, activity_select_workout_frequency.class);
                 intent.putExtra("userProfile", userProfile);
                 startActivity(intent);
+
             }
         });
     }

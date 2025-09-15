@@ -29,8 +29,16 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+
+
 import java.util.ArrayList;
 import java.util.List;
+
+
 
 public class WorkoutList extends AppCompatActivity {
 
@@ -45,6 +53,9 @@ public class WorkoutList extends AppCompatActivity {
 
     private List<WorkoutExercise> currentWorkoutExercises;
     private List<ExerciseInfo> allExercises = new ArrayList<>();
+    private FirebaseFirestore firestore;
+    private FirebaseUser currentUser;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -59,6 +70,10 @@ public class WorkoutList extends AppCompatActivity {
 
         ImageButton btnBack = findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> onBackPressed());
+
+        firestore = FirebaseFirestore.getInstance();
+        currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
 
         userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
 
@@ -271,32 +286,50 @@ public class WorkoutList extends AppCompatActivity {
     }
 
     private void generateWorkout(List<ExerciseInfo> availableExercises) {
-        if (availableExercises == null || availableExercises.isEmpty()) {
-            Log.e(TAG, "generateWorkout called with null or empty availableExercises. Cannot generate workout.");
-            Toast.makeText(this, "Cannot generate workout: No exercises available.", Toast.LENGTH_SHORT).show();
-            startWorkoutButton.setEnabled(false);
-            exercisesContainer.removeAllViews();
-            exerciseCount.setText("Exercises: 0");
-            workoutDuration.setText("Duration: 0 mins");
+        if (currentUser == null) {
+            Toast.makeText(this, "User not logged in", Toast.LENGTH_SHORT).show();
             return;
         }
-        Log.d(TAG, "Generating workout with " + availableExercises.size() + " available exercises.");
-        com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
 
-        Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(availableExercises, modelProfile);
-        Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(baseWorkout, 1, modelProfile);
+        String uid = currentUser.getUid();
+        DocumentReference workoutRef = firestore.collection("users")
+                .document(uid)
+                .collection("currentWorkout")
+                .document("week_" + userProfile.getCurrentWeek());
 
-        if (finalWorkout != null && finalWorkout.getExercises() != null && !finalWorkout.getExercises().isEmpty()) {
-            currentWorkoutExercises = finalWorkout.getExercises();
-            Log.d(TAG, "Generated workout with " + currentWorkoutExercises.size() + " exercises.");
-            showExercises(currentWorkoutExercises);
-            startWorkoutButton.setEnabled(true);
-        } else {
-            Log.e(TAG, "Workout generation resulted in null or empty workout/exercises.");
-            Toast.makeText(this, "Could not generate a valid workout.", Toast.LENGTH_SHORT).show();
-            startWorkoutButton.setEnabled(false);
+        // Check if there’s an existing unfinished workout
+        workoutRef.get().addOnSuccessListener(documentSnapshot -> {
+            if (documentSnapshot.exists() && Boolean.FALSE.equals(documentSnapshot.getBoolean("completed"))) {
+                // Load existing workout
+                currentWorkoutExercises = documentSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
+                showExercises(currentWorkoutExercises);
+                startWorkoutButton.setEnabled(true);
+            } else {
+                // Generate new workout
+                com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
+                Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(availableExercises, modelProfile);
+                Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(baseWorkout, 1, modelProfile);
+
+                if (finalWorkout != null && finalWorkout.getExercises() != null && !finalWorkout.getExercises().isEmpty()) {
+                    currentWorkoutExercises = finalWorkout.getExercises();
+                    showExercises(currentWorkoutExercises);
+                    startWorkoutButton.setEnabled(true);
+
+                    // Save to Firestore
+                    workoutRef.set(new WorkoutWrapper(currentWorkoutExercises, false))
+                            .addOnSuccessListener(aVoid -> Log.d(TAG, "Workout saved to Firestore."))
+                            .addOnFailureListener(e -> Log.e(TAG, "Error saving workout", e));
+                } else {
+                    Toast.makeText(this, "Could not generate a valid workout.", Toast.LENGTH_SHORT).show();
+                    startWorkoutButton.setEnabled(false);
+                    useDummyWorkout();
+                }
+            }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error fetching workout", e);
+            Toast.makeText(this, "Error loading workout", Toast.LENGTH_SHORT).show();
             useDummyWorkout();
-        }
+        });
     }
 
     private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
@@ -396,4 +429,21 @@ public class WorkoutList extends AppCompatActivity {
             order++;
         }
     }
+
+    public static class WorkoutWrapper {
+        public List<WorkoutExercise> exercises;
+        public boolean completed;
+
+        public WorkoutWrapper() {}
+
+        public WorkoutWrapper(List<WorkoutExercise> exercises, boolean completed) {
+            this.exercises = exercises;
+            this.completed = completed;
+        }
+
+        public List<WorkoutExercise> toWorkoutExercises() {
+            return exercises != null ? exercises : new ArrayList<>();
+        }
+    }
+
 }

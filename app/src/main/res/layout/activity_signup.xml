@@ -69,27 +69,45 @@
                     android:layout_marginTop="12dp"
                     android:textColor="@color/black" />
 
-                <EditText
-                    android:id="@+id/signup_password"
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:hint="Password"
-                    android:inputType="textPassword"
-                    android:background="@drawable/grey_boarder"
-                    android:padding="12dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/black" />
+                    app:passwordToggleEnabled="true"
+                    android:textColorHint="@color/grey">
 
-                <EditText
-                    android:id="@+id/signup_confirm_password"
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/signup_password"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:hint="Password"
+                        android:inputType="textPassword"
+                        android:background="@drawable/grey_boarder"
+                        android:padding="12dp"
+                        android:textColor="@color/black" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
+
+                <com.google.android.material.textfield.TextInputLayout
                     android:layout_width="match_parent"
-                    android:layout_height="50dp"
-                    android:hint="Confirm Password"
-                    android:inputType="textPassword"
-                    android:background="@drawable/grey_boarder"
-                    android:padding="12dp"
+                    android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
-                    android:textColor="@color/black" />
+                    app:passwordToggleEnabled="true"
+                    android:textColorHint="@color/grey">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/signup_confirm_password"
+                        android:layout_width="match_parent"
+                        android:layout_height="50dp"
+                        android:hint="Confirm Password"
+                        android:inputType="textPassword"
+                        android:background="@drawable/grey_boarder"
+                        android:padding="12dp"
+                        android:textColor="@color/black" />
+
+                </com.google.android.material.textfield.TextInputLayout>
+
 
                 <!-- Loading Components -->
                 <LinearLayout

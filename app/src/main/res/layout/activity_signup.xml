@@ -74,6 +74,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     app:passwordToggleEnabled="true"
+                    app:hintEnabled="false"
                     android:textColorHint="@color/grey">
 
                     <com.google.android.material.textfield.TextInputEditText
@@ -94,6 +95,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="12dp"
                     app:passwordToggleEnabled="true"
+                    app:hintEnabled="false"
                     android:textColorHint="@color/grey">
 
                     <com.google.android.material.textfield.TextInputEditText

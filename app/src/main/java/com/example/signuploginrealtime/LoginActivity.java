@@ -84,16 +84,17 @@ public class LoginActivity extends AppCompatActivity {
         });
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String role = prefs.getString("LOGGED_IN_ROLE", "");
-        String uid = prefs.getString("LOGGED_IN_UID", null);
+        String role = prefs.getString(KEY_ROLE, "");
+        String uid = prefs.getString(KEY_UID, null);
 
+// If Firebase still has a logged-in user AND SharedPreferences has role/uid → skip login screen
         if (FirebaseAuth.getInstance().getCurrentUser() != null && uid != null && !role.isEmpty()) {
             if ("coach".equals(role)) {
                 Intent intent = new Intent(this, coach_clients.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
                 finish();
-                return;
+                return; // stop running the rest of onCreate
             } else if ("user".equals(role)) {
                 Intent intent = new Intent(this, MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -102,6 +103,7 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
         }
+
 
 
         // Optional: Update button text based on selection
@@ -183,7 +185,7 @@ public class LoginActivity extends AppCompatActivity {
 
     private void validateUserTypeAndNavigate(String userId, boolean isCoach) {
         if (isCoach) {
-            // Only check coaches collection for coach login
+            // Check coaches collection
             mDatabase.collection("coaches").document(userId).get()
                     .addOnCompleteListener(task -> {
                         showLoading(false, true);
@@ -192,12 +194,14 @@ public class LoginActivity extends AppCompatActivity {
                             if (coachDoc != null && coachDoc.exists()) {
                                 String userType = coachDoc.getString("userType");
                                 if ("coach".equals(userType)) {
+                                    // ✅ Save coach login state
                                     SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
                                     prefs.edit()
                                             .putBoolean(KEY_COACH_LOGGED_IN, true)
                                             .putString(KEY_UID, userId)
                                             .putString(KEY_ROLE, "coach")
                                             .apply();
+
                                     Toast.makeText(LoginActivity.this, "Welcome Coach! Redirecting to dashboard.", Toast.LENGTH_SHORT).show();
                                     Intent intent = new Intent(LoginActivity.this, coach_clients.class);
                                     intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -215,7 +219,7 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     });
         } else {
-            // Only check users collection for user login
+            // Check users collection
             mDatabase.collection("users").document(userId).get()
                     .addOnCompleteListener(task -> {
                         showLoading(false, false);
@@ -224,15 +228,21 @@ public class LoginActivity extends AppCompatActivity {
                             if (userDoc != null && userDoc.exists()) {
                                 String userType = userDoc.getString("userType");
                                 if ("user".equals(userType)) {
+                                    // ✅ Save user login state
                                     SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
                                     prefs.edit()
                                             .putBoolean(KEY_COACH_LOGGED_IN, false)
                                             .putString(KEY_UID, userId)
                                             .putString(KEY_ROLE, "user")
                                             .apply();
-                                    showSuccessDialogAndNavigate("Login Successful! Welcome back!", MainActivity.class);
+
+                                    Toast.makeText(LoginActivity.this, "Login Successful! Welcome back!", Toast.LENGTH_SHORT).show();
+                                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
+                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                                    startActivity(intent);
+                                    finish();
                                 } else {
-                                    Toast.makeText(LoginActivity.this, "This account is not registered as a user. userType=" + userType, Toast.LENGTH_LONG).show();
+                                    Toast.makeText(LoginActivity.this, "This account is not registered as a user.", Toast.LENGTH_LONG).show();
                                 }
                             } else {
                                 Toast.makeText(LoginActivity.this, "No user account found with this email. Please select 'Login as Coach' if you have a coach account.", Toast.LENGTH_LONG).show();

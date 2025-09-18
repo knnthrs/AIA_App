@@ -81,6 +81,21 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // 🔹 Check role before continuing
+        SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
+        String role = prefs.getString("role", "");
+
+        if ("coach".equals(role)) {
+            // Coaches should never enter MainActivity → redirect to coach dashboard
+            Intent intent = new Intent(this, coach_clients.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            startActivity(intent);
+            finish();
+            return; // stop running MainActivity setup
+        }
+
+        // 🔹 If user → continue with MainActivity setup
         setContentView(R.layout.activity_main);
 
         mAuth = FirebaseAuth.getInstance();
@@ -298,30 +313,35 @@ public class MainActivity extends AppCompatActivity {
             String uid = currentUserAuth.getUid();
             userDocRefFS = dbFirestore.collection("users").document(uid);
 
+            // Remove previous listener if any
             if (userDataListenerRegistrationFS != null) {
                 userDataListenerRegistrationFS.remove();
             }
+
+            // Add snapshot listener
             userDataListenerRegistrationFS = userDocRefFS.addSnapshotListener((firestoreSnapshot, e) -> {
                 if (e != null) {
                     Log.w(TAG, "Firestore listen failed for user data.", e);
-                    setDefaultValues(); return;
+                    setDefaultValues();
+                    return;
                 }
-                if (firestoreSnapshot != null && firestoreSnapshot.exists()) {
-                    if (firestoreSnapshot.contains("fullname") && firestoreSnapshot.contains("age") &&
+
+                if (firestoreSnapshot == null || !firestoreSnapshot.exists()) {
+                    // User document deleted → account no longer available
+                    showAccountDeletedDialog();
+                } else if (firestoreSnapshot.contains("fullname") && firestoreSnapshot.contains("age") &&
                         firestoreSnapshot.contains("gender") && firestoreSnapshot.contains("height") &&
                         firestoreSnapshot.contains("weight") && firestoreSnapshot.contains("fitnessLevel") &&
                         firestoreSnapshot.contains("fitnessGoal")) {
-                        Log.d(TAG, "User data complete in Firestore. Updating UI.");
-                        updateGreeting(firestoreSnapshot);
-                        updateMembershipDisplay(firestoreSnapshot);
-                        SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
-                        editor.putBoolean("profile_complete_firebase", true); editor.apply();
-                    } else {
-                        Log.d(TAG, "User data INCOMPLETE in Firestore. Redirecting to AgeInput.");
-                        redirectToProfileCompletion();
-                    }
+                    Log.d(TAG, "User data complete in Firestore. Updating UI.");
+                    updateGreeting(firestoreSnapshot);
+                    updateMembershipDisplay(firestoreSnapshot);
+
+                    SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
+                    editor.putBoolean("profile_complete_firebase", true);
+                    editor.apply();
                 } else {
-                    Log.d(TAG, "User document does NOT exist in Firestore. Redirecting to AgeInput.");
+                    Log.d(TAG, "User data INCOMPLETE in Firestore. Redirecting to AgeInput.");
                     redirectToProfileCompletion();
                 }
             });
@@ -458,4 +478,22 @@ public class MainActivity extends AppCompatActivity {
             exercisesRefRTDB.removeEventListener(exercisesRTDBListener);
         }
     }
+
+    private void showAccountDeletedDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("Account Unavailable")
+                .setMessage("Your account has been deleted by the admin. You will be logged out.")
+                .setCancelable(false)
+                .setPositiveButton("OK", (dialog, which) -> {
+                    FirebaseAuth.getInstance().signOut();
+                    getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit().clear().apply();
+                    getSharedPreferences("workout_prefs", MODE_PRIVATE).edit().clear().apply();
+                    Intent intent = new Intent(MainActivity.this, LoginActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                    startActivity(intent);
+                    finish();
+                })
+                .show();
+    }
+
 }

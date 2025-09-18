@@ -9,6 +9,7 @@ public class UserProfile implements Serializable {
     private String fitnessLevel;
     private String gender;
     private int age;
+    private String birthdate; // NEW: store yyyy-MM-dd birthdate
     private double weight;
     private double height;
     private int currentWeek = 1; // start at week 1
@@ -26,6 +27,8 @@ public class UserProfile implements Serializable {
     private String workoutTimePreference; // morning, afternoon, evening
     private boolean hasGymAccess;
     private String experienceWithWeights; // none, basic, experienced
+
+
 
 
 
@@ -105,6 +108,11 @@ public class UserProfile implements Serializable {
     public int getAge() { return age; }
     public void setAge(int age) { this.age = age; }
 
+    // ✅ NEW birthdate getter/setter
+    public String getBirthdate() { return birthdate; }
+    public void setBirthdate(String birthdate) { this.birthdate = birthdate; }
+
+
     public double getWeight() { return weight; }
     public void setWeight(double weight) { this.weight = weight; }
 
@@ -140,4 +148,6 @@ public class UserProfile implements Serializable {
 
     public String getExperienceWithWeights() { return experienceWithWeights; }
     public void setExperienceWithWeights(String experienceWithWeights) { this.experienceWithWeights = experienceWithWeights; }
+
+
 }

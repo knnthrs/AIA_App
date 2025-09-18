@@ -4,6 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:padding="24dp"
     android:id="@+id/main"
     android:background="@drawable/yellowbackg"
     tools:context=".UserInfo.HealthIssues">
@@ -31,7 +32,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="end"
-                android:text="6 of 6"
+                android:text="7 of 7"
                 android:textSize="14sp"
                 android:textColor="@color/black" />
 

@@ -2,8 +2,10 @@ package com.example.signuploginrealtime.UserInfo;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.Editable;
-import android.text.TextWatcher;
+import android.app.DatePickerDialog;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
 import android.widget.Button;
 
 import androidx.activity.EdgeToEdge;
@@ -20,9 +22,12 @@ import java.util.ArrayList;
 
 public class AgeInput extends AppCompatActivity {
 
-    private TextInputEditText etAge;
+    private TextInputEditText etBirthdate;
+
+    private int calculatedAge = -1; // store computed age
     private Button btnNext;
     private UserProfile userProfile; // ✅ full profile
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,70 +52,86 @@ public class AgeInput extends AppCompatActivity {
         }
 
         // Initialize views
-        etAge = findViewById(R.id.etAge);
+        etBirthdate = findViewById(R.id.etBirthdate);
         btnNext = findViewById(R.id.btnNext);
 
         // Add TextWatcher to enable/disable button based on input
-        etAge.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {}
-            @Override
-            public void afterTextChanged(Editable s) { validateInput(); }
+        etBirthdate.setOnClickListener(v -> {
+            Calendar calendar = Calendar.getInstance();
+            int year = calendar.get(Calendar.YEAR);
+            int month = calendar.get(Calendar.MONTH);
+            int day = calendar.get(Calendar.DAY_OF_MONTH);
+
+            DatePickerDialog datePickerDialog = new DatePickerDialog(
+                    AgeInput.this,
+                    (view, selectedYear, selectedMonth, selectedDay) -> {
+                        calendar.set(selectedYear, selectedMonth, selectedDay);
+
+                        // Format date
+                        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                        String birthdate = sdf.format(calendar.getTime());
+                        etBirthdate.setText(birthdate);
+
+                        // ✅ Calculate age
+                        calculatedAge = getAge(selectedYear, selectedMonth, selectedDay);
+                        validateInput();
+                    },
+                    year, month, day
+            );
+
+            // Optional: restrict to 100 years old max and today as latest
+            calendar.add(Calendar.YEAR, -100);
+            datePickerDialog.getDatePicker().setMinDate(calendar.getTimeInMillis());
+            datePickerDialog.getDatePicker().setMaxDate(System.currentTimeMillis());
+
+            datePickerDialog.show();
         });
+
 
         // Next button click listener
         btnNext.setOnClickListener(v -> {
-            String ageText = etAge.getText().toString().trim();
-
-            if (ageText.isEmpty()) {
-                etAge.setError("Please enter your age");
-                etAge.requestFocus();
+            if (calculatedAge == -1) {
+                etBirthdate.setError("Please select your birthdate");
+                etBirthdate.requestFocus();
                 return;
             }
 
-            try {
-                int age = Integer.parseInt(ageText);
-                if (age < 13 || age > 120) {
-                    etAge.setError("Please enter a valid age (13-120)");
-                    etAge.requestFocus();
-                    return;
-                }
-
-                // ✅ Save age into full UserProfile
-                userProfile.setAge(age);
-
-                Intent intent = new Intent(AgeInput.this, HeightWeightInput.class);
-                intent.putExtra("userProfile", userProfile);
-                startActivity(intent);
-
-
-            } catch (NumberFormatException e) {
-                etAge.setError("Please enter a valid number");
-                etAge.requestFocus();
+            if (calculatedAge < 13 || calculatedAge > 120) {
+                etBirthdate.setError("Age must be between 13 and 120");
+                etBirthdate.requestFocus();
+                return;
             }
+
+            // ✅ Save birthdate & age to profile
+            userProfile.setAge(calculatedAge);
+            userProfile.setBirthdate(etBirthdate.getText().toString().trim());
+
+            Intent intent = new Intent(AgeInput.this, HeightWeightInput.class);
+            intent.putExtra("userProfile", userProfile);
+            startActivity(intent);
         });
+
     }
 
     // ✅ Correctly placed OUTSIDE onCreate()
     private void validateInput() {
-        String ageText = etAge.getText().toString().trim();
-        boolean isValid = false;
+        boolean isValid = (calculatedAge >= 13 && calculatedAge <= 120);
 
-        if (!ageText.isEmpty()) {
-            try {
-                int age = Integer.parseInt(ageText);
-                if (age >= 13 && age <= 120) {
-                    isValid = true;
-                }
-            } catch (NumberFormatException e) {
-                isValid = false;
-            }
-        }
-
-        // Enable/disable button based on validation
         btnNext.setEnabled(isValid);
         btnNext.setAlpha(isValid ? 1.0f : 0.5f);
     }
+
+
+    private int getAge(int year, int month, int day) {
+        Calendar today = Calendar.getInstance();
+        Calendar dob = Calendar.getInstance();
+        dob.set(year, month, day);
+
+        int age = today.get(Calendar.YEAR) - dob.get(Calendar.YEAR);
+        if (today.get(Calendar.DAY_OF_YEAR) < dob.get(Calendar.DAY_OF_YEAR)) {
+            age--;
+        }
+        return age;
+    }
+
 }

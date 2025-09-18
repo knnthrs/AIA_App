@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@drawable/yellowbackg"
-    android:padding="24dp"
+    android:padding="40dp"
     tools:context=".UserInfo.AgeInput">
 
     <!-- Progress Indicator -->
@@ -13,7 +13,9 @@
         android:id="@+id/tvProgress"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="2 of 6"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="8dp"
+        android:text="2 of 7"
         android:textSize="14sp"
         android:textColor="@color/black"
         app:layout_constraintTop_toTopOf="parent"
@@ -25,6 +27,8 @@
         android:layout_width="0dp"
         android:layout_height="8dp"
         android:layout_marginTop="16dp"
+        android:layout_marginStart="15dp"
+        android:layout_marginEnd="15dp"
         android:progress="33"
         android:max="100"
         android:progressTint="@color/white"
@@ -37,6 +41,8 @@
         android:id="@+id/tvHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="15dp"
+        android:layout_marginEnd="15dp"
         android:text="How old are you?"
         android:textSize="32sp"
         android:textStyle="bold"
@@ -46,13 +52,15 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Age Input -->
+    <!-- Birthdate Input (styled like age box) -->
     <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/tilAge"
+        android:id="@+id/tilBirthdate"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="64dp"
-        android:hint="Enter your age"
+        android:layout_marginStart="15dp"
+        android:layout_marginEnd="15dp"
+        android:hint="Enter your birthdate"
         app:boxBackgroundMode="outline"
         app:boxStrokeColor="@color/black"
         app:hintTextColor="@color/black"
@@ -65,23 +73,28 @@
         app:layout_constraintEnd_toEndOf="parent">
 
         <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etAge"
+            android:id="@+id/etBirthdate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="number"
-            android:maxLength="3"
+            android:focusable="false"
+            android:clickable="true"
+            android:inputType="none"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:gravity="center" />
+            android:gravity="center"
+            android:drawableEnd="@android:drawable/ic_menu_today" />
 
     </com.google.android.material.textfield.TextInputLayout>
+
 
     <!-- Next Button -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnNext"
         android:layout_width="0dp"
         android:layout_height="56dp"
-        android:layout_marginBottom="32dp"
+        android:layout_marginBottom="40dp"
+        android:layout_marginStart="15dp"
+        android:layout_marginEnd="15dp"
         android:text="Next"
         android:textSize="18sp"
         android:textStyle="bold"

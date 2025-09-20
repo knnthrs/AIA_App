@@ -34,7 +34,7 @@ public class LoginActivity extends AppCompatActivity {
     FirebaseFirestore mDatabase;
 
     private static final String TAG = "LoginActivity";
-    private static final String PREFS_NAME = "LoginPrefs";
+    private static final String PREFS_NAME = "MyPrefs";
     private static final String KEY_COACH_LOGGED_IN = "isCoachLoggedIn";
     private static final String KEY_UID = "LOGGED_IN_UID";
     private static final String KEY_ROLE = "LOGGED_IN_ROLE";

@@ -39,28 +39,46 @@ public class SplashActivity extends AppCompatActivity {
         String role = prefs.getString(KEY_ROLE, "");
 
         if (currentUser != null) {
-            // User is logged in, check if Firestore document exists
-            db.collection("users").document(currentUser.getUid())
-                    .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        if (documentSnapshot.exists()) {
-                            // Account exists → route based on role
-                            if ("coach".equals(role)) {
+            if ("coach".equals(role)) {
+                // 🔹 Check coaches collection
+                db.collection("coaches").document(currentUser.getUid())
+                        .get()
+                        .addOnSuccessListener(documentSnapshot -> {
+                            if (documentSnapshot.exists()) {
                                 startActivity(new Intent(SplashActivity.this, coach_clients.class));
+                                finish();
                             } else {
-                                startActivity(new Intent(SplashActivity.this, MainActivity.class));
+                                showAccountDeletedDialog();
                             }
+                        })
+                        .addOnFailureListener(e -> {
+                            startActivity(new Intent(SplashActivity.this, LoginActivity.class));
                             finish();
-                        } else {
-                            // Account deleted → show dialog then go to login
-                            showAccountDeletedDialog();
-                        }
-                    })
-                    .addOnFailureListener(e -> {
-                        // Firestore read failed → fallback to login
-                        startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                        finish();
-                    });
+                        });
+
+            } else if ("user".equals(role)) {
+                // 🔹 Check users collection
+                db.collection("users").document(currentUser.getUid())
+                        .get()
+                        .addOnSuccessListener(documentSnapshot -> {
+                            if (documentSnapshot.exists()) {
+                                startActivity(new Intent(SplashActivity.this, MainActivity.class));
+                                finish();
+                            } else {
+                                showAccountDeletedDialog();
+                            }
+                        })
+                        .addOnFailureListener(e -> {
+                            startActivity(new Intent(SplashActivity.this, LoginActivity.class));
+                            finish();
+                        });
+
+            } else {
+                // role missing → force login
+                startActivity(new Intent(SplashActivity.this, LoginActivity.class));
+                finish();
+            }
+
         } else {
             // Not logged in → go to signup/login
             startActivity(new Intent(SplashActivity.this, SignupActivity.class));

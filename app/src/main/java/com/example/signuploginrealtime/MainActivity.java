@@ -121,9 +121,11 @@ public class MainActivity extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                showLogoutDialog();
+                showExitDialog();
             }
         });
+
+
     }
 
     private void initializeViews() {
@@ -137,6 +139,17 @@ public class MainActivity extends AppCompatActivity {
         streakCard = findViewById(R.id.streak_counter_card);
         activitiesCard = findViewById(R.id.activities_card);
         activitiesContainer = findViewById(R.id.activities_horizontal_container);
+    }
+
+    private void showExitDialog() {
+        new AlertDialog.Builder(MainActivity.this)
+                .setTitle("Exit App?")
+                .setMessage("Do you want to exit?")
+                .setPositiveButton("Yes", (dialog, which) -> {
+                    finishAffinity(); // closes all activities and exits app
+                })
+                .setNegativeButton("No", null)
+                .show();
     }
 
     private void setupPromoListener() {

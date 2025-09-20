@@ -196,7 +196,7 @@ public class coach_clients extends AppCompatActivity {
         findViewById(R.id.menu_logout).setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("Logout")
-                    .setMessage("Do you really want to log out?")
+                    .setMessage("Are you sure you want to log out?")
                     .setPositiveButton("Yes", (dialog, which) -> logoutCoach())
                     .setNegativeButton("No", null)
                     .show();
@@ -334,8 +334,8 @@ public class coach_clients extends AppCompatActivity {
     @Override
     public void onBackPressed() {
         new AlertDialog.Builder(this)
-                .setTitle("Exit")
-                .setMessage("Do you really want to exit the coach dashboard?")
+                .setTitle("Exit App?")
+                .setMessage("Do you want to exit?")
                 .setPositiveButton("Yes", (dialog, which) -> finishAffinity())
                 .setNegativeButton("No", null)
                 .show();

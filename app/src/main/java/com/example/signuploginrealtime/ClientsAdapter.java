@@ -1,11 +1,12 @@
 package com.example.signuploginrealtime;
 
+import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -38,7 +39,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         holder.clientEmail.setText(client.getEmail());
         holder.clientStatus.setText(client.getStatus());
 
-        // Set status color based on client status
+        // Set status color
         int statusColor;
         switch (client.getStatus()) {
             case "Active":
@@ -56,13 +57,23 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         }
         holder.clientStatus.setTextColor(statusColor);
 
-        // Set click listener for the entire card
+        // ✅ Navigate to Client_workouts_details
         holder.clientCard.setOnClickListener(v -> {
-            Toast.makeText(context, "Clicked on " + client.getName(), Toast.LENGTH_SHORT).show();
-            // Here you can navigate to client details activity
-            // Intent intent = new Intent(context, ClientDetailsActivity.class);
-            // intent.putExtra("client_name", client.getName());
-            // context.startActivity(intent);
+            Intent intent = new Intent(context, Client_workouts_details.class);
+            intent.putExtra("client_name", client.getName());
+            intent.putExtra("client_email", client.getEmail());
+            intent.putExtra("client_status", client.getStatus());
+            intent.putExtra("client_weight", client.getWeight());
+            intent.putExtra("client_height", client.getHeight());
+            intent.putExtra("client_goal", client.getGoal());
+            intent.putExtra("client_activity", client.getActivityLevel());
+
+            // If context is not an Activity, add FLAG_ACTIVITY_NEW_TASK
+            if (!(context instanceof Activity)) {
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            }
+
+            context.startActivity(intent);
         });
     }
 
@@ -83,4 +94,6 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientStatus = itemView.findViewById(R.id.client_status);
         }
     }
+
+
 }

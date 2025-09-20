@@ -266,11 +266,12 @@ public class coach_clients extends AppCompatActivity {
         new android.os.Handler().postDelayed(() -> {
             // Sample data - replace with your actual data loading logic
             clientsList.clear();
-            clientsList.add(new Client("John Doe", "john@email.com", "Active"));
-            clientsList.add(new Client("Jane Smith", "jane@email.com", "Active"));
-            clientsList.add(new Client("Mike Johnson", "mike@email.com", "Inactive"));
-            clientsList.add(new Client("Sarah Wilson", "sarah@email.com", "New"));
-            clientsList.add(new Client("Tom Brown", "tom@email.com", "Active"));
+            clientsList.add(new Client("John Doe", "john@email.com", "Active", "75 kg", "180 cm", "Weight Loss", "Moderate"));
+            clientsList.add(new Client("Jane Smith", "jane@email.com", "Active", "65 kg", "165 cm", "Muscle Gain", "High"));
+            clientsList.add(new Client("Mike Johnson", "mike@email.com", "Inactive", "80 kg", "175 cm", "Maintain Weight", "Low"));
+            clientsList.add(new Client("Sarah Wilson", "sarah@email.com", "New", "55 kg", "160 cm", "Weight Loss", "Low"));
+            clientsList.add(new Client("Tom Brown", "tom@email.com", "Active", "90 kg", "185 cm", "Strength Training", "High"));
+
 
             applyFilter(filterSpinner.getSelectedItemPosition());
             showLoading(false);
@@ -345,15 +346,33 @@ public class coach_clients extends AppCompatActivity {
         private String name;
         private String email;
         private String status;
+        private String weight;
+        private String height;
+        private String goal;
+        private String activityLevel;
 
-        public Client(String name, String email, String status) {
+        // Empty constructor (required if you use Firebase)
+        public Client() {}
+
+        // Constructor with all fields
+        public Client(String name, String email, String status, String weight, String height, String goal, String activityLevel) {
             this.name = name;
             this.email = email;
             this.status = status;
+            this.weight = weight;
+            this.height = height;
+            this.goal = goal;
+            this.activityLevel = activityLevel;
         }
 
+        // Getters
         public String getName() { return name; }
         public String getEmail() { return email; }
         public String getStatus() { return status; }
+        public String getWeight() { return weight; }
+        public String getHeight() { return height; }
+        public String getGoal() { return goal; }
+        public String getActivityLevel() { return activityLevel; }
     }
+
 }

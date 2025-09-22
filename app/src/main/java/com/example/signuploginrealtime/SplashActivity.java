@@ -35,53 +35,30 @@ public class SplashActivity extends AppCompatActivity {
 
     private void checkUser() {
         FirebaseUser currentUser = mAuth.getCurrentUser();
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-        String role = prefs.getString(KEY_ROLE, "");
 
         if (currentUser != null) {
-            if ("coach".equals(role)) {
-                // 🔹 Check coaches collection
-                db.collection("coaches").document(currentUser.getUid())
-                        .get()
-                        .addOnSuccessListener(documentSnapshot -> {
-                            if (documentSnapshot.exists()) {
-                                startActivity(new Intent(SplashActivity.this, coach_clients.class));
-                                finish();
-                            } else {
-                                showAccountDeletedDialog();
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                            finish();
-                        });
-
-            } else if ("user".equals(role)) {
-                // 🔹 Check users collection
-                db.collection("users").document(currentUser.getUid())
-                        .get()
-                        .addOnSuccessListener(documentSnapshot -> {
-                            if (documentSnapshot.exists()) {
-                                startActivity(new Intent(SplashActivity.this, MainActivity.class));
-                                finish();
-                            } else {
-                                showAccountDeletedDialog();
-                            }
-                        })
-                        .addOnFailureListener(e -> {
-                            startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                            finish();
-                        });
-
-            } else {
-                // role missing → force login
-                startActivity(new Intent(SplashActivity.this, LoginActivity.class));
-                finish();
-            }
-
+            // First check in "users"
+            db.collection("users").document(currentUser.getUid()).get()
+                    .addOnSuccessListener(userDoc -> {
+                        if (userDoc.exists()) {
+                            saveRoleAndProceed("user", MainActivity.class);
+                        } else {
+                            // Not in users → check in "coaches"
+                            db.collection("coaches").document(currentUser.getUid()).get()
+                                    .addOnSuccessListener(coachDoc -> {
+                                        if (coachDoc.exists()) {
+                                            saveRoleAndProceed("coach", coach_clients.class);
+                                        } else {
+                                            showAccountDeletedDialog();
+                                        }
+                                    })
+                                    .addOnFailureListener(e -> goToLogin());
+                        }
+                    })
+                    .addOnFailureListener(e -> goToLogin());
         } else {
-            // Not logged in → go to signup/login
-            startActivity(new Intent(SplashActivity.this, SignupActivity.class));
+            // Not logged in
+            startActivity(new Intent(this, LoginActivity.class));
             finish();
         }
     }
@@ -105,4 +82,18 @@ public class SplashActivity extends AppCompatActivity {
                 })
                 .show();
     }
+
+    private void saveRoleAndProceed(String role, Class<?> activity) {
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        prefs.edit().putString(KEY_ROLE, role).apply();
+
+        startActivity(new Intent(this, activity));
+        finish();
+    }
+
+    private void goToLogin() {
+        startActivity(new Intent(this, LoginActivity.class));
+        finish();
+    }
+
 }

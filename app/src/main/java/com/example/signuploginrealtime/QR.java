@@ -84,7 +84,7 @@ public class QR extends AppCompatActivity {
                     return;
                 }
                 if (snapshot != null && snapshot.exists()) {
-                    userName = snapshot.getString("full name");
+                    userName = snapshot.getString("fullname");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
                     String dbMemberId = snapshot.getString("memberId");
@@ -296,7 +296,7 @@ public class QR extends AppCompatActivity {
                     return;
                 }
                 if (snapshot != null && snapshot.exists()) {
-                    userName = snapshot.getString("full name");
+                    userName = snapshot.getString("fullname");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
                     String dbMemberId = snapshot.getString("memberId");

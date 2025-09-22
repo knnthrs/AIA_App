@@ -7,7 +7,7 @@ import android.view.View;
 import android.widget.*;
 
 import androidx.appcompat.app.AppCompatActivity;
-
+import android.content.SharedPreferences;
 import com.example.signuploginrealtime.UserInfo.GenderSelection;
 import com.example.signuploginrealtime.models.UserProfile;
 import com.google.firebase.auth.FirebaseAuth;
@@ -83,7 +83,6 @@ public class SignupActivity extends AppCompatActivity {
                                 showLoading("Saving user data...");
 
                                 String userId = firebaseUser.getUid();
-                                HelperClass helperClass = new HelperClass(fullname, email, phone);
 
                                 // Add userType field to Firestore document
                                 Map<String, Object> userData = new HashMap<>();
@@ -96,9 +95,30 @@ public class SignupActivity extends AppCompatActivity {
                                         .addOnCompleteListener(dbTask -> {
                                             hideLoading();
                                             if (dbTask.isSuccessful()) {
+                                                // ✅ Initialize empty stats when new account is created
+                                                Map<String, Object> initialStats = new HashMap<>();
+                                                initialStats.put("totalWorkouts", 0);
+                                                initialStats.put("totalMinutes", 0);
+                                                initialStats.put("totalCalories", 0);
+
+                                                db.collection("users")
+                                                        .document(userId)
+                                                        .collection("stats")
+                                                        .document("overall")
+                                                        .set(initialStats); // fresh stats
+
+                                                // Save role in SharedPreferences
+                                                SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
+                                                prefs.edit().putString("role", "user").apply();
+
                                                 showSuccessDialog();
                                             } else {
-                                                Toast.makeText(SignupActivity.this, "Failed to save user data to Firestore", Toast.LENGTH_SHORT).show();
+                                                // Firestore failed → delete the newly created auth account
+                                                firebaseUser.delete().addOnCompleteListener(deleteTask -> {
+                                                    Toast.makeText(SignupActivity.this,
+                                                            "Failed to save user data to Firestore. Please try again.",
+                                                            Toast.LENGTH_LONG).show();
+                                                });
                                             }
                                         });
                             }
@@ -114,11 +134,9 @@ public class SignupActivity extends AppCompatActivity {
         });
     }
 
-    /**
-     * Validates if the input contains a full name (at least 2 words)
-     * @param fullname The name input to validate
-     * @return true if valid full name, false otherwise
-     */
+
+
+
     private boolean isValidFullName(String fullname) {
         if (fullname == null || fullname.trim().isEmpty()) {
             return false;

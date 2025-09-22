@@ -12,6 +12,8 @@ import com.example.signuploginrealtime.R;
 import com.example.signuploginrealtime.models.UserProfile;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 
 public class activity_select_workout_frequency extends AppCompatActivity {
 
@@ -21,10 +23,18 @@ public class activity_select_workout_frequency extends AppCompatActivity {
     private int selectedFrequency = -1;
     private MaterialCardView selectedCard = null;
 
+    // Add Firestore instance
+    private FirebaseFirestore db;
+    private FirebaseAuth mAuth;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_select_workout_frequency);
+
+        // Initialize Firebase
+        db = FirebaseFirestore.getInstance();
+        mAuth = FirebaseAuth.getInstance();
 
         // Get UserProfile from intent
         userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
@@ -44,6 +54,9 @@ public class activity_select_workout_frequency extends AppCompatActivity {
 
             // Save to UserProfile
             userProfile.setWorkoutDaysPerWeek(selectedFrequency);
+
+            // Save to Firestore immediately
+            saveWorkoutFrequencyToFirestore(selectedFrequency);
 
             // Move to HealthIssues activity
             Intent intent = new Intent(activity_select_workout_frequency.this, HealthIssues.class);
@@ -103,5 +116,24 @@ public class activity_select_workout_frequency extends AppCompatActivity {
         card.setStrokeColor(ContextCompat.getColor(this, R.color.white));
         card.setStrokeWidth(2); // Default stroke width
         card.setCardElevation(2f); // Default elevation
+    }
+
+    // New method to save workout frequency to Firestore
+    private void saveWorkoutFrequencyToFirestore(int frequency) {
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+
+            db.collection("users")
+                    .document(userId)
+                    .update("workoutDaysPerWeek", frequency)
+                    .addOnSuccessListener(aVoid -> {
+                        // Successfully updated
+                        Toast.makeText(this, "Workout frequency saved!", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        // Handle error
+                        Toast.makeText(this, "Error saving workout frequency", Toast.LENGTH_SHORT).show();
+                    });
+        }
     }
 }

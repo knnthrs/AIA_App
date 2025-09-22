@@ -7,9 +7,11 @@ import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.Toast;
+
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FieldValue;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.example.signuploginrealtime.ExercisePerformanceData;
 
@@ -43,9 +45,15 @@ public class activity_workout_complete extends AppCompatActivity {
         btnFinish = findViewById(R.id.btn_end_session);
         btnViewStreak = findViewById(R.id.btn_view_streaks);
 
-        workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
         mAuth = FirebaseAuth.getInstance();
         db = FirebaseFirestore.getInstance();
+
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            workoutPrefs = getSharedPreferences("workout_prefs_" + userId, MODE_PRIVATE);
+        } else {
+            workoutPrefs = getSharedPreferences("workout_prefs_default", MODE_PRIVATE);
+        }
 
         performanceDataList = (ArrayList<ExercisePerformanceData>) getIntent()
                 .getSerializableExtra("performanceData");
@@ -68,9 +76,20 @@ public class activity_workout_complete extends AppCompatActivity {
     }
 
     private void finishWorkout() {
-        String workoutName = saveWorkoutForToday(); // save workout
-        updateStreakData();
-        saveWorkoutToFirebase(performanceDataList, workoutName);
+        String workoutName = saveWorkoutForToday(); // save workout locally
+        updateStreakData(); // update SharedPreferences streak
+        saveWorkoutToFirebase(performanceDataList, workoutName); // save to Firestore
+
+        // Update weekly goal in Firestore
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            updateWeeklyGoal(userId);
+        }
+
+        // Mark workout completed for MainActivity refresh
+        SharedPreferences.Editor editor = workoutPrefs.edit();
+        editor.putBoolean("workout_completed", true);
+        editor.apply();
 
         Toast.makeText(this, "Workout recorded! Keep up the streak!", Toast.LENGTH_SHORT).show();
         goToMain();
@@ -81,6 +100,7 @@ public class activity_workout_complete extends AppCompatActivity {
         startActivity(intent);
     }
 
+    // --- Original SharedPreferences functions ---
     private String saveWorkoutForToday() {
         String today = getCurrentDateString();
         String workoutName = generateWorkoutName(); // generate unique name
@@ -92,7 +112,7 @@ public class activity_workout_complete extends AppCompatActivity {
 
         SharedPreferences.Editor editor = workoutPrefs.edit();
         editor.putStringSet("workout_names_" + today, workoutNamesToday);
-        editor.putString("last_workout_name", workoutName); // store for reference
+        editor.putString("last_workout_name", workoutName);
         editor.putString("workout_details_" + today + "_" + workoutName, workoutDetails);
         editor.apply();
 
@@ -112,6 +132,18 @@ public class activity_workout_complete extends AppCompatActivity {
         editor.putString("last_workout_date", getCurrentDateString());
         editor.putInt("total_workouts", totalWorkouts);
         editor.apply();
+
+        // Update Firestore achievements
+        if (mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("workoutsCompleted", totalWorkouts);
+            updates.put("currentStreak", currentStreak);
+
+            db.collection("users")
+                    .document(userId)
+                    .set(updates, com.google.firebase.firestore.SetOptions.merge());
+        }
     }
 
     private int calculateCurrentStreak() {
@@ -174,6 +206,7 @@ public class activity_workout_complete extends AppCompatActivity {
         finish();
     }
 
+    // --- Save detailed performance to Firestore ---
     private void saveWorkoutToFirebase(ArrayList<ExercisePerformanceData> performances, String workoutName) {
         if (mAuth.getCurrentUser() == null) return;
 
@@ -211,15 +244,58 @@ public class activity_workout_complete extends AppCompatActivity {
         String currentDate = getCurrentDateString();
         statsUpdate.put("lastWorkoutDate", currentDate);
         statsUpdate.put("lastActive", System.currentTimeMillis());
-        statsUpdate.put("totalWorkouts", com.google.firebase.firestore.FieldValue.increment(1));
+        statsUpdate.put("totalWorkouts", FieldValue.increment(1));
 
         db.collection("users")
                 .document(userId)
                 .collection("stats")
                 .document("overall")
-                .set(statsUpdate, com.google.firebase.firestore.SetOptions.merge())
-                .addOnSuccessListener(aVoid -> Log.d(TAG, "User stats updated"))
-                .addOnFailureListener(e -> Log.e(TAG, "Error updating stats", e));
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) {
+                        statsUpdate.put("totalWorkouts", 1);
+                        db.collection("users")
+                                .document(userId)
+                                .collection("stats")
+                                .document("overall")
+                                .set(statsUpdate);
+                    } else {
+                        db.collection("users")
+                                .document(userId)
+                                .collection("stats")
+                                .document("overall")
+                                .update(statsUpdate);
+                    }
+                });
+    }
+
+    private void updateWeeklyGoal(String userId) {
+        Calendar cal = Calendar.getInstance();
+        int weekOfYear = cal.get(Calendar.WEEK_OF_YEAR);
+        String weekDoc = "week_" + weekOfYear;
+
+        db.collection("users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists()) {
+                        Long freqValue = documentSnapshot.getLong("workoutDaysPerWeek");
+                        final long freq = (freqValue != null) ? freqValue : 3L;
+
+                        Map<String, Object> updates = new HashMap<>();
+                        updates.put("target", freq);
+                        updates.put("completed", FieldValue.increment(1));
+
+                        db.collection("users")
+                                .document(userId)
+                                .collection("currentWorkout")
+                                .document(weekDoc)
+                                .set(updates, com.google.firebase.firestore.SetOptions.merge())
+                                .addOnSuccessListener(aVoid -> Log.d(TAG, "Weekly goal updated"))
+                                .addOnFailureListener(e -> Log.e(TAG, "Error updating weekly goal", e));
+                    }
+                })
+                .addOnFailureListener(e -> Log.e(TAG, "Failed to fetch frequency", e));
     }
 
     @Override

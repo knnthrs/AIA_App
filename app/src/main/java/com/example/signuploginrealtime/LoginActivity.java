@@ -185,71 +185,33 @@ public class LoginActivity extends AppCompatActivity {
 
     private void validateUserTypeAndNavigate(String userId, boolean isCoach) {
         if (isCoach) {
-            // Check coaches collection
             mDatabase.collection("coaches").document(userId).get()
                     .addOnCompleteListener(task -> {
                         showLoading(false, true);
-                        if (task.isSuccessful()) {
-                            DocumentSnapshot coachDoc = task.getResult();
-                            if (coachDoc != null && coachDoc.exists()) {
-                                String userType = coachDoc.getString("userType");
-                                if ("coach".equals(userType)) {
-                                    // ✅ Save coach login state
-                                    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                                    prefs.edit()
-                                            .putBoolean(KEY_COACH_LOGGED_IN, true)
-                                            .putString(KEY_UID, userId)
-                                            .putString(KEY_ROLE, "coach")
-                                            .apply();
-
-                                    Toast.makeText(LoginActivity.this, "Welcome Coach! Redirecting to dashboard.", Toast.LENGTH_SHORT).show();
-                                    Intent intent = new Intent(LoginActivity.this, coach_clients.class);
-                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                    startActivity(intent);
-                                    finish();
-                                } else {
-                                    Toast.makeText(LoginActivity.this, "This account is not registered as a coach.", Toast.LENGTH_LONG).show();
-                                }
+                        if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                            String userType = task.getResult().getString("userType");
+                            if ("coach".equals(userType)) {
+                                saveRoleAndProceed("coach", coach_clients.class);
                             } else {
-                                Toast.makeText(LoginActivity.this, "No coach account found with this email. Please select 'Login as User' if you have a user account.", Toast.LENGTH_LONG).show();
+                                Toast.makeText(LoginActivity.this, "This account is not registered as a coach.", Toast.LENGTH_LONG).show();
                             }
                         } else {
-                            Log.e(TAG, "Error checking coach status: ", task.getException());
-                            Toast.makeText(LoginActivity.this, "Error verifying account type. Please try again.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(LoginActivity.this, "No coach account found. Please try again.", Toast.LENGTH_LONG).show();
                         }
                     });
         } else {
-            // Check users collection
             mDatabase.collection("users").document(userId).get()
                     .addOnCompleteListener(task -> {
                         showLoading(false, false);
-                        if (task.isSuccessful()) {
-                            DocumentSnapshot userDoc = task.getResult();
-                            if (userDoc != null && userDoc.exists()) {
-                                String userType = userDoc.getString("userType");
-                                if ("user".equals(userType)) {
-                                    // ✅ Save user login state
-                                    SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
-                                    prefs.edit()
-                                            .putBoolean(KEY_COACH_LOGGED_IN, false)
-                                            .putString(KEY_UID, userId)
-                                            .putString(KEY_ROLE, "user")
-                                            .apply();
-
-                                    Toast.makeText(LoginActivity.this, "Login Successful! Welcome back!", Toast.LENGTH_SHORT).show();
-                                    Intent intent = new Intent(LoginActivity.this, MainActivity.class);
-                                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                                    startActivity(intent);
-                                    finish();
-                                } else {
-                                    Toast.makeText(LoginActivity.this, "This account is not registered as a user.", Toast.LENGTH_LONG).show();
-                                }
+                        if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
+                            String userType = task.getResult().getString("userType");
+                            if ("user".equals(userType)) {
+                                saveRoleAndProceed("user", MainActivity.class);
                             } else {
-                                Toast.makeText(LoginActivity.this, "No user account found with this email. Please select 'Login as Coach' if you have a coach account.", Toast.LENGTH_LONG).show();
+                                Toast.makeText(LoginActivity.this, "This account is not registered as a user.", Toast.LENGTH_LONG).show();
                             }
                         } else {
-                            Log.e(TAG, "Error checking user status: ", task.getException());
-                            Toast.makeText(LoginActivity.this, "Error verifying account type. Please try again.", Toast.LENGTH_LONG).show();
+                            Toast.makeText(LoginActivity.this, "No user account found. Please try again.", Toast.LENGTH_LONG).show();
                         }
                     });
         }
@@ -268,6 +230,21 @@ public class LoginActivity extends AppCompatActivity {
                 .setCancelable(false)
                 .show();
     }
+
+    private void saveRoleAndProceed(String role, Class<?> targetActivity) {
+        SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
+        prefs.edit()
+                .putString("role", role)
+                .apply();
+
+        Toast.makeText(LoginActivity.this, "Login successful!", Toast.LENGTH_SHORT).show();
+
+        Intent intent = new Intent(LoginActivity.this, targetActivity);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
 
     private void showLoading(boolean isLoading, boolean isCoach) {
         if (isLoading) {

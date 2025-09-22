@@ -282,15 +282,16 @@
                             android:padding="16dp">
 
                             <TextView
-                                android:id="@+id/workout_header"
+                                android:id="@+id/tv_activity_status"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:textSize="20sp"
+                                android:text="Your Workouts"
+                                android:textSize="15sp"
                                 android:textStyle="bold"
-                                android:text="Today's Activities"
+                                android:textColor="@color/black"
                                 android:gravity="center"
-                                android:padding="8dp"
-                                android:textColor="@color/black"/>
+                                android:layout_marginTop="4dp"/>
+
 
 
 
@@ -327,6 +328,7 @@
                         android:orientation="horizontal">
 
                         <!-- Goals Progress Card (Left) -->
+                        <!-- Replace your existing goals progress card with this updated version -->
                         <androidx.cardview.widget.CardView
                             android:id="@+id/goals_progress_card"
                             android:layout_width="0dp"
@@ -348,10 +350,11 @@
                                 android:padding="16dp">
 
                                 <TextView
+                                    android:id="@+id/goals_progress_label"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:layout_marginBottom="4dp"
-                                    android:text="Goals Progress"
+                                    android:text="Weekly Goal"
                                     android:textColor="#666666"
                                     android:textSize="12sp" />
 
@@ -359,15 +362,16 @@
                                     android:id="@+id/goals_progress_text"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="3/5"
+                                    android:text="0/0"
                                     android:textColor="#4CAF50"
                                     android:textSize="24sp"
                                     android:textStyle="bold" />
 
                                 <TextView
+                                    android:id="@+id/goals_progress_subtitle"
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="This Week"
+                                    android:text="Workouts Done"
                                     android:textColor="#888888"
                                     android:textSize="10sp" />
 

@@ -17,29 +17,19 @@
         android:padding="12dp"
         android:gravity="center_vertical">
 
-        <!-- Exercise Icon/Image Placeholder -->
-        <androidx.cardview.widget.CardView
+        <ImageView
+            android:id="@+id/iv_exercise_gif"
             android:layout_width="45dp"
             android:layout_height="45dp"
-            app:cardCornerRadius="8dp"
-            app:cardBackgroundColor="@color/yellow"
-            android:layout_marginEnd="12dp">
+            android:scaleType="centerCrop"
+            android:src="@drawable/loading_placeholder" />
 
-            <ImageView
-                android:id="@+id/iv_exercise_gif"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:padding="10dp"
-                app:tint="@color/white" />
-
-        </androidx.cardview.widget.CardView>
-
-        <!-- Exercise Details -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="vertical"
+            android:layout_marginStart="12dp">
 
             <TextView
                 android:id="@+id/exercise_name"
@@ -54,25 +44,11 @@
                 android:id="@+id/exercise_category"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Chest • Compound"
+                android:text="Chest"
                 android:textColor="@android:color/darker_gray"
-                android:textSize="12sp"
-                android:layout_marginTop="2dp" />
-
-            <TextView
-                android:id="@+id/exercise_description"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Primary chest exercise targeting pectorals"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="11sp"
-                android:layout_marginTop="2dp"
-                android:maxLines="1"
-                android:ellipsize="end" />
-
+                android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Add Button -->
         <com.google.android.material.button.MaterialButton
             android:id="@+id/add_exercise_button"
             android:layout_width="wrap_content"
@@ -86,5 +62,4 @@
             android:paddingHorizontal="12dp" />
 
     </LinearLayout>
-
 </androidx.cardview.widget.CardView>

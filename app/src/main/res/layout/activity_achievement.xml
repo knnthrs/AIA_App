@@ -85,6 +85,7 @@
 
                         <!-- First Steps Badge -->
                         <LinearLayout
+                            android:id="@+id/first_steps_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -135,28 +136,20 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#4CAF50"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="✓"
-                                    android:textColor="@android:color/white"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/first_steps_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 
                         <!-- Getting Strong Badge -->
                         <LinearLayout
+                            android:id="@+id/getting_strong_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -207,28 +200,20 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#4CAF50"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="✓"
-                                    android:textColor="@android:color/white"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/getting_strong_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 
                         <!-- Fitness Pro Badge (In Progress) -->
                         <LinearLayout
+                            android:id="@+id/fitness_pro_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -280,6 +265,7 @@
                             </LinearLayout>
 
                             <TextView
+                                android:id="@+id/fitness_pro_progress"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
                                 android:text="17/25"
@@ -291,6 +277,7 @@
 
                         <!-- Warrior Badge (Locked) -->
                         <LinearLayout
+                            android:id="@+id/warrior_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -342,26 +329,20 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#BDBDBD"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="🔒"
-                                    android:textSize="10sp" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/warrior_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 
                         <!-- Legend Badge (Locked) -->
                         <LinearLayout
+                            android:id="@+id/legend_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -412,22 +393,14 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#BDBDBD"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="🔒"
-                                    android:textSize="10sp" />
-
-                            </androidx.cardview.widget.CardView>
-
+                            <TextView
+                                android:id="@+id/legend_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
                         </LinearLayout>
 
                     </LinearLayout>
@@ -460,6 +433,7 @@
 
                         <!-- On Fire Badge -->
                         <LinearLayout
+                            android:id="@+id/on_fire_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -510,28 +484,20 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#4CAF50"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="✓"
-                                    android:textColor="@android:color/white"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/on_fire_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 
                         <!-- Lightning Badge -->
                         <LinearLayout
+                            android:id="@+id/lightning_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -582,28 +548,20 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#4CAF50"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="✓"
-                                    android:textColor="@android:color/white"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/lightning_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 
                         <!-- Champion Badge (Locked) -->
                         <LinearLayout
+                            android:id="@+id/champion_badge"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="horizontal"
@@ -654,21 +612,14 @@
 
                             </LinearLayout>
 
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="24dp"
-                                android:layout_height="24dp"
-                                android:backgroundTint="#BDBDBD"
-                                app:cardCornerRadius="12dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="match_parent"
-                                    android:layout_height="match_parent"
-                                    android:gravity="center"
-                                    android:text="🔒"
-                                    android:textSize="10sp" />
-
-                            </androidx.cardview.widget.CardView>
+                            <TextView
+                                android:id="@+id/champion_progress"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="17/25"
+                                android:textColor="#2196F3"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
 
                         </LinearLayout>
 

@@ -7,6 +7,8 @@ import android.widget.TextView;
 import android.widget.ImageButton;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.auth.FirebaseAuth;
+
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashSet;
@@ -32,7 +34,9 @@ public class StreakCalendar extends AppCompatActivity {
         selectedDateInfo = findViewById(R.id.selectedDateInfo);
         streakStats = findViewById(R.id.streakStats);
 
-        workoutPrefs = getSharedPreferences("workout_prefs", MODE_PRIVATE);
+        // ✅ Per-user SharedPreferences
+        String userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
+        workoutPrefs = getSharedPreferences("workout_prefs_" + userId, MODE_PRIVATE);
 
         updateStreakStatistics();
         showDateInfo(Calendar.getInstance());

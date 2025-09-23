@@ -102,30 +102,43 @@ public class Achievement extends AppCompatActivity {
 
     private void updateBadgesUI() {
         // First Steps - 1 workout
-        firstStepsProgress.setText(workoutsCompleted + "/1");
-        if (workoutsCompleted >= 1) markBadgeCompleted(firstStepsBadge);
+        updateBadgeProgress(firstStepsBadge, firstStepsProgress, workoutsCompleted, 1);
 
         // Getting Strong - 10 workouts
-        gettingStrongProgress.setText(workoutsCompleted + "/10");
-        if (workoutsCompleted >= 10) markBadgeCompleted(gettingStrongBadge);
+        updateBadgeProgress(gettingStrongBadge, gettingStrongProgress, workoutsCompleted, 10);
 
         // Fitness Pro - 25 workouts
-        fitnessProProgress.setText(workoutsCompleted + "/25");
-        if (workoutsCompleted >= 25) markBadgeCompleted(fitnessProBadge);
-        else animateBadgeProgress(fitnessProBadge, (float) workoutsCompleted / 25f);
+        updateBadgeProgress(fitnessProBadge, fitnessProProgress, workoutsCompleted, 25);
 
-        // Warrior - 50
-        warriorProgress.setText(workoutsCompleted + "/50");
-        if (workoutsCompleted >= 50) markBadgeCompleted(warriorBadge);
+        // Warrior - 50 workouts
+        updateBadgeProgress(warriorBadge, warriorProgress, workoutsCompleted, 50);
 
-        // Legend - 100
-        legendProgress.setText(workoutsCompleted + "/100");
-        if (workoutsCompleted >= 100) markBadgeCompleted(legendBadge);
+        // Legend - 100 workouts
+        updateBadgeProgress(legendBadge, legendProgress, workoutsCompleted, 100);
 
-        // Streak badges
-        onFireProgress.setText(currentStreak + "/3");
-        lightningProgress.setText(currentStreak + "/7");
-        championProgress.setText(currentStreak + "/30");
+        // Streak badges (no badge visual for streaks, just text)
+        updateBadgeProgress(null, onFireProgress, currentStreak, 3);
+        updateBadgeProgress(null, lightningProgress, currentStreak, 7);
+        updateBadgeProgress(null, championProgress, currentStreak, 30);
+    }
+
+    private void updateBadgeProgress(LinearLayout badge, TextView progressText, int current, int target) {
+        if (current >= target) {
+            // Achievement completed
+            progressText.setText("✓ Done");
+            if (badge != null) {
+                markBadgeCompleted(badge);
+            }
+        } else {
+            // Achievement in progress - keep full size but reduce opacity
+            progressText.setText(current + "/" + target);
+            if (badge != null) {
+                float progress = (float) current / target;
+                badge.setAlpha(0.6f + 0.4f * progress); // Opacity based on progress
+                badge.setScaleX(1f); // Keep full size
+                badge.setScaleY(1f); // Keep full size
+            }
+        }
     }
 
     private void markBadgeCompleted(View badge) {

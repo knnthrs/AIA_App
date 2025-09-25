@@ -202,7 +202,22 @@
             android:textStyle="bold"
             android:layout_marginStart="16dp"
             android:layout_marginTop="8dp"
-            android:layout_marginBottom="12dp" />
+            android:layout_marginBottom="8dp" />
+
+        <!-- Search Bar -->
+        <EditText
+            android:id="@+id/search_workouts"
+            android:layout_width="350dp"
+            android:layout_height="40dp"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="12dp"
+            android:hint="🔍︎ Search workouts"
+            android:paddingStart="20dp"
+            android:textColor="@color/black"
+            android:background="@drawable/search_background"
+            android:drawablePadding="12dp"
+            android:inputType="text" />
+
 
         <!-- Workouts RecyclerView -->
         <androidx.recyclerview.widget.RecyclerView
@@ -212,7 +227,7 @@
             android:layout_marginHorizontal="8dp"
             android:orientation="vertical"
             tools:itemCount="4"
-            tools:listitem="@layout/item_individual_workout" />
+            tools:listitem="@layout/item_editable_exercise" />
 
         <!-- Empty State for No Workouts -->
         <LinearLayout

@@ -19,6 +19,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
     private Context context;
     private List<coach_clients.Client> clientsList;
 
+
     public ClientsAdapter(Context context, List<coach_clients.Client> clientsList) {
         this.context = context;
         this.clientsList = clientsList;
@@ -60,21 +61,14 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         // ✅ Navigate to Client_workouts_details
         holder.clientCard.setOnClickListener(v -> {
             Intent intent = new Intent(context, Client_workouts_details.class);
-            intent.putExtra("client_name", client.getName());
-            intent.putExtra("client_email", client.getEmail());
-            intent.putExtra("client_status", client.getStatus());
-            intent.putExtra("client_weight", client.getWeight());
-            intent.putExtra("client_height", client.getHeight());
-            intent.putExtra("client_goal", client.getGoal());
-            intent.putExtra("client_activity", client.getActivityLevel());
+            intent.putExtra("client_uid", client.getUid()); // ✅ pass UID only
 
-            // If context is not an Activity, add FLAG_ACTIVITY_NEW_TASK
             if (!(context instanceof Activity)) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             }
-
             context.startActivity(intent);
         });
+
     }
 
     @Override

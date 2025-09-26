@@ -10,7 +10,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
-import com.example.signuploginrealtime.adapters.WorkoutExerciseAdapter;
+
 import com.example.signuploginrealtime.R;
 import com.example.signuploginrealtime.models.WorkoutExercise;
 
@@ -18,9 +18,20 @@ import java.util.List;
 
 public class WorkoutExerciseAdapter extends RecyclerView.Adapter<WorkoutExerciseAdapter.ExerciseViewHolder> {
 
-    private Context context;
-    private List<WorkoutExercise> exerciseList;
-    private boolean isCoachView; // flag to check who is viewing
+    private final Context context;
+    private final List<WorkoutExercise> exerciseList;
+    private final boolean isCoachView; // true = coach can edit, false = client view only
+
+    // --- Listener interface for updates ---
+    public interface OnWorkoutChangedListener {
+        void onWorkoutChanged();
+    }
+
+    private OnWorkoutChangedListener listener;
+
+    public void setOnWorkoutChangedListener(OnWorkoutChangedListener listener) {
+        this.listener = listener;
+    }
 
     public WorkoutExerciseAdapter(Context context, List<WorkoutExercise> exerciseList, boolean isCoachView) {
         this.context = context;
@@ -39,52 +50,65 @@ public class WorkoutExerciseAdapter extends RecyclerView.Adapter<WorkoutExercise
     public void onBindViewHolder(@NonNull ExerciseViewHolder holder, int position) {
         WorkoutExercise exercise = exerciseList.get(position);
 
-        // ✅ Bind name, sets, reps, notes
+        // --- Bind name ---
         if (exercise.getExerciseInfo() != null) {
             holder.exerciseName.setText(exercise.getExerciseInfo().getName());
-            if (exercise.getExerciseInfo().getInstructions() != null && !exercise.getExerciseInfo().getInstructions().isEmpty()) {
+            if (exercise.getExerciseInfo().getInstructions() != null &&
+                    !exercise.getExerciseInfo().getInstructions().isEmpty()) {
                 holder.exerciseInstructions.setText(exercise.getExerciseInfo().getInstructions().get(0));
                 holder.exerciseInstructions.setVisibility(View.VISIBLE);
+            } else {
+                holder.exerciseInstructions.setVisibility(View.GONE);
             }
         }
 
+        // --- Bind sets & reps ---
         holder.setsCount.setText(String.valueOf(exercise.getSets()));
         holder.repsCount.setText(String.valueOf(exercise.getReps()));
 
-        // ✅ Editing enabled only if NOT coach view
-        if (!isCoachView) {
+        if (isCoachView) {
+            // ✅ Coach can edit
+
             holder.increaseSets.setOnClickListener(v -> {
                 exercise.setSets(exercise.getSets() + 1);
                 holder.setsCount.setText(String.valueOf(exercise.getSets()));
+                if (listener != null) listener.onWorkoutChanged();
             });
 
             holder.decreaseSets.setOnClickListener(v -> {
-                if (exercise.getSets() > 1) {
+                if (exercise.getSets() > 0) {
                     exercise.setSets(exercise.getSets() - 1);
                     holder.setsCount.setText(String.valueOf(exercise.getSets()));
+                    if (listener != null) listener.onWorkoutChanged();
                 }
             });
 
             holder.increaseReps.setOnClickListener(v -> {
                 exercise.setReps(exercise.getReps() + 1);
                 holder.repsCount.setText(String.valueOf(exercise.getReps()));
+                if (listener != null) listener.onWorkoutChanged();
             });
 
             holder.decreaseReps.setOnClickListener(v -> {
-                if (exercise.getReps() > 1) {
+                if (exercise.getReps() > 0) {
                     exercise.setReps(exercise.getReps() - 1);
                     holder.repsCount.setText(String.valueOf(exercise.getReps()));
+                    if (listener != null) listener.onWorkoutChanged();
                 }
             });
 
             holder.removeExercise.setOnClickListener(v -> {
-                exerciseList.remove(position);
-                notifyItemRemoved(position);
-                notifyItemRangeChanged(position, exerciseList.size());
+                int pos = holder.getAdapterPosition();
+                if (pos != RecyclerView.NO_POSITION) {
+                    exerciseList.remove(pos);
+                    notifyItemRemoved(pos);
+                    notifyItemRangeChanged(pos, exerciseList.size());
+                    if (listener != null) listener.onWorkoutChanged();
+                }
             });
 
         } else {
-            // ✅ Coach view: hide editing buttons
+            // ❌ Client cannot edit
             holder.increaseSets.setVisibility(View.GONE);
             holder.decreaseSets.setVisibility(View.GONE);
             holder.increaseReps.setVisibility(View.GONE);

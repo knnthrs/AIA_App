@@ -4,6 +4,8 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
 
     <application
         android:allowBackup="true"
@@ -16,9 +18,7 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-        <activity
-            android:name=".Coach_Edit_Workout"
-            android:exported="false" />
+
         <activity
             android:name=".Client_workouts_details"
             android:exported="false" />

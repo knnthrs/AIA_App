@@ -349,6 +349,12 @@ public class WorkoutList extends AppCompatActivity {
     }
 
     private void showExercises(List<WorkoutExercise> workoutExercises) {
+        // ✅ ADD THIS LIFECYCLE CHECK AT THE BEGINNING
+        if (isDestroyed() || isFinishing()) {
+            Log.d(TAG, "Activity is being destroyed, skipping showExercises");
+            return;
+        }
+
         exercisesContainer.removeAllViews();
 
         if (workoutExercises == null || workoutExercises.isEmpty()) {
@@ -417,19 +423,22 @@ public class WorkoutList extends AppCompatActivity {
                 String gifUrl = info.getGifUrl() != null && !info.getGifUrl().isEmpty()
                         ? info.getGifUrl()
                         : "https://via.placeholder.com/150";
-                Glide.with(this)
-                        .asGif()
-                        .load(gifUrl)
-                        .placeholder(R.drawable.loading_placeholder)
-                        .error(R.drawable.no_image_placeholder)
-                        .into(image);
+
+                // ✅ ALSO ADD A CHECK HERE BEFORE USING GLIDE
+                if (!isDestroyed() && !isFinishing()) {
+                    Glide.with(this) // ✅ Use 'this' instead of 'image.getContext()'
+                            .asGif()
+                            .load(gifUrl)
+                            .placeholder(R.drawable.loading_placeholder)
+                            .error(R.drawable.no_image_placeholder)
+                            .into(image);
+                }
             }
 
             exercisesContainer.addView(card);
             order++;
         }
     }
-
     public static class WorkoutWrapper {
         public List<WorkoutExercise> exercises;
         public boolean completed;

@@ -124,7 +124,8 @@ public class activity_workout_complete extends AppCompatActivity {
         int longestStreak = workoutPrefs.getInt("longest_streak", 0);
         if (currentStreak > longestStreak) longestStreak = currentStreak;
 
-        int totalWorkouts = workoutPrefs.getInt("total_workouts", 0) + 1;
+        int previousWorkouts = workoutPrefs.getInt("total_workouts", 0); // Get previous count
+        int totalWorkouts = previousWorkouts + 1; // New total
 
         SharedPreferences.Editor editor = workoutPrefs.edit();
         editor.putInt("current_streak", currentStreak);
@@ -142,10 +143,14 @@ public class activity_workout_complete extends AppCompatActivity {
 
             db.collection("users")
                     .document(userId)
-                    .set(updates, com.google.firebase.firestore.SetOptions.merge());
+                    .set(updates, com.google.firebase.firestore.SetOptions.merge())
+                    .addOnSuccessListener(aVoid -> {
+                        // ✅ CHECK ACHIEVEMENTS IMMEDIATELY AFTER FIRESTORE UPDATE
+                        checkWorkoutAchievements(userId, previousWorkouts, totalWorkouts);
+                        checkStreakAchievements(userId, currentStreak);
+                    });
         }
     }
-
     private int calculateCurrentStreak() {
         Set<String> workoutDates = workoutPrefs.getStringSet("workout_names_" + getCurrentDateString(), new HashSet<>());
         if (workoutDates == null || workoutDates.isEmpty()) return 0;
@@ -291,11 +296,113 @@ public class activity_workout_complete extends AppCompatActivity {
                                 .collection("currentWorkout")
                                 .document(weekDoc)
                                 .set(updates, com.google.firebase.firestore.SetOptions.merge())
-                                .addOnSuccessListener(aVoid -> Log.d(TAG, "Weekly goal updated"))
+                                .addOnSuccessListener(aVoid -> {
+                                    Log.d(TAG, "Weekly goal updated");
+
+                                    // ✅ Now check if goal is met
+                                    db.collection("users")
+                                            .document(userId)
+                                            .collection("currentWorkout")
+                                            .document(weekDoc)
+                                            .get()
+                                            .addOnSuccessListener(weekDocSnap -> {
+                                                if (weekDocSnap.exists()) {
+                                                    Long completed = weekDocSnap.getLong("completed");
+                                                    Long target = weekDocSnap.getLong("target");
+
+                                                    if (completed != null && target != null && completed >= target) {
+                                                        sendWeeklyGoalNotification(weekOfYear);
+                                                    }
+                                                }
+                                            });
+                                })
                                 .addOnFailureListener(e -> Log.e(TAG, "Error updating weekly goal", e));
                     }
                 })
                 .addOnFailureListener(e -> Log.e(TAG, "Failed to fetch frequency", e));
+    }
+
+    private void sendWeeklyGoalNotification(int weekOfYear) {
+        String weekKey = "weekly_goal_notified_" + weekOfYear;
+
+        if (!workoutPrefs.getBoolean(weekKey, false)) {
+            NotificationHelper.showNotification(
+                    this,
+                    "Weekly Goal Achieved 🎉",
+                    "Awesome job! You’ve completed your weekly workout goal!"
+            );
+
+            workoutPrefs.edit().putBoolean(weekKey, true).apply();
+        }
+    }
+
+    private void checkWorkoutAchievements(String userId, int previousWorkouts, int newWorkouts) {
+        int[] milestones = {1, 10, 25, 50, 100};
+        String[] titles = {
+                "First Steps! 👟",
+                "Getting Strong! 💪",
+                "Fitness Pro! 🔥",
+                "Warrior! ⚡",
+                "Legend! 👑"
+        };
+        String[] messages = {
+                "Congratulations on completing your first workout!",
+                "You've completed 10 workouts. Keep up the great work!",
+                "25 workouts completed! You're becoming a fitness pro!",
+                "50 workouts! You're a true warrior!",
+                "100 workouts completed! You're a fitness legend!"
+        };
+
+        for (int i = 0; i < milestones.length; i++) {
+            int milestone = milestones[i];
+            if (previousWorkouts < milestone && newWorkouts >= milestone) {
+                createAchievementNotification(userId, titles[i], messages[i]);
+                Log.d(TAG, "Achievement unlocked: " + titles[i]);
+            }
+        }
+    }
+
+    private void checkStreakAchievements(String userId, int currentStreak) {
+        // Check if we just reached these streak milestones
+        String lastStreakKey = "last_streak_notified";
+        int lastNotifiedStreak = workoutPrefs.getInt(lastStreakKey, 0);
+
+        if (lastNotifiedStreak < 3 && currentStreak >= 3) {
+            createAchievementNotification(userId, "On Fire! 🔥", "3 day workout streak! You're on fire!");
+            workoutPrefs.edit().putInt(lastStreakKey, 3).apply();
+        }
+        if (lastNotifiedStreak < 7 && currentStreak >= 7) {
+            createAchievementNotification(userId, "Lightning! ⚡", "7 day streak! You're unstoppable!");
+            workoutPrefs.edit().putInt(lastStreakKey, 7).apply();
+        }
+        if (lastNotifiedStreak < 30 && currentStreak >= 30) {
+            createAchievementNotification(userId, "Champion! 🏆", "30 day streak! You're a true champion!");
+            workoutPrefs.edit().putInt(lastStreakKey, 30).apply();
+        }
+    }
+
+    private void createAchievementNotification(String userId, String title, String message) {
+        NotificationItem notification = new NotificationItem();
+        notification.setUserId(userId);
+        notification.setTitle(title);
+        notification.setMessage(message);
+        notification.setType("achievement");
+        notification.setTimestamp(System.currentTimeMillis());
+        notification.setRead(false);
+
+        db.collection("notifications")
+                .add(notification.toMap())
+                .addOnSuccessListener(documentReference -> {
+                    Log.d(TAG, "Achievement notification created: " + title);
+
+                    // Show local toast as well
+                    runOnUiThread(() -> {
+                        Toast.makeText(this, title, Toast.LENGTH_LONG).show();
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to create achievement notification", e);
+                });
     }
 
     @Override

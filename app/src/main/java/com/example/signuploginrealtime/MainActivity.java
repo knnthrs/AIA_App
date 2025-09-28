@@ -1,8 +1,11 @@
 package com.example.signuploginrealtime;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -14,6 +17,8 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import com.bumptech.glide.Glide;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
@@ -79,6 +84,15 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        NotificationHelper.init(this);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                    != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.POST_NOTIFICATIONS}, 101);
+            }
+        }
 
         // 🔹 Check role before continuing
         SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);

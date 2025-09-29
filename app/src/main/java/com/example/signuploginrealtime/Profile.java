@@ -33,6 +33,7 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+
 public class Profile extends AppCompatActivity {
 
     private ImageView btnBack;
@@ -60,6 +61,7 @@ public class Profile extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
@@ -76,6 +78,11 @@ public class Profile extends AppCompatActivity {
         layoutDob = findViewById(R.id.layout_dob);
         layoutEmail = findViewById(R.id.layout_email);
         layoutPhone = findViewById(R.id.layout_phone);
+
+        LinearLayout layoutFeedback = findViewById(R.id.layout_feedback);
+        layoutFeedback.setOnClickListener(v -> {
+            startActivity(new Intent(Profile.this, FeedbackActivity.class));
+        });
 
         // Initialize date components
         selectedDate = Calendar.getInstance();

@@ -1,0 +1,147 @@
+<!-- Create file: app/src/main/res/layout/activity_feedback.xml -->
+    <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/yellowbackg">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Header with Back Button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="16dp">
+
+                <ImageView
+                    android:id="@+id/btn_back_feedback"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
+                    android:src="@drawable/ic_arrow_back"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:padding="4dp" />
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Send Feedback"
+                    android:textColor="@android:color/black"
+                    android:textSize="24sp"
+                    android:textStyle="bold"
+                    android:gravity="center" />
+            </LinearLayout>
+
+            <!-- Feedback Form -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="4dp"
+                android:backgroundTint="#FFFFFF">
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="16dp">
+
+                        <!-- Feedback Text Area -->
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Your Feedback"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="8dp" />
+
+                        <EditText
+                            android:id="@+id/et_feedback"
+                            android:layout_width="match_parent"
+                            android:layout_height="150dp"
+                            android:gravity="top"
+                            android:hint="Tell us what you think..."
+                            android:inputType="textMultiLine"
+                            android:padding="12dp"
+                            android:layout_marginBottom="20dp" />
+
+                        <!-- Categories Section -->
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Feedback Category"
+                            android:textColor="#333333"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:layout_marginBottom="8dp" />
+
+                        <!-- Checkboxes -->
+                        <CheckBox
+                            android:id="@+id/cb_facilities"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Facilities &amp; Equipment"
+                            android:textSize="16sp"
+                            android:paddingStart="8dp" />
+
+                        <CheckBox
+                            android:id="@+id/cb_staff"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Staff &amp; Trainers"
+                            android:textSize="16sp"
+                            android:paddingStart="8dp" />
+
+                        <CheckBox
+                            android:id="@+id/cb_workouts"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Workouts"
+                            android:textSize="16sp"
+                            android:paddingStart="8dp" />
+
+                        <CheckBox
+                            android:id="@+id/cb_payments"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="Payments &amp; Membership"
+                            android:textSize="16sp"
+                            android:paddingStart="8dp" />
+
+                        <CheckBox
+                            android:id="@+id/cb_general"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="General Suggestions / Others"
+                            android:textSize="16sp"
+                            android:paddingStart="8dp" />
+                    </LinearLayout>
+                </ScrollView>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Submit Button -->
+            <Button
+                android:id="@+id/btn_send_feedback"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:text="Send Feedback"
+                android:textSize="16sp"
+                android:textAllCaps="false"
+                android:backgroundTint="#4CAF50" />
+        </LinearLayout>
+    </androidx.coordinatorlayout.widget.CoordinatorLayout>

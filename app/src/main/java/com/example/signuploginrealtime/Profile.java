@@ -39,7 +39,7 @@ public class Profile extends AppCompatActivity {
     private ImageView btnBack;
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth mAuth;
-    private TextView profileName, profileEmail, tvMemberId, tvPhone, tvDob, tvStatus;
+    private TextView profileName, profileEmail, tvPhone, tvDob, tvStatus;
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
 
     // Firestore references
@@ -71,7 +71,7 @@ public class Profile extends AppCompatActivity {
         // Initialize TextViews and LinearLayouts based on your existing XML layout
         profileName = findViewById(R.id.profileName);
         profileEmail = findViewById(R.id.profileEmail);
-        tvMemberId = findViewById(R.id.tv_member_id);
+        // Removed tvMemberId initialization
         tvPhone = findViewById(R.id.tv_phone);
         tvDob = findViewById(R.id.tv_dob);
         tvStatus = findViewById(R.id.tv_status);
@@ -492,7 +492,6 @@ public class Profile extends AppCompatActivity {
                 String name = snapshot.getString("fullname");
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
-                String memberId = snapshot.getString("memberId");
                 String dateOfBirth = snapshot.getString("dateOfBirth");
                 String membershipStatus = snapshot.getString("membershipStatus");
 
@@ -504,7 +503,7 @@ public class Profile extends AppCompatActivity {
                 }
                 // --- end upgrade block ---
 
-                updateProfileDisplay(name, email, phone, memberId, dateOfBirth, membershipStatus, currentUser);
+                updateProfileDisplay(name, email, phone, dateOfBirth, membershipStatus, currentUser);
             } else {
                 // If no data exists, create default profile
                 createDefaultUserProfile(currentUser);
@@ -512,7 +511,7 @@ public class Profile extends AppCompatActivity {
         });
     }
 
-    private void updateProfileDisplay(String name, String email, String phone, String memberId, String dateOfBirth, String membershipStatus, FirebaseUser currentUser) {
+    private void updateProfileDisplay(String name, String email, String phone, String dateOfBirth, String membershipStatus, FirebaseUser currentUser) {
         // Update Name
         if (name != null && !name.isEmpty()) {
             profileName.setText(name);
@@ -539,14 +538,7 @@ public class Profile extends AppCompatActivity {
             tvPhone.setText("Phone not set");
         }
 
-        // Update Member ID
-        if (memberId != null && !memberId.isEmpty()) {
-            tvMemberId.setText("Member ID: #" + memberId);
-        } else {
-            String generatedMemberId = generateMemberId();
-            tvMemberId.setText("Member ID: #" + generatedMemberId);
-            if (userDocRef != null) userDocRef.update("memberId", generatedMemberId);
-        }
+        // Member ID section removed
 
         // Update Date of Birth
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
@@ -575,15 +567,14 @@ public class Profile extends AppCompatActivity {
         if (currentUser == null) return;
 
         String email = currentUser.getEmail();
-        String fullname = currentUser.getDisplayName(); // ✅ use fullname instead of defaultName
+        String fullname = currentUser.getDisplayName();
         if (fullname == null || fullname.isEmpty()) {
-            fullname = "Gym Member"; // fallback if no display name
+            fullname = "Gym Member";
         }
-        String memberId = generateMemberId();
 
         // Create user profile in Firestore with userType field
         if (userDocRef != null) {
-            UserProfileFirestore profile = new UserProfileFirestore(fullname, email, memberId);
+            UserProfileFirestore profile = new UserProfileFirestore(fullname, email);
             firestore.runTransaction(transaction -> {
                 transaction.set(userDocRef, profile);
                 transaction.update(userDocRef, "userType", "user");
@@ -594,19 +585,12 @@ public class Profile extends AppCompatActivity {
         profileName.setText(fullname);
         profileEmail.setText(email != null ? email : "No email");
         tvPhone.setText("Phone not set");
-        tvMemberId.setText("Member ID: #" + memberId);
+        // Removed member ID display
         tvStatus.setText("ACTIVE MEMBER");
         tvDob.setText("Select your date of birth");
     }
 
-
-    private String generateMemberId() {
-        // Generate unique member ID - you can customize this format
-        long timestamp = System.currentTimeMillis();
-        return "GYM" + String.valueOf(timestamp).substring(7); // GYM + last 6 digits
-    }
-
-    // Helper method to calculate age from date of birth
+    // Method to calculate age from date of birth
     private int calculateAge() {
         if (selectedDate == null) return 0;
 
@@ -651,12 +635,11 @@ public class Profile extends AppCompatActivity {
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String fullname, email, memberId, phone, dateOfBirth, membershipStatus, userType;
+        public String fullname, email, phone, dateOfBirth, membershipStatus, userType;
 
-        public UserProfileFirestore(String fullname, String email, String memberId) {
+        public UserProfileFirestore(String fullname, String email) {
             this.fullname = fullname;
             this.email = email;
-            this.memberId = memberId;
             this.phone = "";
             this.dateOfBirth = "";
             this.membershipStatus = "Active Member";

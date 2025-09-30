@@ -26,11 +26,10 @@ import com.google.zxing.qrcode.QRCodeWriter;
 public class QR extends AppCompatActivity {
 
     private ImageView qrCodeImage, backButton;
-    private TextView qrUserName, memberId, membershipStatus;
+    private TextView qrUserName, membershipStatus;
 
     // User data variables
     private String userName = "Loading...";
-    private String userMemberId = "-----";
     private String membershipStatusText = "Loading...";
     private String membershipType = "Basic";
     private boolean isActive = false;
@@ -61,8 +60,8 @@ public class QR extends AppCompatActivity {
         qrCodeImage = findViewById(R.id.qr_code_image);
         backButton = findViewById(R.id.back_button);
         qrUserName = findViewById(R.id.qr_user_name);
-        memberId = findViewById(R.id.member_id);
         membershipStatus = findViewById(R.id.membership_status);
+        // Removed memberId TextView initialization
     }
 
     private void setupClickListeners() {
@@ -86,14 +85,6 @@ public class QR extends AppCompatActivity {
                 if (snapshot != null && snapshot.exists()) {
                     userName = snapshot.getString("fullname");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
-
-                    String dbMemberId = snapshot.getString("memberId");
-                    if (dbMemberId != null && !dbMemberId.isEmpty()) {
-                        userMemberId = dbMemberId;
-                    } else {
-                        userMemberId = generateMemberId();
-                        userDocRef.update("memberId", userMemberId);
-                    }
 
                     String membershipPlanCode = snapshot.getString("membershipPlanCode");
                     String membershipPlanLabel = snapshot.getString("membershipPlanLabel");
@@ -135,27 +126,19 @@ public class QR extends AppCompatActivity {
         if (currentUser == null) return;
 
         String email = currentUser.getEmail();
-        String fullname = currentUser.getDisplayName(); // ✅ Firebase displayName
-        String memberId = generateMemberId();
+        String fullname = currentUser.getDisplayName();
 
         userName = fullname != null ? fullname : "Gym Member";
-        userMemberId = memberId;
         membershipStatusText = "NO PLAN SELECTED";
         membershipType = "No Plan Selected";
         isActive = false;
 
         if (userDocRef != null) {
-            userDocRef.set(new UserProfileFirestore(fullname, email, memberId));
+            userDocRef.set(new UserProfileFirestore(fullname, email));
         }
 
         updateUserInfoRealtime();
         ensurePermanentQRCode();
-    }
-
-
-    private String generateMemberId() {
-        long timestamp = System.currentTimeMillis();
-        return "GYM" + String.valueOf(timestamp).substring(7);
     }
 
     private String getMembershipTypeFromCode(String planCode) {
@@ -202,7 +185,7 @@ public class QR extends AppCompatActivity {
 
     private void updateUserInfoRealtime() {
         qrUserName.setText(userName);
-        memberId.setText("Member ID: #" + userMemberId);
+        // Removed memberId display
         membershipStatus.setText(membershipStatusText);
 
         CardView statusCard = (CardView) membershipStatus.getParent();
@@ -233,8 +216,8 @@ public class QR extends AppCompatActivity {
                     if (savedQr != null && !savedQr.isEmpty()) {
                         generateQRCode(savedQr);
                     } else {
-                        String qrData = String.format("%s_%s_%s_%s",
-                                userMemberId,
+                        // QR code uses UID only - no member ID needed
+                        String qrData = String.format("%s_%s_%s",
                                 userName.replaceAll("[\\s\\W]", ""),
                                 membershipType.replaceAll("[\\s\\W]", ""),
                                 currentUser.getUid());
@@ -299,14 +282,6 @@ public class QR extends AppCompatActivity {
                     userName = snapshot.getString("fullname");
                     if (userName == null || userName.isEmpty()) userName = "Unknown User";
 
-                    String dbMemberId = snapshot.getString("memberId");
-                    if (dbMemberId != null && !dbMemberId.isEmpty()) {
-                        userMemberId = dbMemberId;
-                    } else {
-                        userMemberId = generateMemberId();
-                        userDocRef.update("memberId", userMemberId);
-                    }
-
                     String membershipPlanCode = snapshot.getString("membershipPlanCode");
                     String membershipPlanLabel = snapshot.getString("membershipPlanLabel");
 
@@ -343,12 +318,11 @@ public class QR extends AppCompatActivity {
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String fullname, email, memberId, phone, dateOfBirth, membershipStatus;
+        public String fullname, email, phone, dateOfBirth, membershipStatus;
 
-        public UserProfileFirestore(String fullname, String email, String memberId) {
+        public UserProfileFirestore(String fullname, String email) {
             this.fullname = fullname;
             this.email = email;
-            this.memberId = memberId;
             this.phone = "";
             this.dateOfBirth = "";
             this.membershipStatus = "Active Member";

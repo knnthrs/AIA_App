@@ -153,15 +153,6 @@
                             android:gravity="center"
                             android:layout_marginBottom="4dp" />
 
-                        <TextView
-                            android:id="@+id/tv_member_id"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Member ID: #12345"
-                            android:textSize="14sp"
-                            android:textColor="#666666"
-                            android:gravity="center"
-                            android:layout_marginBottom="8dp" />
 
                     </LinearLayout>
 

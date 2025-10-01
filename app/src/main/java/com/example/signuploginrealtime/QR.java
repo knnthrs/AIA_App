@@ -2,7 +2,9 @@ package com.example.signuploginrealtime;
 
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.view.View;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -12,6 +14,8 @@ import androidx.cardview.widget.CardView;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
@@ -19,14 +23,31 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.ListenerRegistration;
+import com.google.firebase.firestore.Query;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.QRCodeWriter;
+
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 public class QR extends AppCompatActivity {
 
     private ImageView qrCodeImage, backButton;
     private TextView qrUserName, membershipStatus;
+    private CardView attendanceHistoryCard;
+    private LinearLayout attendanceHeader, attendanceContent;
+    private ImageView expandIcon;
+    private RecyclerView attendanceRecyclerView;
+    private TextView noRecordsText, totalVisitsText, thisMonthText;
+    private AttendanceAdapter attendanceAdapter;
+    private List<AttendanceRecord> attendanceRecords;
+
+    private boolean isAttendanceExpanded = false;
 
     // User data variables
     private String userName = "Loading...";
@@ -38,6 +59,7 @@ public class QR extends AppCompatActivity {
     private FirebaseFirestore firestore;
     private DocumentReference userDocRef;
     private ListenerRegistration userDataListener;
+    private ListenerRegistration attendanceListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,7 +75,9 @@ public class QR extends AppCompatActivity {
 
         initializeViews();
         setupClickListeners();
+        setupRecyclerView();
         loadUserData();
+        loadAttendanceHistory();
     }
 
     private void initializeViews() {
@@ -61,11 +85,108 @@ public class QR extends AppCompatActivity {
         backButton = findViewById(R.id.back_button);
         qrUserName = findViewById(R.id.qr_user_name);
         membershipStatus = findViewById(R.id.membership_status);
-        // Removed memberId TextView initialization
+
+        // Attendance history views
+        attendanceHistoryCard = findViewById(R.id.attendance_history_card);
+        attendanceHeader = findViewById(R.id.attendance_header);
+        attendanceContent = findViewById(R.id.attendance_content);
+        expandIcon = findViewById(R.id.expand_icon);
+        attendanceRecyclerView = findViewById(R.id.attendance_recycler_view);
+        noRecordsText = findViewById(R.id.no_records_text);
+        totalVisitsText = findViewById(R.id.total_visits_text);
+        thisMonthText = findViewById(R.id.this_month_text);
+
+        attendanceRecords = new ArrayList<>();
     }
 
     private void setupClickListeners() {
         backButton.setOnClickListener(v -> finish());
+
+        attendanceHeader.setOnClickListener(v -> toggleAttendanceHistory());
+    }
+
+    private void setupRecyclerView() {
+        attendanceAdapter = new AttendanceAdapter(attendanceRecords);
+        attendanceRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        attendanceRecyclerView.setAdapter(attendanceAdapter);
+    }
+
+    private void toggleAttendanceHistory() {
+        isAttendanceExpanded = !isAttendanceExpanded;
+
+        if (isAttendanceExpanded) {
+            attendanceContent.setVisibility(View.VISIBLE);
+            expandIcon.setRotation(180);
+        } else {
+            attendanceContent.setVisibility(View.GONE);
+            expandIcon.setRotation(0);
+        }
+    }
+
+    private void loadAttendanceHistory() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            firestore = FirebaseFirestore.getInstance();
+
+            // Query the root-level attendance collection filtered by uid
+            attendanceListener = firestore.collection("attendance")
+                    .whereEqualTo("uid", currentUser.getUid())
+                    .orderBy("timeInTimestamp", Query.Direction.DESCENDING)
+                    .limit(20)
+                    .addSnapshotListener((snapshots, error) -> {
+                        if (error != null) {
+                            Toast.makeText(QR.this, "Failed to load attendance history",
+                                    Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+
+                        if (snapshots != null) {
+                            attendanceRecords.clear();
+                            int thisMonthCount = 0;
+
+                            for (QueryDocumentSnapshot doc : snapshots) {
+                                // Get timestamps from your field names
+                                Long timeInTimestamp = doc.getLong("timeInTimestamp");
+                                Long timeOutTimestamp = doc.getLong("timeOutTimestamp");
+
+                                if (timeInTimestamp != null) {
+                                    long timeIn = timeInTimestamp;
+                                    long timeOut = timeOutTimestamp != null ? timeOutTimestamp : 0;
+                                    String status = timeOut > 0 ? "completed" : "active";
+
+                                    AttendanceRecord record = new AttendanceRecord(timeIn, timeOut, status);
+                                    attendanceRecords.add(record);
+
+                                    // Count this month's visits
+                                    if (isThisMonth(timeIn)) {
+                                        thisMonthCount++;
+                                    }
+                                }
+                            }
+
+                            attendanceAdapter.notifyDataSetChanged();
+
+                            // Update statistics
+                            totalVisitsText.setText(String.valueOf(attendanceRecords.size()));
+                            thisMonthText.setText(String.valueOf(thisMonthCount));
+
+                            // Show/hide no records message
+                            if (attendanceRecords.isEmpty()) {
+                                noRecordsText.setVisibility(View.VISIBLE);
+                                attendanceRecyclerView.setVisibility(View.GONE);
+                            } else {
+                                noRecordsText.setVisibility(View.GONE);
+                                attendanceRecyclerView.setVisibility(View.VISIBLE);
+                            }
+                        }
+                    });
+        }
+    }
+    private boolean isThisMonth(long timestamp) {
+        SimpleDateFormat monthFormat = new SimpleDateFormat("MM-yyyy", Locale.getDefault());
+        String recordMonth = monthFormat.format(new Date(timestamp));
+        String currentMonth = monthFormat.format(new Date());
+        return recordMonth.equals(currentMonth);
     }
 
     private void loadUserData() {
@@ -185,7 +306,6 @@ public class QR extends AppCompatActivity {
 
     private void updateUserInfoRealtime() {
         qrUserName.setText(userName);
-        // Removed memberId display
         membershipStatus.setText(membershipStatusText);
 
         CardView statusCard = (CardView) membershipStatus.getParent();
@@ -216,7 +336,6 @@ public class QR extends AppCompatActivity {
                     if (savedQr != null && !savedQr.isEmpty()) {
                         generateQRCode(savedQr);
                     } else {
-                        // QR code uses UID only - no member ID needed
                         String qrData = String.format("%s_%s_%s",
                                 userName.replaceAll("[\\s\\W]", ""),
                                 membershipType.replaceAll("[\\s\\W]", ""),
@@ -256,6 +375,9 @@ public class QR extends AppCompatActivity {
         if (userDataListener != null) {
             userDataListener.remove();
         }
+        if (attendanceListener != null) {
+            attendanceListener.remove();
+        }
     }
 
     @Override
@@ -263,6 +385,9 @@ public class QR extends AppCompatActivity {
         super.onPause();
         if (userDataListener != null) {
             userDataListener.remove();
+        }
+        if (attendanceListener != null) {
+            attendanceListener.remove();
         }
     }
 
@@ -314,6 +439,9 @@ public class QR extends AppCompatActivity {
                 }
             });
         }
+
+        // Reload attendance history
+        loadAttendanceHistory();
     }
 
     // Helper Firestore user profile class

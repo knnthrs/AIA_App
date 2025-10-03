@@ -19,7 +19,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.bumptech.glide.Glide;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -556,35 +556,51 @@ public class MainActivity extends AppCompatActivity {
 
     @SuppressLint("SetTextI18n")
     private void updateMembershipDisplay(DocumentSnapshot firestoreSnapshot) {
-        String planCode = firestoreSnapshot.getString("membershipPlanCode");
-        String planLabel = firestoreSnapshot.getString("membershipPlanLabel");
-
-        Log.d(TAG, "updateMembershipDisplay: planCode from Firestore: '" + planCode + "'");
-        Log.d(TAG, "updateMembershipDisplay: planLabel from Firestore: '" + planLabel + "'");
-
-        boolean planCodeValid = (planCode != null && !planCode.trim().isEmpty() && !"null".equals(planCode));
-        boolean planLabelValid = (planLabel != null && !planLabel.trim().isEmpty() && !"null".equals(planLabel));
-        boolean hasValidPlan = planCodeValid || planLabelValid;
-
-        Log.d(TAG, "updateMembershipDisplay: planCodeValid: " + planCodeValid);
-        Log.d(TAG, "updateMembershipDisplay: planLabelValid: " + planLabelValid);
-        Log.d(TAG, "updateMembershipDisplay: hasValidPlan: " + hasValidPlan);
-
-        if (hasValidPlan) {
-            Log.d(TAG, "Setting membership to ACTIVE");
-            membershipStatus.setText("ACTIVE");
-            try {
-                membershipStatus.setTextColor(getColor(R.color.green));
-            } catch (Exception colorEx) {
-                Log.e(TAG, "Error setting green color: " + colorEx.getMessage());
-                membershipStatus.setTextColor(android.graphics.Color.GREEN);
-            }
-            planType.setText(extractPlanName(planLabel != null ? planLabel : planCode));
-            expiryDate.setText(calculateExpiryDate(planCode != null ? planCode : "STANDARD_1M"));
-        } else {
-            Log.d(TAG, "Setting membership to INACTIVE");
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
             setDefaultMembershipValues();
+            return;
         }
+
+        String userId = currentUser.getUid();
+
+        // Query the memberships collection for this user's active membership
+        dbFirestore.collection("memberships")
+                .whereEqualTo("userId", userId)
+                .whereEqualTo("membershipStatus", "active")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        // User has an active membership
+                        DocumentSnapshot membership = queryDocumentSnapshots.getDocuments().get(0);
+
+                        String planCode = membership.getString("membershipPlanCode");
+                        String planLabel = membership.getString("membershipPlanLabel");
+                        com.google.firebase.Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
+
+                        Log.d(TAG, "Found active membership: " + planCode);
+
+                        membershipStatus.setText("ACTIVE");
+                        membershipStatus.setTextColor(getColor(R.color.green));
+                        planType.setText(extractPlanName(planLabel != null ? planLabel : planCode));
+
+                        // Format the expiration date
+                        if (expirationTimestamp != null) {
+                            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+                            expiryDate.setText(sdf.format(expirationTimestamp.toDate()));
+                        } else {
+                            expiryDate.setText("—");
+                        }
+                    } else {
+                        // No active membership found
+                        Log.d(TAG, "No active membership found");
+                        setDefaultMembershipValues();
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching membership: " + e.getMessage());
+                    setDefaultMembershipValues();
+                });
     }
 
     private String extractPlanName(String planLabel) {
@@ -626,11 +642,15 @@ public class MainActivity extends AppCompatActivity {
         setDefaultMembershipValues();
     }
 
+
     @Override
     protected void onResume() {
         super.onResume();
         if (mAuth.getCurrentUser() != null) {
             updateStreakDisplay();
+
+            // Refresh membership display when returning to MainActivity
+            loadUserDataFromFirestore(); // This will trigger updateMembershipDisplay
 
             // Refresh workout display when returning from other activities
             loadNextWorkoutFromFirestore();
@@ -645,6 +665,7 @@ public class MainActivity extends AppCompatActivity {
             goToLogin();
         }
     }
+
     private void goToLogin(){
         Intent intent = new Intent(MainActivity.this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);

@@ -127,12 +127,10 @@ public class activity_select_workout_frequency extends AppCompatActivity {
                     .document(userId)
                     .update("workoutDaysPerWeek", frequency)
                     .addOnSuccessListener(aVoid -> {
-                        // Successfully updated
-                        Toast.makeText(this, "Workout frequency saved!", Toast.LENGTH_SHORT).show();
+                        // Successfully updated — no toast
                     })
                     .addOnFailureListener(e -> {
-                        // Handle error
-                        Toast.makeText(this, "Error saving workout frequency", Toast.LENGTH_SHORT).show();
+                        // Handle error — no toast
                     });
         }
     }

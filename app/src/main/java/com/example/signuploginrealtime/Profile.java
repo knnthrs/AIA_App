@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
+import android.util.Log;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -42,6 +43,10 @@ public class Profile extends AppCompatActivity {
     private TextView profileName, profileEmail, tvPhone, tvDob, tvStatus;
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
 
+    // Fitness profile fields
+    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency;
+    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency;
+
     // Firestore references
     private FirebaseFirestore firestore;
     private DocumentReference userDocRef;
@@ -71,13 +76,20 @@ public class Profile extends AppCompatActivity {
         // Initialize TextViews and LinearLayouts based on your existing XML layout
         profileName = findViewById(R.id.profileName);
         profileEmail = findViewById(R.id.profileEmail);
-        // Removed tvMemberId initialization
         tvPhone = findViewById(R.id.tv_phone);
         tvDob = findViewById(R.id.tv_dob);
         tvStatus = findViewById(R.id.tv_status);
         layoutDob = findViewById(R.id.layout_dob);
         layoutEmail = findViewById(R.id.layout_email);
         layoutPhone = findViewById(R.id.layout_phone);
+
+        // Initialize fitness profile views
+        tvFitnessLevel = findViewById(R.id.tv_fitness_level);
+        tvFitnessGoal = findViewById(R.id.tv_fitness_goal);
+        tvWorkoutFrequency = findViewById(R.id.tv_workout_frequency);
+        layoutFitnessLevel = findViewById(R.id.layout_fitness_level);
+        layoutFitnessGoal = findViewById(R.id.layout_fitness_goal);
+        layoutWorkoutFrequency = findViewById(R.id.layout_workout_frequency);
 
         LinearLayout layoutFeedback = findViewById(R.id.layout_feedback);
         layoutFeedback.setOnClickListener(v -> {
@@ -91,6 +103,7 @@ public class Profile extends AppCompatActivity {
         // Set up functionality
         setupDatePicker();
         setupEditableFields();
+        setupFitnessProfileEditing();
         setupSecurityClickListeners();
 
         // Initialize Firestore
@@ -135,7 +148,6 @@ public class Profile extends AppCompatActivity {
                 overridePendingTransition(0, 0);
                 return true;
             } else if (itemId == R.id.item_4) {
-                // Navigate to Achievements activity
                 startActivity(new Intent(getApplicationContext(), Achievement.class));
                 overridePendingTransition(0, 0);
                 return true;
@@ -147,6 +159,185 @@ public class Profile extends AppCompatActivity {
 
         // Logout button
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
+    }
+
+    private void setupFitnessProfileEditing() {
+        // Fitness Level click listener
+        layoutFitnessLevel.setOnClickListener(v -> showFitnessLevelDialog());
+
+        // Fitness Goal click listener
+        layoutFitnessGoal.setOnClickListener(v -> showFitnessGoalDialog());
+
+        // Workout Frequency click listener
+        layoutWorkoutFrequency.setOnClickListener(v -> showWorkoutFrequencyDialog());
+    }
+
+    private void showFitnessLevelDialog() {
+        // Match exactly with AdvancedWorkoutDecisionMaker cases
+        String[] levels = {"Sedentary", "Lightly Active", "Moderately Active", "Very Active"};
+        String[] levelValues = {"sedentary", "lightly active", "moderately active", "very active"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Fitness Level");
+
+        builder.setItems(levels, (dialog, which) -> {
+            String selectedLevel = levels[which];
+            String selectedValue = levelValues[which];
+            updateFitnessLevel(selectedValue, selectedLevel);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void showFitnessGoalDialog() {
+        // Match exactly with AdvancedWorkoutDecisionMaker cases
+        String[] goals = {"Lose Weight", "Gain Muscle", "Increase Endurance", "General Fitness"};
+        String[] goalValues = {"lose weight", "gain muscle", "increase endurance", "general fitness"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Fitness Goal");
+
+        builder.setItems(goals, (dialog, which) -> {
+            String selectedGoal = goals[which];
+            String selectedValue = goalValues[which];
+            updateFitnessGoal(selectedValue, selectedGoal);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void showWorkoutFrequencyDialog() {
+        String[] frequencies = {"1 day per week", "2 days per week", "3 days per week",
+                "4 days per week", "5 days per week", "6 days per week",
+                "7 days per week"};
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Select Workout Frequency");
+
+        builder.setItems(frequencies, (dialog, which) -> {
+            int daysPerWeek = which + 1;
+            String displayText = frequencies[which];
+            updateWorkoutFrequency(daysPerWeek, displayText);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+        builder.show();
+    }
+
+    private void updateFitnessLevel(String value, String displayText) {
+        if (userDocRef != null) {
+            userDocRef.update("fitnessLevel", value)
+                    .addOnSuccessListener(aVoid -> {
+                        tvFitnessLevel.setText(displayText);
+                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        Toast.makeText(this, "Fitness level updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updateFitnessGoal(String value, String displayText) {
+        if (userDocRef != null) {
+            userDocRef.update("fitnessGoal", value)
+                    .addOnSuccessListener(aVoid -> {
+                        tvFitnessGoal.setText(displayText);
+                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        Toast.makeText(this, "Fitness goal updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updateWorkoutFrequency(int days, String displayText) {
+        if (userDocRef != null) {
+            userDocRef.update("workoutDaysPerWeek", days)
+                    .addOnSuccessListener(aVoid -> {
+                        tvWorkoutFrequency.setText(displayText);
+                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        Toast.makeText(this, "Workout frequency updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void loadFitnessProfileData() {
+        if (userDocRef != null) {
+            userDocRef.get().addOnSuccessListener(snapshot -> {
+                if (snapshot != null && snapshot.exists()) {
+                    // Load Fitness Level
+                    String fitnessLevel = snapshot.getString("fitnessLevel");
+                    if (fitnessLevel != null && !fitnessLevel.isEmpty()) {
+                        tvFitnessLevel.setText(formatFitnessLevel(fitnessLevel));
+                    } else {
+                        tvFitnessLevel.setText("Not set");
+                    }
+
+                    // Load Fitness Goal
+                    String fitnessGoal = snapshot.getString("fitnessGoal");
+                    if (fitnessGoal != null && !fitnessGoal.isEmpty()) {
+                        tvFitnessGoal.setText(formatFitnessGoal(fitnessGoal));
+                    } else {
+                        tvFitnessGoal.setText("Not set");
+                    }
+
+                    // Load Workout Frequency
+                    Long workoutDays = snapshot.getLong("workoutDaysPerWeek");
+                    if (workoutDays != null) {
+                        int days = workoutDays.intValue();
+                        String frequencyText = days + (days == 1 ? " day per week" : " days per week");
+                        tvWorkoutFrequency.setText(frequencyText);
+                    } else {
+                        tvWorkoutFrequency.setText("Not set");
+                    }
+                }
+            });
+        }
+    }
+
+    private String formatFitnessLevel(String level) {
+        // Convert database format to display format
+        switch (level.toLowerCase()) {
+            case "sedentary":
+                return "Sedentary";
+            case "lightly active":
+                return "Lightly Active";
+            case "moderately active":
+                return "Moderately Active";
+            case "very active":
+                return "Very Active";
+            default:
+                return level;
+        }
+    }
+
+    private String formatFitnessGoal(String goal) {
+        // Convert database format to display format
+        switch (goal.toLowerCase()) {
+            case "lose weight":
+            case "weight loss":
+                return "Lose Weight";
+            case "gain muscle":
+            case "muscle gain":
+                return "Gain Muscle";
+            case "increase endurance":
+            case "endurance":
+                return "Increase Endurance";
+            case "general fitness":
+                return "General Fitness";
+            default:
+                return goal;
+        }
     }
 
     private void setupSecurityClickListeners() {
@@ -238,24 +429,20 @@ public class Profile extends AppCompatActivity {
             return;
         }
 
-        // Show loading toast
         Toast.makeText(this, "Changing password...", Toast.LENGTH_SHORT).show();
 
-        // Re-authenticate user with current password
         AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), currentPassword);
 
         user.reauthenticate(credential).addOnCompleteListener(new OnCompleteListener<Void>() {
             @Override
             public void onComplete(@NonNull Task<Void> task) {
                 if (task.isSuccessful()) {
-                    // Re-authentication successful, now change password
                     user.updatePassword(newPassword).addOnCompleteListener(new OnCompleteListener<Void>() {
                         @Override
                         public void onComplete(@NonNull Task<Void> passwordTask) {
                             if (passwordTask.isSuccessful()) {
                                 Toast.makeText(Profile.this, "Password changed successfully!", Toast.LENGTH_LONG).show();
 
-                                // Save password change timestamp to Firestore
                                 if (userDocRef != null) {
                                     userDocRef.update("lastPasswordChange", System.currentTimeMillis());
                                 }
@@ -267,7 +454,6 @@ public class Profile extends AppCompatActivity {
                         }
                     });
                 } else {
-                    // Re-authentication failed
                     Toast.makeText(Profile.this, "Current password is incorrect", Toast.LENGTH_LONG).show();
                 }
             }
@@ -275,10 +461,7 @@ public class Profile extends AppCompatActivity {
     }
 
     private void setupEditableFields() {
-        // Set up email editing
         layoutEmail.setOnClickListener(v -> showEditEmailDialog());
-
-        // Set up phone editing
         layoutPhone.setOnClickListener(v -> showEditPhoneDialog());
     }
 
@@ -286,13 +469,11 @@ public class Profile extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Edit Email Address");
 
-        // Create EditText
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         input.setText(profileEmail.getText().toString());
-        input.setSelection(input.getText().length()); // Place cursor at end
+        input.setSelection(input.getText().length());
 
-        // Set padding
         int padding = (int) (16 * getResources().getDisplayMetrics().density);
         input.setPadding(padding, padding, padding, padding);
 
@@ -311,8 +492,6 @@ public class Profile extends AppCompatActivity {
 
         AlertDialog dialog = builder.create();
         dialog.show();
-
-        // Focus on input and show keyboard
         input.requestFocus();
     }
 
@@ -320,19 +499,17 @@ public class Profile extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle("Edit Phone Number");
 
-        // Create EditText
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_PHONE);
 
         String currentPhone = tvPhone.getText().toString();
         if (!currentPhone.equals("Phone not set")) {
             input.setText(currentPhone);
-            input.setSelection(input.getText().length()); // Place cursor at end
+            input.setSelection(input.getText().length());
         }
 
         input.setHint("Enter your phone number");
 
-        // Set padding
         int padding = (int) (16 * getResources().getDisplayMetrics().density);
         input.setPadding(padding, padding, padding, padding);
 
@@ -353,8 +530,6 @@ public class Profile extends AppCompatActivity {
 
         AlertDialog dialog = builder.create();
         dialog.show();
-
-        // Focus on input and show keyboard
         input.requestFocus();
     }
 
@@ -367,10 +542,8 @@ public class Profile extends AppCompatActivity {
             return false;
         }
 
-        // Remove spaces, dashes, and parentheses for validation
         String cleanPhone = phone.replaceAll("[\\s\\-\\(\\)]", "");
 
-        // Check if it\'s a valid format (at least 10 digits, can start with +)
         return cleanPhone.length() >= 10 &&
                 (cleanPhone.matches("^\\+?[1-9]\\d{9,14}$") ||
                         cleanPhone.matches("^[0-9]{10,15}$"));
@@ -418,19 +591,15 @@ public class Profile extends AppCompatActivity {
                 new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        // Update the selected date
                         selectedDate.set(Calendar.YEAR, year);
                         selectedDate.set(Calendar.MONTH, month);
                         selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
 
-                        // Format and display the selected date
                         String formattedDate = dateFormat.format(selectedDate.getTime());
                         tvDob.setText(formattedDate);
 
-                        // Save the date to Firebase and SharedPreferences
                         saveDateOfBirth(formattedDate);
 
-                        // Show confirmation toast
                         Toast.makeText(Profile.this, "Date of birth updated", Toast.LENGTH_SHORT).show();
                     }
                 },
@@ -439,27 +608,24 @@ public class Profile extends AppCompatActivity {
                 currentDay
         );
 
-        // Set date constraints
         Calendar maxDate = Calendar.getInstance();
-        maxDate.add(Calendar.YEAR, -13); // Minimum age of 13
+        maxDate.add(Calendar.YEAR, -13);
         datePickerDialog.getDatePicker().setMaxDate(maxDate.getTimeInMillis());
 
         Calendar minDate = Calendar.getInstance();
-        minDate.set(1900, 0, 1); // Minimum year 1900
+        minDate.set(1900, 0, 1);
         datePickerDialog.getDatePicker().setMinDate(minDate.getTimeInMillis());
 
         datePickerDialog.show();
     }
 
     private void saveDateOfBirth(String dateOfBirth) {
-        // Save to SharedPreferences
         SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
         SharedPreferences.Editor editor = prefs.edit();
         editor.putString("date_of_birth", dateOfBirth);
         editor.putLong("date_of_birth_timestamp", selectedDate.getTimeInMillis());
         editor.apply();
 
-        // Save to Firestore
         if (userDocRef != null) {
             userDocRef.update("dateOfBirth", dateOfBirth);
         }
@@ -488,24 +654,19 @@ public class Profile extends AppCompatActivity {
                 return;
             }
             if (snapshot != null && snapshot.exists()) {
-                // Get user data from Firestore
                 String name = snapshot.getString("fullname");
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
                 String dateOfBirth = snapshot.getString("dateOfBirth");
                 String membershipStatus = snapshot.getString("membershipStatus");
 
-                // --- Add this block to upgrade old users ---
                 String userType = snapshot.getString("userType");
                 if (userType == null || userType.isEmpty()) {
-                    // Automatically add userType: "user" for old users
                     userDocRef.update("userType", "user");
                 }
-                // --- end upgrade block ---
 
                 updateProfileDisplay(name, email, phone, dateOfBirth, membershipStatus, currentUser);
             } else {
-                // If no data exists, create default profile
                 createDefaultUserProfile(currentUser);
             }
         });
@@ -516,11 +677,10 @@ public class Profile extends AppCompatActivity {
         if (name != null && !name.isEmpty()) {
             profileName.setText(name);
         } else if (currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
-            profileName.setText(currentUser.getDisplayName()); // fallback to FirebaseAuth display name
+            profileName.setText(currentUser.getDisplayName());
         } else {
             profileName.setText("Gym Member");
         }
-
 
         // Update Email
         if (email != null && !email.isEmpty()) {
@@ -537,8 +697,6 @@ public class Profile extends AppCompatActivity {
         } else {
             tvPhone.setText("Phone not set");
         }
-
-        // Member ID section removed
 
         // Update Date of Birth
         if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
@@ -560,8 +718,21 @@ public class Profile extends AppCompatActivity {
             tvStatus.setText("ACTIVE MEMBER");
             if (userDocRef != null) userDocRef.update("membershipStatus", "Active Member");
         }
+
+        // Load fitness profile data
+        loadFitnessProfileData();
     }
 
+    // Add this method in Profile.java after your update methods
+    private void markProfileAsChanged() {
+        if (userDocRef != null) {
+            userDocRef.update("profileLastModified", System.currentTimeMillis())
+                    .addOnSuccessListener(aVoid ->
+                            Log.d("Profile", "Profile modification timestamp updated"))
+                    .addOnFailureListener(e ->
+                            Log.e("Profile", "Failed to update profile timestamp", e));
+        }
+    }
 
     private void createDefaultUserProfile(FirebaseUser currentUser) {
         if (currentUser == null) return;
@@ -572,7 +743,6 @@ public class Profile extends AppCompatActivity {
             fullname = "Gym Member";
         }
 
-        // Create user profile in Firestore with userType field
         if (userDocRef != null) {
             UserProfileFirestore profile = new UserProfileFirestore(fullname, email);
             firestore.runTransaction(transaction -> {
@@ -585,19 +755,19 @@ public class Profile extends AppCompatActivity {
         profileName.setText(fullname);
         profileEmail.setText(email != null ? email : "No email");
         tvPhone.setText("Phone not set");
-        // Removed member ID display
         tvStatus.setText("ACTIVE MEMBER");
         tvDob.setText("Select your date of birth");
+        tvFitnessLevel.setText("Not set");
+        tvFitnessGoal.setText("Not set");
+        tvWorkoutFrequency.setText("Not set");
     }
 
-    // Method to calculate age from date of birth
     private int calculateAge() {
         if (selectedDate == null) return 0;
 
         Calendar today = Calendar.getInstance();
         int age = today.get(Calendar.YEAR) - selectedDate.get(Calendar.YEAR);
 
-        // Check if birthday has occurred this year
         if (today.get(Calendar.DAY_OF_YEAR) < selectedDate.get(Calendar.DAY_OF_YEAR)) {
             age--;
         }
@@ -605,7 +775,6 @@ public class Profile extends AppCompatActivity {
         return age;
     }
 
-    // Method to get formatted date for API calls or database storage
     private String getDateOfBirthForAPI() {
         SimpleDateFormat apiFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         return apiFormat.format(selectedDate.getTime());
@@ -614,7 +783,6 @@ public class Profile extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // Remove Firestore listener
         if (userDataListener != null) {
             userDataListener.remove();
         }
@@ -633,7 +801,6 @@ public class Profile extends AppCompatActivity {
                 .show();
     }
 
-    // Helper Firestore user profile class
     private static class UserProfileFirestore {
         public String fullname, email, phone, dateOfBirth, membershipStatus, userType;
 
@@ -646,5 +813,4 @@ public class Profile extends AppCompatActivity {
             this.userType = "user";
         }
     }
-
 }

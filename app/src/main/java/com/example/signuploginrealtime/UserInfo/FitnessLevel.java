@@ -60,8 +60,8 @@ public class FitnessLevel extends AppCompatActivity {
         btnNext.setOnClickListener(v -> {
             if (!selectedActivityLevel.isEmpty()) {
                 // Save selected activity level in UserProfile
-                userProfile.setFitnessLevel(selectedActivityLevel);
-
+                userProfile.setFitnessLevel(selectedActivityLevel.trim().toLowerCase());
+                
                 // Pass full userProfile to next activity (FitnessGoal)
                 Intent intent = new Intent(FitnessLevel.this, FitnessGoal.class);
                 intent.putExtra("userProfile", userProfile);

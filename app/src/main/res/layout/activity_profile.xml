@@ -384,6 +384,198 @@
 
                 </androidx.cardview.widget.CardView>
 
+                <!-- Fitness Information Card -->
+                <androidx.cardview.widget.CardView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="20dp"
+                    android:backgroundTint="#FFFFFF"
+                    app:cardCornerRadius="24dp"
+                    app:cardElevation="4dp">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:padding="20dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Fitness Profile"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            android:textColor="#333333"
+                            android:layout_marginBottom="16dp" />
+
+                        <!-- Fitness Level -->
+                        <LinearLayout
+                            android:id="@+id/layout_fitness_level"
+                            android:layout_width="match_parent"
+                            android:layout_height="60dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground"
+                            android:paddingHorizontal="12dp">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_fitness"
+                                android:layout_marginEnd="16dp"
+                                app:tint="#666666" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Fitness Level"
+                                    android:textSize="12sp"
+                                    android:textColor="#666666" />
+
+                                <TextView
+                                    android:id="@+id/tv_fitness_level"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Not set"
+                                    android:textSize="16sp"
+                                    android:textColor="#333333" />
+
+                            </LinearLayout>
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_edit"
+                                app:tint="#CCCCCC" />
+
+                        </LinearLayout>
+
+                        <!-- Divider -->
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#F0F0F0"
+                            android:layout_marginVertical="4dp" />
+
+                        <!-- Fitness Goal -->
+                        <LinearLayout
+                            android:id="@+id/layout_fitness_goal"
+                            android:layout_width="match_parent"
+                            android:layout_height="60dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground"
+                            android:paddingHorizontal="12dp">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_target"
+                                android:layout_marginEnd="16dp"
+                                app:tint="#666666" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Fitness Goal"
+                                    android:textSize="12sp"
+                                    android:textColor="#666666" />
+
+                                <TextView
+                                    android:id="@+id/tv_fitness_goal"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Not set"
+                                    android:textSize="16sp"
+                                    android:textColor="#333333" />
+
+                            </LinearLayout>
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_edit"
+                                app:tint="#CCCCCC" />
+
+                        </LinearLayout>
+
+                        <!-- Divider -->
+                        <View
+                            android:layout_width="match_parent"
+                            android:layout_height="1dp"
+                            android:background="#F0F0F0"
+                            android:layout_marginVertical="4dp" />
+
+                        <!-- Workout Frequency -->
+                        <LinearLayout
+                            android:id="@+id/layout_workout_frequency"
+                            android:layout_width="match_parent"
+                            android:layout_height="60dp"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical"
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:background="?attr/selectableItemBackground"
+                            android:paddingHorizontal="12dp">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_calendar"
+                                android:layout_marginEnd="16dp"
+                                app:tint="#666666" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Workout Frequency"
+                                    android:textSize="12sp"
+                                    android:textColor="#666666" />
+
+                                <TextView
+                                    android:id="@+id/tv_workout_frequency"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Not set"
+                                    android:textSize="16sp"
+                                    android:textColor="#333333" />
+
+                            </LinearLayout>
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_edit"
+                                app:tint="#CCCCCC" />
+
+                        </LinearLayout>
+
+                    </LinearLayout>
+
+                </androidx.cardview.widget.CardView>
+
                 <!-- Security Card -->
                 <androidx.cardview.widget.CardView
                     android:layout_width="match_parent"
@@ -579,6 +771,7 @@
                     </LinearLayout>
 
                 </androidx.cardview.widget.CardView>
+
 
                 <!-- Logout Button -->
                 <LinearLayout

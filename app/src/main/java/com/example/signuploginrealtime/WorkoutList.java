@@ -292,47 +292,132 @@ public class WorkoutList extends AppCompatActivity {
         }
 
         String uid = currentUser.getUid();
-        DocumentReference workoutRef = firestore.collection("users")
-                .document(uid)
-                .collection("currentWorkout")
-                .document("week_" + userProfile.getCurrentWeek());
+        DocumentReference userDocRef = firestore.collection("users").document(uid);
 
-        // Check if there’s an existing unfinished workout
-        workoutRef.get().addOnSuccessListener(documentSnapshot -> {
-            if (documentSnapshot.exists() && Boolean.FALSE.equals(documentSnapshot.getBoolean("completed"))) {
-                // Load existing workout
-                currentWorkoutExercises = documentSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
-                showExercises(currentWorkoutExercises);
-                startWorkoutButton.setEnabled(true);
-            } else {
-                // Generate new workout
-                com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
-                Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(availableExercises, modelProfile);
-                Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(baseWorkout, 1, modelProfile);
-
-                if (finalWorkout != null && finalWorkout.getExercises() != null && !finalWorkout.getExercises().isEmpty()) {
-                    currentWorkoutExercises = finalWorkout.getExercises();
-                    showExercises(currentWorkoutExercises);
-                    startWorkoutButton.setEnabled(true);
-
-                    // Save to Firestore
-                    workoutRef.set(new WorkoutWrapper(currentWorkoutExercises, false))
-                            .addOnSuccessListener(aVoid -> Log.d(TAG, "Workout saved to Firestore."))
-                            .addOnFailureListener(e -> Log.e(TAG, "Error saving workout", e));
-                } else {
-                    Toast.makeText(this, "Could not generate a valid workout.", Toast.LENGTH_SHORT).show();
-                    startWorkoutButton.setEnabled(false);
-                    useDummyWorkout();
-                }
+        // ✅ FETCH FRESH USER PROFILE DATA FIRST
+        userDocRef.get().addOnSuccessListener(userSnapshot -> {
+            if (!userSnapshot.exists()) {
+                Toast.makeText(this, "User profile not found", Toast.LENGTH_SHORT).show();
+                return;
             }
+
+            // ✅ UPDATE userProfile with fresh Firestore data
+            updateUserProfileFromFirestore(userSnapshot);
+
+            Long profileLastModified = userSnapshot.getLong("profileLastModified");
+
+            DocumentReference workoutRef = firestore.collection("users")
+                    .document(uid)
+                    .collection("currentWorkout")
+                    .document("week_" + userProfile.getCurrentWeek());
+
+            // Check if there's an existing workout
+            workoutRef.get().addOnSuccessListener(workoutSnapshot -> {
+                boolean shouldRegenerate = false;
+
+                if (!workoutSnapshot.exists()) {
+                    Log.d(TAG, "No existing workout found. Generating new workout.");
+                    shouldRegenerate = true;
+                } else if (Boolean.TRUE.equals(workoutSnapshot.getBoolean("completed"))) {
+                    Log.d(TAG, "Previous workout completed. Generating new workout.");
+                    shouldRegenerate = true;
+                } else {
+                    Long workoutCreatedAt = workoutSnapshot.getLong("createdAt");
+
+                    if (profileLastModified != null && workoutCreatedAt != null
+                            && profileLastModified > workoutCreatedAt) {
+                        Log.d(TAG, "Profile changed after workout creation. Regenerating workout.");
+                        Toast.makeText(this, "Your profile has changed. Generating new personalized workout...",
+                                Toast.LENGTH_LONG).show();
+                        shouldRegenerate = true;
+                    } else {
+                        Log.d(TAG, "Loading existing workout (profile unchanged).");
+                        currentWorkoutExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
+                        showExercises(currentWorkoutExercises);
+                        startWorkoutButton.setEnabled(true);
+                        return;
+                    }
+                }
+
+                if (shouldRegenerate) {
+                    com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
+                    Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
+                            availableExercises, modelProfile);
+                    Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(
+                            baseWorkout,
+                            userProfile.getCurrentWeek(),
+                            modelProfile
+                    );
+
+                    if (finalWorkout != null && finalWorkout.getExercises() != null
+                            && !finalWorkout.getExercises().isEmpty()) {
+                        currentWorkoutExercises = finalWorkout.getExercises();
+                        showExercises(currentWorkoutExercises);
+                        startWorkoutButton.setEnabled(true);
+
+                        WorkoutWrapper wrapper = new WorkoutWrapper(currentWorkoutExercises, false);
+                        wrapper.createdAt = System.currentTimeMillis();
+
+                        workoutRef.set(wrapper)
+                                .addOnSuccessListener(aVoid ->
+                                        Log.d(TAG, "New workout saved to Firestore with timestamp."))
+                                .addOnFailureListener(e ->
+                                        Log.e(TAG, "Error saving workout", e));
+                    } else {
+                        Toast.makeText(this, "Could not generate a valid workout.",
+                                Toast.LENGTH_SHORT).show();
+                        startWorkoutButton.setEnabled(false);
+                        useDummyWorkout();
+                    }
+                }
+            }).addOnFailureListener(e -> {
+                Log.e(TAG, "Error fetching workout", e);
+                Toast.makeText(this, "Error loading workout", Toast.LENGTH_SHORT).show();
+                useDummyWorkout();
+            });
         }).addOnFailureListener(e -> {
-            Log.e(TAG, "Error fetching workout", e);
-            Toast.makeText(this, "Error loading workout", Toast.LENGTH_SHORT).show();
-            useDummyWorkout();
+            Log.e(TAG, "Error fetching user profile", e);
+            Toast.makeText(this, "Error loading profile data", Toast.LENGTH_SHORT).show();
         });
     }
 
-    private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
+    // ✅ ADD THIS NEW METHOD to update the UserProfile object with fresh Firestore data
+    private void updateUserProfileFromFirestore(com.google.firebase.firestore.DocumentSnapshot snapshot) {
+        if (snapshot != null && snapshot.exists()) {
+            // Update fitness level
+            String fitnessLevel = snapshot.getString("fitnessLevel");
+            if (fitnessLevel != null && !fitnessLevel.isEmpty()) {
+                userProfile.setFitnessLevel(fitnessLevel);
+                Log.d(TAG, "Updated fitnessLevel: " + fitnessLevel);
+            }
+
+            // Update fitness goal
+            String fitnessGoal = snapshot.getString("fitnessGoal");
+            if (fitnessGoal != null && !fitnessGoal.isEmpty()) {
+                userProfile.setFitnessGoal(fitnessGoal);
+                Log.d(TAG, "Updated fitnessGoal: " + fitnessGoal);
+            }
+
+            // Update workout frequency
+            Long workoutDays = snapshot.getLong("workoutDaysPerWeek");
+            if (workoutDays != null) {
+                userProfile.setWorkoutDaysPerWeek(workoutDays.intValue());
+                Log.d(TAG, "Updated workoutDaysPerWeek: " + workoutDays);
+            }
+
+            // Update age if available
+            Long age = snapshot.getLong("age");
+            if (age != null) {
+                userProfile.setAge(age.intValue());
+            }
+
+            // Update gender if available
+            String gender = snapshot.getString("gender");
+            if (gender != null) {
+                userProfile.setGender(gender);
+            }
+        }
+    }private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
         com.example.signuploginrealtime.models.UserProfile modelProfile =
                 new com.example.signuploginrealtime.models.UserProfile();
 
@@ -344,6 +429,9 @@ public class WorkoutList extends AppCompatActivity {
             modelProfile.setHealthIssues(firebaseProfile.getHealthIssues());
             modelProfile.setHeight(firebaseProfile.getHeight());
             modelProfile.setWeight(firebaseProfile.getWeight());
+
+            modelProfile.setDislikedExercises(firebaseProfile.getDislikedExercises());
+            modelProfile.setWorkoutDaysPerWeek(firebaseProfile.getWorkoutDaysPerWeek());
         }
         return modelProfile;
     }
@@ -442,17 +530,20 @@ public class WorkoutList extends AppCompatActivity {
     public static class WorkoutWrapper {
         public List<WorkoutExercise> exercises;
         public boolean completed;
+        public Long createdAt; // ✅ ADD THIS FIELD
 
         public WorkoutWrapper() {}
 
         public WorkoutWrapper(List<WorkoutExercise> exercises, boolean completed) {
             this.exercises = exercises;
             this.completed = completed;
+            this.createdAt = System.currentTimeMillis(); // ✅ Initialize timestamp
         }
 
         public List<WorkoutExercise> toWorkoutExercises() {
             return exercises != null ? exercises : new ArrayList<>();
         }
     }
+
 
 }

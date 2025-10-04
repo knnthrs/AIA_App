@@ -72,6 +72,7 @@ public class WorkoutList extends AppCompatActivity {
 
         ImageButton btnBack = findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> onBackPressed());
+        overridePendingTransition(0, 0);
 
         firestore = FirebaseFirestore.getInstance();
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -158,6 +159,7 @@ public class WorkoutList extends AppCompatActivity {
             intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
 
             startActivity(intent);
+            overridePendingTransition(0, 0);
         });
     }
 

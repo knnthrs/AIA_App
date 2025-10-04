@@ -78,15 +78,17 @@ public class Achievement extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.item_1) {
                 startActivity(new Intent(this, MainActivity.class));
+                overridePendingTransition(0, 0);
             } else if (id == R.id.item_2) {
                 startActivity(new Intent(this, Profile.class));
+                overridePendingTransition(0, 0);
             } else if (id == R.id.item_3) {
                 startActivity(new Intent(this, WorkoutList.class));
+                overridePendingTransition(0, 0);
             }
             return true;
         });
     }
-
     private void listenUserProgress() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {

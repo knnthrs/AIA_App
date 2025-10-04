@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.SignupLogInRealtime.Splash" parent="Theme.Material3.DayNight.NoActionBar">
+    <style name="Theme.SignupLogInRealtime.Splash" parent="Theme.Material3.Light.NoActionBar">
         <item name="android:windowBackground">@android:color/black</item>
+        <item name="android:forceDarkAllowed" tools:targetApi="q">false</item>
     </style>
 
 </resources>

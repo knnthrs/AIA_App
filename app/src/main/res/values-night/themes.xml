@@ -1,8 +1,0 @@
-<resources xmlns:tools="http://schemas.android.com/tools">
-    <style name="Theme.SignupLogInRealtime" parent="Theme.Material3.DayNight.NoActionBar">
-        <item name="colorPrimary">@color/yellow</item>
-        <item name="colorPrimaryVariant">@color/yellow</item>
-        <!-- windowBackground might be here -->
-    </style>
-
-</resources>

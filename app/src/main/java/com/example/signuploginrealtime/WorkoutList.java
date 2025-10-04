@@ -34,6 +34,8 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
+import androidx.appcompat.app.AlertDialog;
+
 
 import java.util.ArrayList;
 import java.util.List;
@@ -437,7 +439,7 @@ public class WorkoutList extends AppCompatActivity {
     }
 
     private void showExercises(List<WorkoutExercise> workoutExercises) {
-        // ✅ ADD THIS LIFECYCLE CHECK AT THE BEGINNING
+        // Lifecycle check
         if (isDestroyed() || isFinishing()) {
             Log.d(TAG, "Activity is being destroyed, skipping showExercises");
             return;
@@ -461,9 +463,7 @@ public class WorkoutList extends AppCompatActivity {
 
         int totalDurationSeconds = 0;
         for(WorkoutExercise we : workoutExercises) {
-            // Calculate exercise time
             totalDurationSeconds += (we.getSets() * we.getReps() * 3);
-            // Add rest time
             totalDurationSeconds += we.getSets() * (we.getRestSeconds() > 0 ? we.getRestSeconds() : 60);
         }
         workoutDuration.setText("Duration: " + Math.max(1, totalDurationSeconds / 60) + " mins");
@@ -471,7 +471,8 @@ public class WorkoutList extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         int order = 1;
 
-        for (WorkoutExercise we : workoutExercises) {
+        for (int i = 0; i < workoutExercises.size(); i++) {
+            WorkoutExercise we = workoutExercises.get(i);
             View card = inflater.inflate(R.layout.item_exercise_card, exercisesContainer, false);
 
             TextView number = card.findViewById(R.id.tv_exercise_number);
@@ -480,28 +481,27 @@ public class WorkoutList extends AppCompatActivity {
             TextView setsReps = card.findViewById(R.id.tv_exercise_sets_reps);
             TextView targetMuscles = card.findViewById(R.id.tv_exercise_target_muscles);
             TextView equipment = card.findViewById(R.id.tv_exercise_equipment);
+            ImageButton deleteButton = card.findViewById(R.id.btn_delete_exercise);
 
             number.setText(String.valueOf(order));
+
             if (we.getExerciseInfo() != null) {
                 ExerciseInfo info = we.getExerciseInfo();
                 String exerciseNameStr = info.getName() != null ? info.getName() : "Unknown Exercise";
                 name.setText(exerciseNameStr);
 
-                // Show target muscles
                 if (info.getTargetMuscles() != null && !info.getTargetMuscles().isEmpty()) {
                     targetMuscles.setText("Target: " + String.join(", ", info.getTargetMuscles()));
                 } else {
                     targetMuscles.setText("Target: N/A");
                 }
 
-                // Show equipment
                 if (info.getEquipments() != null && !info.getEquipments().isEmpty()) {
                     equipment.setText("Equipment: " + String.join(", ", info.getEquipments()));
                 } else {
                     equipment.setText("Equipment: None");
                 }
 
-                // Show sets and reps
                 if (we.getSets() > 0 && we.getReps() > 0) {
                     setsReps.setText(we.getSets() + " sets x " + we.getReps() + " reps");
                 } else {
@@ -512,9 +512,8 @@ public class WorkoutList extends AppCompatActivity {
                         ? info.getGifUrl()
                         : "https://via.placeholder.com/150";
 
-                // ✅ ALSO ADD A CHECK HERE BEFORE USING GLIDE
                 if (!isDestroyed() && !isFinishing()) {
-                    Glide.with(this) // ✅ Use 'this' instead of 'image.getContext()'
+                    Glide.with(this)
                             .asGif()
                             .load(gifUrl)
                             .placeholder(R.drawable.loading_placeholder)
@@ -523,9 +522,80 @@ public class WorkoutList extends AppCompatActivity {
                 }
             }
 
+            // ✅ SET UP DELETE BUTTON CLICK LISTENER
+            final int position = i;
+            deleteButton.setOnClickListener(v -> deleteExercise(position));
+
             exercisesContainer.addView(card);
             order++;
         }
+    }
+    private void deleteExercise(int position) {
+        if (currentWorkoutExercises == null || position < 0 || position >= currentWorkoutExercises.size()) {
+            return;
+        }
+
+        // Get exercise name for confirmation message
+        String exerciseName = "this exercise";
+        if (currentWorkoutExercises.get(position).getExerciseInfo() != null &&
+                currentWorkoutExercises.get(position).getExerciseInfo().getName() != null) {
+            exerciseName = currentWorkoutExercises.get(position).getExerciseInfo().getName();
+        }
+
+        // Show confirmation dialog
+        new AlertDialog.Builder(this)
+                .setTitle("Delete Exercise")
+                .setMessage("Are you sure you want to remove '" + exerciseName + "' from your workout?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    // Remove from list
+                    WorkoutExercise removedExercise = currentWorkoutExercises.remove(position);
+
+                    // Check if workout is now empty
+                    if (currentWorkoutExercises.isEmpty()) {
+                        Toast.makeText(this, "All exercises removed. Generating new workout...",
+                                Toast.LENGTH_SHORT).show();
+                        startWorkoutButton.setEnabled(false);
+                        fetchAllExercises();
+                        return;
+                    }
+
+                    // Update UI
+                    showExercises(currentWorkoutExercises);
+                    Toast.makeText(this, "Exercise removed", Toast.LENGTH_SHORT).show();
+
+                    // Save changes to Firestore
+                    saveWorkoutToFirestore();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /**
+     * Saves the current workout to Firestore
+     */
+    private void saveWorkoutToFirestore() {
+        if (currentUser == null) {
+            Log.w(TAG, "Cannot save workout: user not logged in");
+            return;
+        }
+
+        String uid = currentUser.getUid();
+        DocumentReference workoutRef = firestore.collection("users")
+                .document(uid)
+                .collection("currentWorkout")
+                .document("week_" + userProfile.getCurrentWeek());
+
+        WorkoutWrapper wrapper = new WorkoutWrapper(currentWorkoutExercises, false);
+        wrapper.createdAt = System.currentTimeMillis();
+
+        workoutRef.set(wrapper)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "Workout updated in Firestore after deletion");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error updating workout in Firestore", e);
+                    Toast.makeText(this, "Failed to save changes", Toast.LENGTH_SHORT).show();
+                });
     }
     public static class WorkoutWrapper {
         public List<WorkoutExercise> exercises;

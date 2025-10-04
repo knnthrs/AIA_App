@@ -6,78 +6,101 @@
     app:cardCornerRadius="12dp"
     app:cardElevation="6dp">
 
-    <LinearLayout
+    <FrameLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:padding="12dp">
+        android:layout_height="wrap_content">
 
-        <!-- Left side: all text info -->
+        <!-- Main content -->
         <LinearLayout
-            android:layout_width="0dp"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
+            android:orientation="horizontal"
+            android:padding="12dp">
 
-            <!-- Row for number + name -->
+            <!-- Left side: all text info -->
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:paddingEnd="8dp">
+
+                <!-- Row for number + name -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:id="@+id/tv_exercise_number"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="1."
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:layout_marginEnd="6dp" />
+
+                    <TextView
+                        android:id="@+id/tv_exercise_name"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Push Up"
+                        android:textSize="18sp"
+                        android:textStyle="bold"
+                        android:paddingEnd="36dp" />
+                </LinearLayout>
 
                 <TextView
-                    android:id="@+id/tv_exercise_number"
+                    android:id="@+id/tv_exercise_sets_reps"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="1."
-                    android:textSize="16sp"
-                    android:textStyle="bold"
-                    android:layout_marginEnd="6dp" />
+                    android:text="sets x reps"
+                    android:textSize="14sp"
+                    android:textStyle="italic"
+                    android:layout_marginTop="4dp" />
 
                 <TextView
-                    android:id="@+id/tv_exercise_name"
+                    android:id="@+id/tv_exercise_target_muscles"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Push Up"
-                    android:textSize="18sp"
-                    android:textStyle="bold" />
+                    android:text="Target: "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/holo_blue_dark"
+                    android:layout_marginTop="2dp" />
+
+                <TextView
+                    android:id="@+id/tv_exercise_equipment"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Equipment: "
+                    android:textSize="14sp"
+                    android:textColor="@android:color/holo_green_dark"
+                    android:layout_marginTop="2dp" />
             </LinearLayout>
 
-
-
-
-            <TextView
-                android:id="@+id/tv_exercise_sets_reps"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="sets x reps"
-                android:textSize="14sp"
-                android:textStyle="italic" />
-
-            <TextView
-                android:id="@+id/tv_exercise_target_muscles"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Target: "
-                android:textSize="14sp"
-                android:textColor="@android:color/holo_blue_dark" />
-
-            <TextView
-                android:id="@+id/tv_exercise_equipment"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Equipment: "
-                android:textSize="14sp"
-                android:textColor="@android:color/holo_green_dark" />
+            <!-- Right side: GIF thumbnail -->
+            <ImageView
+                android:id="@+id/iv_exercise_gif"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginStart="8dp"
+                android:scaleType="centerCrop"
+                android:adjustViewBounds="true" />
         </LinearLayout>
 
-        <!-- Right side: GIF thumbnail -->
-        <ImageView
-            android:id="@+id/iv_exercise_gif"
-            android:layout_width="80dp"
-            android:layout_height="80dp"
-            android:layout_marginStart="8dp"
-            android:scaleType="centerCrop"
-            android:adjustViewBounds="true" />
-    </LinearLayout>
+        <!-- Delete button overlay in top right corner -->
+        <ImageButton
+            android:id="@+id/btn_delete_exercise"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:layout_gravity="top|end"
+            android:layout_margin="8dp"
+            android:background="@android:drawable/btn_default"
+            android:src="@android:drawable/ic_menu_delete"
+            android:contentDescription="Delete exercise"
+            android:padding="6dp"
+            android:elevation="8dp"
+            app:tint="@android:color/holo_red_dark" />
+    </FrameLayout>
 </androidx.cardview.widget.CardView>

@@ -4,6 +4,7 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.Toast;
 import android.content.Intent;
+import android.widget.ProgressBar;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -12,26 +13,30 @@ import androidx.cardview.widget.CardView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.Timestamp;
 
-import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 public class SelectMembership extends AppCompatActivity {
 
     private View backButton;
-    private List<CardView> membershipCards;
     private CardView confirmButtonCard;
+    private ProgressBar loadingProgress;
 
-    private String selectedPlanCode = null;
+    private String selectedPackageId = null;
     private String selectedPlanLabel = null;
-    private int selectedDurationDays = 0;
+    private String selectedPlanType = null;
+    private int selectedMonths = 0;
+    private int selectedSessions = 0;
+    private double selectedPrice = 0;
 
     private FirebaseFirestore db;
+    private String currentUserId;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -40,117 +45,263 @@ public class SelectMembership extends AppCompatActivity {
 
         db = FirebaseFirestore.getInstance();
 
+        FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+        if (user == null) {
+            Toast.makeText(this, "You must be logged in to select a plan.", Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
+        currentUserId = user.getUid();
+
         backButton = findViewById(R.id.back_button);
-
-        CardView dailyCard = findViewById(R.id.daily_card);
-        CardView oneMonthCard = findViewById(R.id.one_month_card);
-        CardView threeMonthCard = findViewById(R.id.three_month_card);
-        CardView sixMonthCard = findViewById(R.id.six_month_card);
-        CardView oneYearCard = findViewById(R.id.one_year_card);
-        CardView oneMonth10PtCard = findViewById(R.id.one_month_10pt_card);
-        CardView threeMonth10PtCard = findViewById(R.id.three_month_10pt_card);
-        CardView threeMonth15PtCard = findViewById(R.id.three_month_15pt_card);
-        CardView threeMonth24PtCard = findViewById(R.id.three_month_24pt_card);
-
         confirmButtonCard = findViewById(R.id.confirm_membership_button);
-
-        membershipCards = Arrays.asList(
-                dailyCard, oneMonthCard, threeMonthCard, sixMonthCard, oneYearCard,
-                oneMonth10PtCard, threeMonth10PtCard, threeMonth15PtCard, threeMonth24PtCard
-        );
+        loadingProgress = findViewById(R.id.loading_progress);
 
         backButton.setOnClickListener(v -> finish());
+        confirmButtonCard.setVisibility(View.GONE);
 
-        // Set plan clicks with duration in days
-        setPlanClick(dailyCard, "DAILY",
-                "Daily Pass — ₱150\nFull gym access • All equipment • Locker room", 1);
+        // Check if user already has an active membership
+        checkExistingMembership();
 
-        setPlanClick(oneMonthCard, "MONTHLY",
-                "1 Month — ₱1,500\nFull gym access • All equipment • Locker room", 30);
-        setPlanClick(threeMonthCard, "MONTHLY",
-                "3 Months — ₱3,600 (₱1,200/month)", 90);
-        setPlanClick(sixMonthCard, "MONTHLY",
-                "6 Months — ₱6,000 (₱1,000/month)", 180);
-        setPlanClick(oneYearCard, "YEARLY",
-                "12 Months / 1 Year — ₱9,000 (₱750/month)", 365);
-
-        setPlanClick(oneMonth10PtCard, "MONTHLY",
-                "1 Month + 10 PT Sessions — ₱4,500", 30);
-        setPlanClick(threeMonth10PtCard, "MONTHLY",
-                "3 Months + 10 PT Sessions — ₱6,000", 90);
-        setPlanClick(threeMonth15PtCard, "MONTHLY",
-                "3 Months + 15 PT Sessions — ₱7,500", 90);
-        setPlanClick(threeMonth24PtCard, "MONTHLY",
-                "3 Months + 24 PT Sessions — ₱9,000", 90);
+        // Load packages from Firestore
+        loadPackagesFromFirestore();
 
         confirmButtonCard.setOnClickListener(v -> {
-            if (selectedPlanCode == null || selectedPlanLabel == null) {
+            if (selectedPackageId == null || selectedPlanLabel == null) {
                 Toast.makeText(this, "Please select a plan first.", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
-            if (user == null) {
-                Toast.makeText(this, "You must be logged in to select a plan.", Toast.LENGTH_LONG).show();
-                setResult(RESULT_CANCELED);
-                finish();
-                return;
-            }
-
-            String uid = user.getUid();
-
-            // Calculate expiration date
-            Calendar calendar = Calendar.getInstance();
-            calendar.add(Calendar.DAY_OF_YEAR, selectedDurationDays);
-            Date expirationDate = calendar.getTime();
-            Timestamp expirationTimestamp = new Timestamp(expirationDate);
-
-            Map<String, Object> membershipData = new HashMap<>();
-            membershipData.put("userId", uid);
-            membershipData.put("membershipPlanCode", selectedPlanCode);
-            membershipData.put("membershipPlanLabel", selectedPlanLabel);
-            membershipData.put("membershipStatus", "active");
-            membershipData.put("membershipStartDate", Timestamp.now());
-            membershipData.put("membershipExpirationDate", expirationTimestamp);
-
-            //Save to memberships collection
-            db.collection("memberships")
-                    .add(membershipData)
-                    .addOnSuccessListener(documentReference -> {
-                        Toast.makeText(this, "Plan saved: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
-                        Intent resultIntent = new Intent();
-                        resultIntent.putExtra("selectedPlanCode", selectedPlanCode);
-                        resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
-                        resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
-                        setResult(RESULT_OK, resultIntent);
-                        finish();
-                    })
-                    .addOnFailureListener(e ->
-                            Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show());
+            saveMembership();
         });
-
-        confirmButtonCard.setVisibility(View.GONE);
     }
 
-    private void setPlanClick(CardView card, String planCode, String planLabel, int durationDays) {
+    private void checkExistingMembership() {
+        db.collection("memberships")
+                .whereEqualTo("userId", currentUserId)
+                .whereEqualTo("membershipStatus", "active")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (!queryDocumentSnapshots.isEmpty()) {
+                        // User already has an active membership
+                        Toast.makeText(this, "You already have an active membership", Toast.LENGTH_LONG).show();
+                        // Optionally, you can still allow them to upgrade/change
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    // Handle error silently or show message
+                });
+    }
+
+    private void saveMembership() {
+        if (loadingProgress != null) {
+            loadingProgress.setVisibility(View.VISIBLE);
+        }
+        confirmButtonCard.setEnabled(false);
+
+        // First, check if user already has an active membership and deactivate it
+        db.collection("memberships")
+                .whereEqualTo("userId", currentUserId)
+                .whereEqualTo("membershipStatus", "active")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    // Deactivate all existing active memberships
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        document.getReference().update("membershipStatus", "replaced");
+                    }
+
+                    // Now create the new membership
+                    createNewMembership();
+                })
+                .addOnFailureListener(e -> {
+                    // If check fails, still try to create membership
+                    createNewMembership();
+                });
+    }
+
+    private void createNewMembership() {
+        // Calculate expiration date based on months
+        Calendar calendar = Calendar.getInstance();
+        calendar.add(Calendar.MONTH, selectedMonths);
+        Date expirationDate = calendar.getTime();
+        Timestamp expirationTimestamp = new Timestamp(expirationDate);
+        Timestamp startTimestamp = Timestamp.now();
+
+        Map<String, Object> membershipData = new HashMap<>();
+        membershipData.put("userId", currentUserId);
+        membershipData.put("packageId", selectedPackageId);
+        membershipData.put("membershipPlanLabel", selectedPlanLabel);
+        membershipData.put("membershipPlanType", selectedPlanType);
+        membershipData.put("membershipStatus", "active");
+        membershipData.put("membershipStartDate", startTimestamp);
+        membershipData.put("membershipExpirationDate", expirationTimestamp);
+        membershipData.put("months", selectedMonths);
+        membershipData.put("sessions", selectedSessions);
+        membershipData.put("sessionsRemaining", selectedSessions); // Track remaining PT sessions
+        membershipData.put("price", selectedPrice);
+        membershipData.put("createdAt", startTimestamp);
+
+        // Save to memberships collection
+        db.collection("memberships")
+                .add(membershipData)
+                .addOnSuccessListener(documentReference -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+
+                    Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
+
+                    Intent resultIntent = new Intent();
+                    resultIntent.putExtra("selectedPackageId", selectedPackageId);
+                    resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
+                    resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
+                    resultIntent.putExtra("membershipId", documentReference.getId());
+                    setResult(RESULT_OK, resultIntent);
+                    finish();
+                })
+                .addOnFailureListener(e -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    confirmButtonCard.setEnabled(true);
+                    Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private void loadPackagesFromFirestore() {
+        if (loadingProgress != null) {
+            loadingProgress.setVisibility(View.VISIBLE);
+        }
+
+        db.collection("packages")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String packageId = document.getId();
+                        String type = document.getString("type");
+                        Long months = document.getLong("months");
+                        Long sessions = document.getLong("sessions");
+                        Double price = document.getDouble("price");
+
+                        if (type == null || months == null || price == null) continue;
+
+                        CardView card = getCardViewForPackage(packageId);
+                        if (card != null) {
+                            setPlanClick(card, packageId, type,
+                                    months.intValue(),
+                                    sessions != null ? sessions.intValue() : 0,
+                                    price);
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    Toast.makeText(this, "Failed to load packages: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private CardView getCardViewForPackage(String packageId) {
+        int cardId = 0;
+
+        switch (packageId) {
+            case "5YjEV258bysDMUxZuTUC":
+                cardId = R.id.daily_card;
+                break;
+            case "GDKVR24VY7DNFmdKJroC":
+                cardId = R.id.one_month_card;
+                break;
+            case "QbTXP0cY0M7Wxyrcgt5O":
+                cardId = R.id.three_month_card;
+                break;
+            case "ZyvkZ8WNJb6ZPzGkG74w":
+                cardId = R.id.six_month_card;
+                break;
+            case "fix4Hyr5nVCaC1FpcuFk":
+                cardId = R.id.one_year_card;
+                break;
+            case "kZX2cCdxYAahOfwDrzaK":
+                cardId = R.id.one_month_10pt_card;
+                break;
+            case "q5DtmQjdP0kWoljfe2yf":
+                cardId = R.id.three_month_10pt_card;
+                break;
+            case "rctrNNKdSWLGHe1dmGcy":
+                cardId = R.id.three_month_15pt_card;
+                break;
+            case "w6KSFtEnx3CIk66xkGEW":
+                cardId = R.id.three_month_24pt_card;
+                break;
+            default:
+                return null;
+        }
+
+        return findViewById(cardId);
+    }
+
+    private void setPlanClick(CardView card, String packageId, String type,
+                              int months, int sessions, double price) {
         if (card == null) return;
+
+        String planLabel = generatePlanLabel(type, months, sessions, price);
+
         card.setOnClickListener(v -> {
-            selectedPlanCode = planCode;
+            selectedPackageId = packageId;
             selectedPlanLabel = planLabel;
-            selectedDurationDays = durationDays;
+            selectedPlanType = type;
+            selectedMonths = months;
+            selectedSessions = sessions;
+            selectedPrice = price;
 
-            for (CardView c : membershipCards) {
-                if (c != null) {
-                    resetCardSize(c);
-                }
-            }
-
+            resetAllCards();
             enlargeCard(card);
 
             if (confirmButtonCard.getVisibility() != View.VISIBLE) {
                 confirmButtonCard.setVisibility(View.VISIBLE);
             }
         });
+    }
+
+    private String generatePlanLabel(String type, int months, int sessions, double price) {
+        StringBuilder label = new StringBuilder();
+
+        if (months == 0 || months < 1) {
+            label.append("Daily Pass");
+        } else if (months == 1) {
+            label.append("1 Month");
+        } else if (months == 12) {
+            label.append("12 Months / 1 Year");
+        } else {
+            label.append(months).append(" Months");
+        }
+
+        if (sessions > 0) {
+            label.append(" + ").append(sessions).append(" PT Sessions");
+        }
+
+        label.append(" — ₱").append(String.format("%.0f", price));
+
+        return label.toString();
+    }
+
+    private void resetAllCards() {
+        int[] cardIds = {
+                R.id.daily_card, R.id.one_month_card, R.id.three_month_card,
+                R.id.six_month_card, R.id.one_year_card, R.id.one_month_10pt_card,
+                R.id.three_month_10pt_card, R.id.three_month_15pt_card, R.id.three_month_24pt_card
+        };
+
+        for (int cardId : cardIds) {
+            CardView card = findViewById(cardId);
+            if (card != null) {
+                resetCardSize(card);
+            }
+        }
     }
 
     private void enlargeCard(CardView card) {

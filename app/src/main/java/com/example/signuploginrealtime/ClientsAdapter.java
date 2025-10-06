@@ -18,11 +18,24 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
 
     private Context context;
     private List<coach_clients.Client> clientsList;
+    private OnClientLongClickListener longClickListener;
 
+    // Interface for long click callback
+    public interface OnClientLongClickListener {
+        void onClientLongClick(coach_clients.Client client);
+    }
 
+    // Original constructor (for backward compatibility)
     public ClientsAdapter(Context context, List<coach_clients.Client> clientsList) {
         this.context = context;
         this.clientsList = clientsList;
+    }
+
+    // New constructor with long click listener
+    public ClientsAdapter(Context context, List<coach_clients.Client> clientsList, OnClientLongClickListener longClickListener) {
+        this.context = context;
+        this.clientsList = clientsList;
+        this.longClickListener = longClickListener;
     }
 
     @NonNull
@@ -58,10 +71,10 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         }
         holder.clientStatus.setTextColor(statusColor);
 
-        // ✅ Navigate to Client_workouts_details
+        // Regular click - Navigate to Client_workouts_details
         holder.clientCard.setOnClickListener(v -> {
             Intent intent = new Intent(context, Client_workouts_details.class);
-            intent.putExtra("client_uid", client.getUid()); // ✅ pass UID only
+            intent.putExtra("client_uid", client.getUid());
 
             if (!(context instanceof Activity)) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -69,6 +82,14 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             context.startActivity(intent);
         });
 
+        // Long press - Archive client
+        holder.clientCard.setOnLongClickListener(v -> {
+            if (longClickListener != null) {
+                longClickListener.onClientLongClick(client);
+                return true; // Consume the long click event
+            }
+            return false;
+        });
     }
 
     @Override
@@ -88,6 +109,4 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientStatus = itemView.findViewById(R.id.client_status);
         }
     }
-
-
 }

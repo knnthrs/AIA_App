@@ -33,7 +33,9 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class coach_clients extends AppCompatActivity {
 
@@ -53,7 +55,7 @@ public class coach_clients extends AppCompatActivity {
     private LinearLayout loadingLayout, emptyStateLayout;
 
     // Sidebar menu items
-    private LinearLayout menuClients, menuWorkouts, menuLogout;
+    private LinearLayout menuClients, menuArchive, menuLogout;
     private TextView sidebarCoachName, sidebarCoachEmail;
 
     // Data
@@ -64,6 +66,7 @@ public class coach_clients extends AppCompatActivity {
 
     private FirebaseFirestore firestore;
     private FirebaseUser currentUser;
+    private String currentCoachId;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,7 +108,7 @@ public class coach_clients extends AppCompatActivity {
 
         // Sidebar components
         menuClients = findViewById(R.id.menu_clients);
-        menuWorkouts = findViewById(R.id.menu_workouts);
+        menuArchive = findViewById(R.id.menu_archive);
         menuLogout = findViewById(R.id.menu_logout);
         sidebarCoachName = findViewById(R.id.sidebar_coach_name);
         sidebarCoachEmail = findViewById(R.id.sidebar_coach_email);
@@ -116,11 +119,15 @@ public class coach_clients extends AppCompatActivity {
     }
 
     private void setupRecyclerView() {
-        clientsAdapter = new ClientsAdapter(this, filteredClientsList);
+        clientsAdapter = new ClientsAdapter(this, filteredClientsList, new ClientsAdapter.OnClientLongClickListener() {
+            @Override
+            public void onClientLongClick(Client client) {
+                showArchiveDialog(client);
+            }
+        });
         assignedClientsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         assignedClientsRecyclerView.setAdapter(clientsAdapter);
     }
-
     private void setupSpinner() {
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
                 this,
@@ -193,8 +200,9 @@ public class coach_clients extends AppCompatActivity {
             drawerLayout.closeDrawer(GravityCompat.END);
         });
 
-        findViewById(R.id.menu_workouts).setOnClickListener(v -> {
-            Toast.makeText(this, "Workouts clicked", Toast.LENGTH_SHORT).show();
+        findViewById(R.id.menu_archive).setOnClickListener(v -> {
+            Intent intent = new Intent(coach_clients.this, CoachArchiveActivity.class);
+            startActivity(intent);
             drawerLayout.closeDrawer(GravityCompat.END);
         });
 
@@ -285,12 +293,12 @@ public class coach_clients extends AppCompatActivity {
                     }
 
                     // Get the coach's custom document ID (e.g., "coach1")
-                    String coachId = coachQuerySnapshot.getDocuments().get(0).getId();
-                    android.util.Log.d("CoachLoad", "Found coach ID: " + coachId);
+                    currentCoachId = coachQuerySnapshot.getDocuments().get(0).getId();  // ✅ Store in field
+                    android.util.Log.d("CoachLoad", "Found coach ID: " + currentCoachId);
 
                     // Now query users collection where coachId equals the coach's custom ID
                     firestore.collection("users")
-                            .whereEqualTo("coachId", coachId)
+                            .whereEqualTo("coachId", currentCoachId)
                             .get()
                             .addOnSuccessListener(queryDocumentSnapshots -> {
                                 clientsList.clear();
@@ -298,7 +306,7 @@ public class coach_clients extends AppCompatActivity {
                                 if (queryDocumentSnapshots.isEmpty()) {
                                     showLoading(false);
                                     updateUI();
-                                    android.util.Log.d("CoachLoad", "No clients found for coach: " + coachId);
+                                    android.util.Log.d("CoachLoad", "No clients found for coach: " + currentCoachId);
                                     return;
                                 }
 
@@ -453,6 +461,44 @@ public class coach_clients extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    private void showArchiveDialog(Client client) {
+        new AlertDialog.Builder(this)
+                .setTitle("Archive Client")
+                .setMessage("Are you sure you want to archive " + client.getName() + "?")
+                .setPositiveButton("Archive", (dialog, which) -> archiveClient(client))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private void archiveClient(Client client) {
+        if (client.getUid() == null || client.getUid().isEmpty()) {
+            Toast.makeText(this, "Error: Client ID not found", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Toast.makeText(this, "Archiving client...", Toast.LENGTH_SHORT).show();
+
+        Map<String, Object> archiveData = new HashMap<>();
+        archiveData.put("isArchived", true);
+        archiveData.put("archivedBy", currentCoachId);
+        archiveData.put("archivedAt", com.google.firebase.Timestamp.now());
+
+        firestore.collection("users")
+                .document(client.getUid())
+                .update(archiveData)
+                .addOnSuccessListener(aVoid -> {
+                    Toast.makeText(this, client.getName() + " has been archived", Toast.LENGTH_SHORT).show();
+                    clientsList.remove(client);
+                    filteredClientsList.remove(client);
+                    clientsAdapter.notifyDataSetChanged();
+                    updateUI();
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to archive client: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    android.util.Log.e("ArchiveClient", "Error: " + e.getMessage(), e);
+                });
     }
     @Override
     public void onBackPressed() {

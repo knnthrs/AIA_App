@@ -276,7 +276,7 @@
                 android:layout_marginBottom="8dp"
                 android:background="@drawable/grey_boarder"
                 android:padding="8dp"
-                android:src="@android:drawable/ic_menu_manage"
+                android:src="@drawable/ic_profile"
                 app:tint="@color/black" />
 
             <TextView
@@ -317,14 +317,14 @@
             </LinearLayout>
 
             <LinearLayout
-                android:id="@+id/menu_workouts"
+                android:id="@+id/menu_archive"
                 style="@style/SidebarMenuItem">
                 <ImageView
                     style="@style/SidebarMenuIcon"
-                    android:src="@android:drawable/ic_menu_edit" />
+                    android:src="@drawable/ic_archive" />
                 <TextView
                     style="@style/SidebarMenuText"
-                    android:text="Workouts" />
+                    android:text="Archieve" />
             </LinearLayout>
 
             <LinearLayout

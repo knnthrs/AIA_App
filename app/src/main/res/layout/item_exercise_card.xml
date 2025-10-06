@@ -1,16 +1,18 @@
-<androidx.cardview.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
-    app:cardCornerRadius="12dp"
-    app:cardElevation="6dp">
+    android:clipChildren="false"
+    android:clipToPadding="false">
 
-    <FrameLayout
+    <!-- CardView with exercise content -->
+    <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:layout_margin="8dp"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="6dp">
 
-        <!-- Main content -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -48,7 +50,7 @@
                         android:text="Push Up"
                         android:textSize="18sp"
                         android:textStyle="bold"
-                        android:paddingEnd="36dp" />
+                        android:paddingEnd="8dp" />
                 </LinearLayout>
 
                 <TextView
@@ -88,19 +90,20 @@
                 android:scaleType="centerCrop"
                 android:adjustViewBounds="true" />
         </LinearLayout>
+    </androidx.cardview.widget.CardView>
 
-        <!-- Delete button overlay in top right corner -->
-        <ImageButton
-            android:id="@+id/btn_delete_exercise"
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:layout_gravity="top|end"
-            android:layout_margin="8dp"
-            android:background="@android:drawable/btn_default"
-            android:src="@android:drawable/ic_menu_delete"
-            android:contentDescription="Delete exercise"
-            android:padding="6dp"
-            android:elevation="8dp"
-            app:tint="@android:color/holo_red_dark" />
-    </FrameLayout>
-</androidx.cardview.widget.CardView>
+    <!-- Delete button positioned at top-right corner, outside CardView -->
+    <ImageButton
+        android:id="@+id/btn_delete_exercise"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="0dp"
+        android:layout_marginEnd="0dp"
+        android:background="@android:color/transparent"
+        android:src="@android:drawable/ic_menu_delete"
+        android:contentDescription="Delete exercise"
+        android:padding="4dp"
+        android:elevation="12dp"
+        app:tint="@android:color/holo_red_dark" />
+</FrameLayout>

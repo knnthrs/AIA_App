@@ -5,6 +5,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -62,6 +63,9 @@ public class Client_workouts_details extends AppCompatActivity {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
             return insets;
         });
+
+        ImageView backButton = findViewById(R.id.back_button);
+        backButton.setOnClickListener(v -> finish());
 
         // --- Bind views
         clientName = findViewById(R.id.client_name);

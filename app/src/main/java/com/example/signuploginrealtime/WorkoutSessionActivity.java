@@ -1,6 +1,5 @@
 package com.example.signuploginrealtime;
 
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.CountDownTimer;
@@ -28,12 +27,21 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.ArrayList;
 import java.util.Locale;
 
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import androidx.annotation.NonNull;
+import com.example.signuploginrealtime.models.ExerciseInfo;
+import java.util.List;
+
 public class WorkoutSessionActivity extends AppCompatActivity {
 
     private TextView tvExerciseName, tvExerciseDetails, tvExerciseTimer, tvNoImage;
     private TextView btnPrevious, btnSkip;
     private ImageView ivExerciseImage;
-    private Button btnPause, btnNext;
+    private Button btnPause;
     private ProgressBar progressBar;
 
     private ArrayList<String> exerciseNames;
@@ -69,6 +77,14 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private static final String TAG = "WorkoutSessionActivity"; // For logging
     private boolean isTTSReady = false;
 
+    private TextView btnEquipmentMode, btnNoEquipmentMode;
+    private boolean isNoEquipmentMode = false;
+    private boolean isReplacingExercise = false;
+
+    private ArrayList<String> originalExerciseNames;
+    private ArrayList<String> originalExerciseDetails;
+    private ArrayList<String> originalExerciseImageUrls;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -79,9 +95,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.getDefault());
-                isTTSReady = true; // Mark TTS as ready
-
-                // Set listener ONCE when TTS is ready
+                isTTSReady = true;
                 tts.setOnUtteranceProgressListener(new android.speech.tts.UtteranceProgressListener() {
                     @Override public void onStart(String utteranceId) {}
                     @Override public void onError(String utteranceId) {}
@@ -99,7 +113,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             }
         });
 
-
         View rootView = findViewById(R.id.root_layout);
         rootView.setOnApplyWindowInsetsListener((v, insets) -> {
             v.setPadding(
@@ -114,14 +127,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         firestore = FirebaseFirestore.getInstance();
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-
+        // STEP 1: Initialize views
         tvExerciseName = findViewById(R.id.tv_exercise_name);
         tvExerciseDetails = findViewById(R.id.tv_exercise_details);
         tvExerciseTimer = findViewById(R.id.tv_exercise_timer);
         ivExerciseImage = findViewById(R.id.iv_exercise_image);
         tvNoImage = findViewById(R.id.tv_no_image);
         btnPause = findViewById(R.id.btn_pause);
-        btnNext = findViewById(R.id.btn_done);
         btnPrevious = findViewById(R.id.btn_previous);
         btnSkip = findViewById(R.id.btn_skip);
         progressBar = findViewById(R.id.progress_bar);
@@ -129,12 +141,18 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         tvInstructions = findViewById(R.id.tv_instructions);
         flInstructionsOverlay = findViewById(R.id.fl_instructions_overlay);
 
+        // STEP 2: Load exercise data FIRST
         exerciseNames = getIntent().getStringArrayListExtra("exerciseNames");
         exerciseDetails = getIntent().getStringArrayListExtra("exerciseDetails");
         exerciseImageUrls = getIntent().getStringArrayListExtra("exerciseImageUrls");
         exerciseDurations = getIntent().getIntegerArrayListExtra("exerciseTimes");
         exerciseRests = getIntent().getIntegerArrayListExtra("exerciseRests");
 
+        originalExerciseNames = new ArrayList<>(exerciseNames);
+        originalExerciseDetails = new ArrayList<>(exerciseDetails);
+        originalExerciseImageUrls = new ArrayList<>(exerciseImageUrls);
+
+        // STEP 3: Initialize defaults
         if (exerciseDurations == null && exerciseNames != null) {
             exerciseDurations = new ArrayList<>();
             for (int i = 0; i < exerciseNames.size(); i++) exerciseDurations.add(30);
@@ -145,6 +163,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             for (int i = 0; i < exerciseNames.size(); i++) exerciseRests.add(60);
         }
 
+        // STEP 4: Validate data
         if (exerciseNames == null || exerciseDetails == null || exerciseImageUrls == null
                 || exerciseNames.size() != exerciseDetails.size()
                 || exerciseNames.size() != exerciseImageUrls.size()) {
@@ -153,38 +172,24 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             return;
         }
 
+        // STEP 5: Initialize equipment mode (NOW data is loaded)
+        initializeEquipmentModeCard();
+
+        // STEP 6: Set time and index (DO THIS ONLY ONCE)
         workoutStartTime = System.currentTimeMillis();
         currentIndex = getIntent().getIntExtra("currentIndex", 0);
+
+        // STEP 7: Show exercise (DO THIS ONLY ONCE AT THE END)
         showExercise(currentIndex);
 
-        btnNext.setOnClickListener(v -> {
-            if (!isReadyCountdown) {
-                stopAllTTS(); // Stop TTS when moving to next exercise
-                if (isRepetitionBased) {
-                    recordAndLogExercisePerformance(currentRepCount, 0, "completed");
-                } else {
-                    int actualDuration = 0;
-                    if (exerciseDurations != null && currentIndex < exerciseDurations.size()) {
-                        actualDuration = exerciseDurations.get(currentIndex) - (int) (timeLeftMillis / 1000);
-                        if (timeLeftMillis == 0) { // If timer finished, actualDuration is targetDuration
-                            actualDuration = exerciseDurations.get(currentIndex);
-                        }
-                    }
-                    recordAndLogExercisePerformance(0, Math.max(0, actualDuration), "completed");
-                }
-                moveToNextExercise();
-            }
-        });
 
         btnPause.setOnClickListener(v -> {
             if (isReadyCountdown) {
                 if (isTimerRunning) {
-                    // Pause ready countdown
-                    stopAllTTS(); // Stop current TTS
+                    stopAllTTS();
                     isTimerRunning = false;
                     btnPause.setText("RESUME");
                 } else {
-                    // Resume ready countdown
                     startReadyCountdown();
                 }
             } else if (isRepetitionBased) {
@@ -204,7 +209,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             }
         });
 
-
         btnPrevious.setOnClickListener(v -> moveToPreviousExercise());
         btnSkip.setOnClickListener(v -> skipCurrentExercise());
 
@@ -218,13 +222,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             flInstructionsOverlay.setAlpha(0f);
             flInstructionsOverlay.animate().alpha(1f).setDuration(300).start();
         });
+
         flInstructionsOverlay.setOnClickListener(v ->
                 flInstructionsOverlay.animate().alpha(0f).setDuration(300)
                         .withEndAction(() -> flInstructionsOverlay.setVisibility(View.GONE))
                         .start()
         );
     }
-
     // MODIFIED: Added status parameter
     private void recordAndLogExercisePerformance(int actualRepsAchieved, int actualDurationAchievedSeconds, String status) {
         if (currentIndex < 0 || currentIndex >= exerciseNames.size()) {
@@ -395,7 +399,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void startActualExercise() {
         currentExerciseStartTimeMillis = System.currentTimeMillis();
         isReadyCountdown = false;
-        btnNext.setText("▶");
 
         String exerciseName = exerciseNames.get(currentIndex).toLowerCase();
         String exerciseDetailText = (exerciseDetails != null && currentIndex < exerciseDetails.size())
@@ -574,32 +577,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
 
-    private void showSkipLastExerciseDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("Finish Workout?")
-                .setMessage("This is the last exercise. Skipping it will end your workout session. Do you want to finish the workout now?")
-                .setPositiveButton("Yes, Finish Workout", (dialog, which) -> {
-                    // recordAndLogExercisePerformance(0, 0, "skipped"); // Already recorded by skipCurrentExercise
-                    Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
-                    intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
-                    intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
-                    intent.putExtra("workout_duration", calculateWorkoutDuration());
-                    intent.putExtra("performanceData", performanceDataList);
-                    startActivity(intent);
-                    finish();
-                })
-                .setNegativeButton("Cancel", (dialog, which) -> {
-                    if (isReadyCountdown) {
-                        startReadyCountdown();
-                    } else if (isRepetitionBased) {
-                        if (!isCounterPaused) resumeRepCounter(); // Resume rep counter if it was running
-                    } // No need to resume duration timer as it would have auto-finished or been paused manually
-                    dialog.dismiss();
-                })
-                .setCancelable(false)
-                .show();
-    }
-
     // FIXED: Updated startTimer method with enhanced TTS
     private void startTimer(int seconds) {
         if (timer != null) timer.cancel();
@@ -694,6 +671,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         finish();
     }
 
+
+
     // FIXED: Updated onPause method
     @Override
     protected void onPause() {
@@ -753,6 +732,286 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                     .addOnSuccessListener(aVoid -> Log.d(TAG, "Workout marked as completed in Firestore."))
                     .addOnFailureListener(e -> Log.e(TAG, "Failed to mark workout completed", e));
         }
+    }
+
+    // 2. In onCreate() method, add this after other view initializations:
+    private void initializeEquipmentModeCard() {
+        btnEquipmentMode = findViewById(R.id.btn_equipment_mode);
+        btnNoEquipmentMode = findViewById(R.id.btn_no_equipment_mode);
+
+        // Start fresh each workout - default to Equipment mode
+        updateModeUI(false);
+
+        // Equipment Mode Click - REMOVED TOAST
+        btnEquipmentMode.setOnClickListener(v -> {
+            if (!isNoEquipmentMode) {
+                return; // Already in equipment mode
+            }
+            switchToEquipmentMode();
+        });
+
+        // No Equipment Mode Click - REMOVED TOAST
+        btnNoEquipmentMode.setOnClickListener(v -> {
+            if (isNoEquipmentMode) {
+                return; // Already in no equipment mode
+            }
+            switchToNoEquipmentMode();
+        });
+    }
+
+
+    // 4. Update UI to reflect current mode (SIMPLIFIED VERSION)
+    private void updateModeUI(boolean noEquipmentMode) {
+        if (noEquipmentMode) {
+            // No Equipment Mode - Selected
+            btnNoEquipmentMode.setSelected(true);
+            btnEquipmentMode.setSelected(false);
+
+            btnNoEquipmentMode.setTextColor(getResources().getColor(android.R.color.white));
+            btnEquipmentMode.setTextColor(getResources().getColor(android.R.color.darker_gray));
+
+            btnNoEquipmentMode.setBackgroundResource(R.drawable.selected_equipment_bg);
+            btnEquipmentMode.setBackgroundResource(R.drawable.unselected_equipment_bg);
+
+        } else {
+            // Equipment Mode - Selected
+            btnEquipmentMode.setSelected(true);
+            btnNoEquipmentMode.setSelected(false);
+
+            btnEquipmentMode.setTextColor(getResources().getColor(android.R.color.white));
+            btnNoEquipmentMode.setTextColor(getResources().getColor(android.R.color.darker_gray));
+
+            btnEquipmentMode.setBackgroundResource(R.drawable.selected_equipment_bg);
+            btnNoEquipmentMode.setBackgroundResource(R.drawable.unselected_equipment_bg);
+        }
+    }
+    // 5. Switch to Equipment Mode
+    private void switchToEquipmentMode() {
+        // Restore original exercise if it was replaced
+        if (originalExerciseNames != null && currentIndex < originalExerciseNames.size()) {
+            exerciseNames.set(currentIndex, originalExerciseNames.get(currentIndex));
+            exerciseDetails.set(currentIndex, originalExerciseDetails.get(currentIndex));
+            exerciseImageUrls.set(currentIndex, originalExerciseImageUrls.get(currentIndex));
+        }
+
+        isNoEquipmentMode = false;
+        updateModeUI(false);
+
+        // Refresh the display with original exercise
+        stopAllTTS();
+        cancelAllTimers();
+        showExercise(currentIndex);
+
+    }
+
+    // 6. Switch to No Equipment Mode
+    private void switchToNoEquipmentMode() {
+        if (isReplacingExercise) {
+            return; // Already finding alternative
+        }
+
+        String currentExerciseName = exerciseNames.get(currentIndex);
+
+        // Check if current exercise requires equipment
+        if (requiresEquipment(currentExerciseName)) {
+            // Pause the workout silently
+            stopAllTTS();
+            cancelAllTimers();
+
+            isNoEquipmentMode = true;
+            updateModeUI(true);
+            replaceCurrentExerciseWithAlternative();
+        } else {
+            // Current exercise is already bodyweight-friendly
+            isNoEquipmentMode = true;
+            updateModeUI(true);
+            // REMOVED: Toast
+        }
+    }
+
+    // 7. Check if exercise requires equipment
+    private boolean requiresEquipment(String exerciseName) {
+        String nameLower = exerciseName.toLowerCase();
+
+        String[] equipmentKeywords = {
+                "barbell", "machine", "cable", "smith", "leg press",
+                "lat pulldown", "chest press", "leg extension",
+                "leg curl", "hack squat", "preacher", "t-bar",
+                "seated", "cable", "pulldown", "dumbbell"
+        };
+
+        for (String keyword : equipmentKeywords) {
+            if (nameLower.contains(keyword)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // Replace current exercise with no-equipment alternative
+    private void replaceCurrentExerciseWithAlternative() {
+        isReplacingExercise = true;
+
+        // Pause current activity
+        stopAllTTS();
+        cancelAllTimers();
+        fetchAlternativeExercise();
+    }
+
+
+    // Fetch alternative exercise from Firebase
+    private void fetchAlternativeExercise() {
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+        String currentExerciseName = exerciseNames.get(currentIndex);
+
+        dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<String> currentTargetMuscles = null;
+
+                // Find current exercise to get its target muscles
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+                        if (exercise != null && exercise.getName().equalsIgnoreCase(currentExerciseName)) {
+                            currentTargetMuscles = exercise.getTargetMuscles();
+                            Log.d(TAG, "Found current exercise. Target muscles: " + currentTargetMuscles);
+                            break;
+                        }
+                    }
+                }
+
+                // If we couldn't find target muscles, revert silently
+                if (currentTargetMuscles == null || currentTargetMuscles.isEmpty()) {
+                    Log.w(TAG, "Cannot find muscle data for current exercise");
+                    // REMOVED: Toast
+                    isNoEquipmentMode = false;
+                    updateModeUI(false);
+                    isReplacingExercise = false;
+                    return;
+                }
+
+                // Find bodyweight alternatives with SAME target muscles
+                List<ExerciseInfo> alternatives = new ArrayList<>();
+
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+
+                        if (exercise != null
+                                && !exercise.getName().equalsIgnoreCase(currentExerciseName)
+                                && isBodyweightExercise(exercise)
+                                && hasSameTargetMuscles(exercise.getTargetMuscles(), currentTargetMuscles)) {
+                            alternatives.add(exercise);
+                            Log.d(TAG, "Found matching alternative: " + exercise.getName()
+                                    + " (targets: " + exercise.getTargetMuscles() + ")");
+                        }
+                    }
+                }
+
+                if (!alternatives.isEmpty()) {
+                    ExerciseInfo replacement = alternatives.get(
+                            (int) (Math.random() * alternatives.size())
+                    );
+
+                    Log.d(TAG, "Selected replacement: " + replacement.getName());
+                    replaceExerciseAtIndex(currentIndex, replacement);
+                    // REMOVED: Toast
+                } else {
+                    Log.w(TAG, "No bodyweight alternatives for muscles: " + currentTargetMuscles);
+                    // REMOVED: Toast
+                    isNoEquipmentMode = false;
+                    updateModeUI(false);
+                }
+
+                isReplacingExercise = false;
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Database error", error.toException());
+                // REMOVED: Toast
+                isNoEquipmentMode = false;
+                updateModeUI(false);
+                isReplacingExercise = false;
+            }
+        });
+    }    // 11. Check if exercise is bodyweight/no equipment
+    private boolean isBodyweightExercise(ExerciseInfo exercise) {
+        if (exercise.getEquipments() == null || exercise.getEquipments().isEmpty()) {
+            return true;
+        }
+
+        for (String equip : exercise.getEquipments()) {
+            String equipLower = equip.toLowerCase().trim();
+
+            // Only accept bodyweight
+            if (!equipLower.contains("body weight") && !equipLower.contains("bodyweight")
+                    && !equipLower.equals("none") && !equipLower.isEmpty()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+
+    // Replace exercise at index
+    private void replaceExerciseAtIndex(int index, ExerciseInfo replacement) {
+        if (index < 0 || index >= exerciseNames.size()) return;
+
+        exerciseNames.set(index, replacement.getName());
+
+        StringBuilder details = new StringBuilder();
+        details.append("Sets: 3\n");
+        details.append("Reps: 12\n\n");
+        details.append("Instructions:\n");
+
+        if (replacement.getInstructions() != null && !replacement.getInstructions().isEmpty()) {
+            details.append(String.join("\n", replacement.getInstructions()));
+        } else {
+            details.append("Follow proper form and technique.");
+        }
+
+        exerciseDetails.set(index, details.toString());
+
+        String imageUrl = (replacement.getGifUrl() != null && !replacement.getGifUrl().isEmpty())
+                ? replacement.getGifUrl() : "https://via.placeholder.com/150";
+        exerciseImageUrls.set(index, imageUrl);
+
+        if (exerciseDurations != null && index < exerciseDurations.size()) {
+            exerciseDurations.set(index, 30);
+        }
+
+        if (exerciseRests != null && index < exerciseRests.size()) {
+            exerciseRests.set(index, 45);
+        }
+
+        Log.d(TAG, "Replaced exercise with: " + replacement.getName());
+        showExercise(currentIndex);
+    }
+
+    // Check if two exercises have the same target muscles
+    private boolean hasSameTargetMuscles(List<String> muscles1, List<String> muscles2) {
+        if (muscles1 == null || muscles2 == null) return false;
+        if (muscles1.isEmpty() || muscles2.isEmpty()) return false;
+
+        // Convert to lowercase for comparison
+        List<String> list1 = new ArrayList<>();
+        List<String> list2 = new ArrayList<>();
+
+        for (String m : muscles1) list1.add(m.toLowerCase().trim());
+        for (String m : muscles2) list2.add(m.toLowerCase().trim());
+
+        // Check if they share at least one target muscle
+        for (String muscle : list1) {
+            if (list2.contains(muscle)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }

@@ -34,6 +34,25 @@ import java.util.Calendar;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
+import android.app.ProgressDialog;
+import android.net.Uri;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import com.bumptech.glide.Glide;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
+import com.cloudinary.android.MediaManager;
+import com.cloudinary.android.callback.ErrorInfo;
+import com.cloudinary.android.callback.UploadCallback;
+import java.util.HashMap;
+import java.util.Map;
+
 
 public class Profile extends AppCompatActivity {
 
@@ -55,6 +74,10 @@ public class Profile extends AppCompatActivity {
     // Date picker components
     private Calendar selectedDate;
     private SimpleDateFormat dateFormat;
+    private ImageView profilePicture;
+    private ActivityResultLauncher<String> imagePickerLauncher;
+    private ProgressDialog uploadProgressDialog;
+
 
     // Email and phone validation patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
@@ -90,6 +113,25 @@ public class Profile extends AppCompatActivity {
         layoutFitnessLevel = findViewById(R.id.layout_fitness_level);
         layoutFitnessGoal = findViewById(R.id.layout_fitness_goal);
         layoutWorkoutFrequency = findViewById(R.id.layout_workout_frequency);
+        profilePicture = findViewById(R.id.iv_profile_picture);
+
+
+        uploadProgressDialog = new ProgressDialog(this);
+        uploadProgressDialog.setTitle("Uploading Image");
+        uploadProgressDialog.setMessage("Please wait...");
+        uploadProgressDialog.setCancelable(false);
+
+        imagePickerLauncher = registerForActivityResult(
+                new ActivityResultContracts.GetContent(),
+                uri -> {
+                    if (uri != null) {
+                        uploadImageToCloudinary(uri);
+                    }
+                }
+        );
+
+        profilePicture.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
+        findViewById(R.id.cv_edit_button).setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
 
         LinearLayout layoutFeedback = findViewById(R.id.layout_feedback);
         layoutFeedback.setOnClickListener(v -> {
@@ -105,6 +147,7 @@ public class Profile extends AppCompatActivity {
         setupEditableFields();
         setupFitnessProfileEditing();
         setupSecurityClickListeners();
+        initCloudinary();
 
         // Initialize Firestore
         firestore = FirebaseFirestore.getInstance();
@@ -659,6 +702,8 @@ public class Profile extends AppCompatActivity {
                 String phone = snapshot.getString("phone");
                 String dateOfBirth = snapshot.getString("dateOfBirth");
                 String membershipStatus = snapshot.getString("membershipStatus");
+                String profilePictureUrl = snapshot.getString("profilePictureUrl");
+
 
                 String userType = snapshot.getString("userType");
                 if (userType == null || userType.isEmpty()) {
@@ -666,6 +711,7 @@ public class Profile extends AppCompatActivity {
                 }
 
                 updateProfileDisplay(name, email, phone, dateOfBirth, membershipStatus, currentUser);
+                loadProfilePicture(profilePictureUrl);
             } else {
                 createDefaultUserProfile(currentUser);
             }
@@ -801,6 +847,106 @@ public class Profile extends AppCompatActivity {
                 .show();
     }
 
+    private void initCloudinary() {
+        Map<String, String> config = new HashMap<>();
+        config.put("cloud_name", "dgxwz6qzg");
+
+        try {
+            MediaManager.init(this, config);
+            Log.d("Cloudinary", "MediaManager initialized successfully");
+        } catch (IllegalStateException e) {
+            Log.d("Cloudinary", "MediaManager already initialized");
+        }
+    }
+
+    private void uploadImageToCloudinary(Uri imageUri) {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "Please login first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (imageUri == null) {
+            Toast.makeText(this, "Invalid image selected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        uploadProgressDialog.setMessage("Preparing upload...");
+        uploadProgressDialog.show();
+
+        // FIXED: Removed 'overwrite' and 'invalidate' options (not allowed with unsigned upload)
+        // FIXED: Removed 'public_id' to allow auto-generated unique filenames
+        // FIXED: Added context to dispatch() method
+        MediaManager.get().upload(imageUri)
+                .unsigned("profile_uploads")
+                .option("folder", "profile_pictures")
+                .option("resource_type", "image")
+                .constrain(com.cloudinary.android.policy.TimeWindow.immediate())
+                .maxFileSize(5 * 1024 * 1024)
+                .callback(new UploadCallback() {
+                    @Override
+                    public void onStart(String requestId) {
+                        Log.d("Cloudinary", "Upload started: " + requestId);
+                        runOnUiThread(() ->
+                                uploadProgressDialog.setMessage("Uploading image...")
+                        );
+                    }
+
+                    @Override
+                    public void onProgress(String requestId, long bytes, long totalBytes) {
+                        double progress = (bytes * 100.0) / totalBytes;
+                        runOnUiThread(() ->
+                                uploadProgressDialog.setMessage(
+                                        String.format("Uploading: %d%%", (int) progress)
+                                )
+                        );
+                    }
+
+                    @Override
+                    public void onSuccess(String requestId, Map resultData) {
+                        String imageUrl = (String) resultData.get("secure_url");
+
+                        runOnUiThread(() -> {
+                            uploadProgressDialog.dismiss();
+
+                            if (imageUrl != null && !imageUrl.isEmpty()) {
+                                saveProfilePictureUrl(imageUrl);
+                                Toast.makeText(Profile.this,
+                                        "Profile picture updated!",
+                                        Toast.LENGTH_SHORT).show();
+                            } else {
+                                Toast.makeText(Profile.this,
+                                        "Upload succeeded but no URL returned",
+                                        Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onError(String requestId, ErrorInfo error) {
+                        Log.e("Cloudinary", "Upload error: " + error.getDescription());
+
+                        runOnUiThread(() -> {
+                            uploadProgressDialog.dismiss();
+
+                            String errorMsg = "Upload failed";
+                            if (error.getDescription() != null) {
+                                errorMsg += ": " + error.getDescription();
+                            }
+
+                            Toast.makeText(Profile.this, errorMsg, Toast.LENGTH_LONG).show();
+                        });
+                    }
+
+                    @Override
+                    public void onReschedule(String requestId, ErrorInfo error) {
+                        Log.d("Cloudinary", "Upload rescheduled: " + error.getDescription());
+                    }
+                })
+                .dispatch(Profile.this);  // FIXED: Added context parameter here
+    }
+
+
     private static class UserProfileFirestore {
         public String fullname, email, phone, dateOfBirth, membershipStatus, userType;
 
@@ -811,6 +957,82 @@ public class Profile extends AppCompatActivity {
             this.dateOfBirth = "";
             this.membershipStatus = "Active Member";
             this.userType = "user";
+        }
+    }
+
+    private void uploadImageToFirebase(Uri imageUri) {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) return;
+
+        uploadProgressDialog.show();
+
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(imageUri);
+            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
+
+            Bitmap resizedBitmap = resizeBitmap(bitmap, 800, 800);
+
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
+            byte[] imageData = baos.toByteArray();
+
+            String fileName = "profile_" + currentUser.getUid() + ".jpg";
+
+            FirebaseStorage storage = FirebaseStorage.getInstance();
+            StorageReference fileRef = storage.getReference("profile_pictures").child(fileName);
+
+            fileRef.putBytes(imageData)
+                    .addOnSuccessListener(taskSnapshot -> {
+                        fileRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
+                            saveProfilePictureUrl(downloadUri.toString());
+                            uploadProgressDialog.dismiss();
+                            Toast.makeText(this, "Profile picture updated!", Toast.LENGTH_SHORT).show();
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        uploadProgressDialog.dismiss();
+                        Toast.makeText(this, "Upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    });
+
+        } catch (Exception e) {
+            uploadProgressDialog.dismiss();
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private Bitmap resizeBitmap(Bitmap bitmap, int maxWidth, int maxHeight) {
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        float ratio = (float) width / (float) height;
+
+        if (ratio > 1) {
+            width = maxWidth;
+            height = (int) (maxWidth / ratio);
+        } else {
+            height = maxHeight;
+            width = (int) (maxHeight * ratio);
+        }
+
+        return Bitmap.createScaledBitmap(bitmap, width, height, true);
+    }
+
+    private void saveProfilePictureUrl(String imageUrl) {
+        if (userDocRef != null) {
+            userDocRef.update("profilePictureUrl", imageUrl)
+                    .addOnSuccessListener(aVoid -> {
+                        loadProfilePicture(imageUrl);
+                    });
+        }
+    }
+
+    private void loadProfilePicture(String imageUrl) {
+        if (imageUrl != null && !imageUrl.isEmpty()) {
+            Glide.with(this)
+                    .load(imageUrl)
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .circleCrop()
+                    .into(profilePicture);
         }
     }
 }

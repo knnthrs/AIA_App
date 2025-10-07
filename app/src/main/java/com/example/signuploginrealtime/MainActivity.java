@@ -9,42 +9,30 @@
     import android.os.Bundle;
     import android.widget.ImageView;
     import android.widget.TextView;
-    import android.widget.Toast;
     import android.util.Log;
     import androidx.activity.OnBackPressedCallback;
-    import androidx.annotation.NonNull;
     import androidx.annotation.Nullable;
     import androidx.appcompat.app.AlertDialog;
     import androidx.appcompat.app.AppCompatActivity;
     import androidx.cardview.widget.CardView;
     import androidx.core.app.ActivityCompat;
     import androidx.core.content.ContextCompat;
-
-    import com.google.firebase.Timestamp;
-    import com.google.firebase.database.DatabaseError;
-    import com.google.firebase.database.DatabaseReference;
-    import com.google.firebase.database.FirebaseDatabase;
-    import com.google.firebase.database.ValueEventListener;
-    import com.google.firebase.firestore.FieldValue;
-    import com.google.firebase.firestore.QueryDocumentSnapshot;
+    import java.util.concurrent.TimeUnit;
     import com.bumptech.glide.Glide;
     import com.google.android.material.bottomnavigation.BottomNavigationView;
     import com.google.android.material.floatingactionbutton.FloatingActionButton;
+    import com.google.firebase.Timestamp;
     import com.google.firebase.auth.FirebaseAuth;
     import com.google.firebase.auth.FirebaseUser;
-    
-    
-    import com.google.firebase.database.DataSnapshot;
-    
+
+
+
     // Firestore imports (for user data and promotions)
     import com.google.firebase.firestore.DocumentReference;
     import com.google.firebase.firestore.DocumentSnapshot; // Explicitly keep for Firestore
-    import com.google.firebase.firestore.EventListener;
     import com.google.firebase.firestore.FirebaseFirestore;
-    import com.google.firebase.firestore.FirebaseFirestoreException;
     import com.google.firebase.firestore.ListenerRegistration;
-    
-    import java.text.ParseException;
+
     import java.text.SimpleDateFormat;
     import java.util.Calendar;
     import java.util.Date;
@@ -53,8 +41,7 @@
     import java.util.ArrayList;
     import java.util.Locale;
     import java.util.Map;
-    import java.util.concurrent.TimeUnit;
-    
+
     import android.widget.LinearLayout;
     import android.view.LayoutInflater;
     import android.view.View;
@@ -87,7 +74,8 @@
         FirebaseFirestore dbFirestore;
         DocumentReference userDocRefFS;
         ListenerRegistration userDataListenerRegistrationFS;
-    
+
+        private boolean isMembershipLoaded = false;
     
     
         @Override
@@ -142,9 +130,9 @@
             setupClickListeners();
             loadUserDataFromFirestore();
             updateStreakDisplay();
-    
-            loadNextWorkoutFromFirestore();
-    
+
+            new android.os.Handler().postDelayed(this::checkAndHandleMembershipExpiration, 800);
+
             getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
                 @Override
                 public void handleOnBackPressed() {
@@ -564,56 +552,82 @@
                     : "Hi, User");
         }
     
+
         @SuppressLint("SetTextI18n")
         private void updateMembershipDisplay(DocumentSnapshot firestoreSnapshot) {
-            FirebaseUser currentUser = mAuth.getCurrentUser();
-            if (currentUser == null) {
-                setDefaultMembershipValues();
-                return;
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) return;
+
+            // Show loading state instead of default values
+            if (!isMembershipLoaded) {
+                membershipStatus.setText("Loading...");
+                membershipStatus.setTextColor(getColor(R.color.gray));
+                planType.setText("Checking membership...");
+                expiryDate.setText("—");
             }
-    
-            String userId = currentUser.getUid();
-    
-            // Query the memberships collection for this user's active membership
-            dbFirestore.collection("memberships")
-                    .whereEqualTo("userId", userId)
+
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+
+            db.collection("memberships")
+                    .whereEqualTo("userId", user.getUid())
                     .whereEqualTo("membershipStatus", "active")
                     .get()
                     .addOnSuccessListener(queryDocumentSnapshots -> {
+                        isMembershipLoaded = true;
+
                         if (!queryDocumentSnapshots.isEmpty()) {
-                            // User has an active membership
                             DocumentSnapshot membership = queryDocumentSnapshots.getDocuments().get(0);
-    
-                            String planCode = membership.getString("membershipPlanCode");
-                            String planLabel = membership.getString("membershipPlanLabel");
-                            com.google.firebase.Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
-    
-                            Log.d(TAG, "Found active membership: " + planCode);
-    
-                            membershipStatus.setText("ACTIVE");
-                            membershipStatus.setTextColor(getColor(R.color.green));
-                            planType.setText(extractPlanName(planLabel != null ? planLabel : planCode));
-    
-                            // Format the expiration date
+
+                            String plan = membership.getString("membershipPlanLabel");
+                            Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
+
+                            if (plan != null) planType.setText(plan);
+
                             if (expirationTimestamp != null) {
-                                SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-                                expiryDate.setText(sdf.format(expirationTimestamp.toDate()));
+                                Date expDate = expirationTimestamp.toDate();
+                                expiryDate.setText(new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate));
+
+                                long diffInMillis = expDate.getTime() - new Date().getTime();
+                                long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+
+                                if (diffInMillis < 0) {
+                                    membershipStatus.setText("EXPIRED");
+                                    membershipStatus.setTextColor(getColor(R.color.red));
+                                    planType.setText(plan + " (Expired)");
+
+                                } else if (diffInDays <= 0 && diffInHours <= 6 && diffInHours > 0) {
+                                    membershipStatus.setText("EXPIRING SOON");
+                                    membershipStatus.setTextColor(getColor(R.color.orange));
+                                    planType.setText(plan + " (Expires in " + diffInHours + "h)");
+
+                                } else if (diffInDays >= 1 && diffInDays <= 3) {
+                                    membershipStatus.setText("EXPIRING SOON");
+                                    membershipStatus.setTextColor(getColor(R.color.orange));
+                                    planType.setText(plan + " (" + diffInDays + " days left)");
+
+                                } else {
+                                    membershipStatus.setText("ACTIVE");
+                                    membershipStatus.setTextColor(getColor(R.color.green));
+                                    planType.setText(plan);
+                                }
                             } else {
+                                membershipStatus.setText("INACTIVE");
+                                membershipStatus.setTextColor(getColor(R.color.red));
                                 expiryDate.setText("—");
+                                planType.setText("No plan");
                             }
                         } else {
-                            // No active membership found
                             Log.d(TAG, "No active membership found");
                             setDefaultMembershipValues();
                         }
                     })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "Error fetching membership: " + e.getMessage());
+                        isMembershipLoaded = true;
+                        Log.e(TAG, "Failed to load membership info", e);
                         setDefaultMembershipValues();
                     });
-        }
-    
-        private String extractPlanName(String planLabel) {
+        }        private String extractPlanName(String planLabel) {
             if (planLabel != null) {
                 if (planLabel.contains(" – ")) return planLabel.split(" – ")[0];
                 if (planLabel.contains("\n")) return planLabel.split("\n")[0];
@@ -657,6 +671,7 @@
         protected void onResume() {
             super.onResume();
             if (mAuth.getCurrentUser() != null) {
+                isMembershipLoaded = false;
                 updateStreakDisplay();
     
                 // Refresh membership display when returning to MainActivity
@@ -770,23 +785,26 @@
                             long diffInMillis = expirationDate.getTime() - today.getTime();
                             long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
 
-                            if (diffInDays < 0) {
-                                // 🔴 Expired
-                                db.collection("memberships").document(doc.getId())
-                                        .update("membershipStatus", "expired");
+                            Log.d(TAG, "Membership expires in " + diffInDays + " days");
 
-                                showExpirationPopup("Your membership has expired.");
-                                saveNotificationToFirestore("Membership Expired", "Your membership has expired.");
-                            } else if (diffInDays <= 3) {
-                                // 🟠 Expiring soon (3 days or less)
-                                saveNotificationToFirestore("Membership Expiring Soon",
-                                        "Your membership will expire in " + diffInDays + " day(s).");
+                            if (diffInDays < 0) {
+                                // 🔴 EXPIRED - Update status and notify
+                                db.collection("memberships").document(doc.getId())
+                                        .update("membershipStatus", "expired")
+                                        .addOnSuccessListener(aVoid -> {
+                                            showExpirationPopup("Your membership has expired.");
+                                            saveNotificationToFirestore("expired", 0);
+                                            loadUserDataFromFirestore(); // Refresh UI
+                                        });
+
+                            } else if (diffInDays <= 3 && diffInDays >= 0) {
+                                // 🟠 EXPIRING SOON
+                                saveNotificationToFirestore("expiring_soon", (int) diffInDays);
                             }
                         }
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
         }
-    
         private void showExpirationPopup(String message) {
             new AlertDialog.Builder(this)
                     .setTitle("Membership Notice")
@@ -796,86 +814,81 @@
                     .show();
         }
 
-        private void saveNotificationToFirestore(String title, String message) {
+        private void saveNotificationToFirestore(String notificationType, int daysRemaining) {
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) return;
 
             FirebaseFirestore db = FirebaseFirestore.getInstance();
+            long todayStart = getTodayStartAsLong();
+            long todayEnd = todayStart + 86400000L; // 24h later
 
             db.collection("notifications")
-                    .document(user.getUid())
-                    .collection("userNotifications")
-                    .whereEqualTo("title", title)
-                    .whereEqualTo("message", message)
+                    .whereEqualTo("userId", user.getUid())
+                    .whereEqualTo("type", notificationType)
+                    .whereGreaterThanOrEqualTo("timestamp", todayStart)
+                    .whereLessThan("timestamp", todayEnd)
                     .get()
                     .addOnSuccessListener(querySnapshot -> {
                         if (querySnapshot.isEmpty()) {
+                            String title, message;
+
+                            if ("expired".equals(notificationType)) {
+                                title = "Membership Expired";
+                                message = "Your membership has expired. Renew now to continue enjoying gym access.";
+                            } else {
+                                title = "Membership Expiring Soon";
+                                message = "Your membership will expire in " + daysRemaining + " day(s). Renew soon!";
+                            }
+
                             Map<String, Object> notification = new HashMap<>();
+                            notification.put("userId", user.getUid());
                             notification.put("title", title);
                             notification.put("message", message);
-                            notification.put("timestamp", FieldValue.serverTimestamp());
+                            notification.put("type", notificationType);
+                            notification.put("timestamp", System.currentTimeMillis());
+                            notification.put("read", false);
 
-                            db.collection("notifications")
-                                    .document(user.getUid())
-                                    .collection("userNotifications")
-                                    .add(notification);
+                            db.collection("notifications").add(notification);
+                        } else {
+                            Log.d(TAG, "⚠️ Skipping duplicate " + notificationType + " notification for today");
                         }
                     });
         }
 
-        private void checkMembershipStatus() {
-            FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
-            if (currentUser == null) return;
+        // Helper method to create notification without duplicate check
+        private void createNotificationDirectly(String userId, String notificationType, int daysRemaining, FirebaseFirestore db) {
+            String title, message;
 
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            if ("expired".equals(notificationType)) {
+                title = "Membership Expired";
+                message = "Your membership has expired. Renew now to continue enjoying gym access.";
+            } else {
+                title = "Membership Expiring Soon";
+                message = "Your membership will expire in " + daysRemaining + " day(s). Renew soon!";
+            }
 
-            db.collection("memberships")
-                    .whereEqualTo("userId", currentUser.getUid())
-                    .whereEqualTo("membershipStatus", "active")
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (!querySnapshot.isEmpty()) {
-                            for (QueryDocumentSnapshot doc : querySnapshot) {
-                                Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
-                                if (expirationTimestamp != null) {
-                                    Date expirationDate = expirationTimestamp.toDate();
-                                    long diff = expirationDate.getTime() - System.currentTimeMillis();
-                                    long diffDays = diff / (1000 * 60 * 60 * 24);
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("userId", userId);
+            notification.put("title", title);
+            notification.put("message", message);
+            notification.put("type", notificationType);
+            notification.put("timestamp", System.currentTimeMillis());
+            notification.put("read", false);
 
-                                    Log.d("MembershipCheck", "Days until expiration: " + diffDays);
+            db.collection("notifications")
+                    .add(notification)
+                    .addOnSuccessListener(docRef -> {
+                        Log.d(TAG, "✅ Notification created directly! Doc ID: " + docRef.getId());
+                    });
+        }
 
-                                    if (diffDays < 0) {
-                                        // Expired
-                                        doc.getReference().update("membershipStatus", "expired");
-
-                                        // Optional: Add notification to Firestore
-                                        Map<String, Object> notification = new HashMap<>();
-                                        notification.put("userId", currentUser.getUid());
-                                        notification.put("title", "Membership Expired");
-                                        notification.put("message", "Your membership has expired. Renew now to continue enjoying gym access.");
-                                        notification.put("type", "general");
-                                        notification.put("timestamp", System.currentTimeMillis());
-                                        notification.put("read", false);
-                                        db.collection("notifications").add(notification);
-                                    }
-                                    else if (diffDays <= 3) {
-                                        // About to expire in 3 days
-                                        Map<String, Object> notification = new HashMap<>();
-                                        notification.put("userId", currentUser.getUid());
-                                        notification.put("title", "Membership Expiring Soon");
-                                        notification.put("message", "Your membership will expire in " + diffDays + " day(s). Renew soon!");
-                                        notification.put("type", "general");
-                                        notification.put("timestamp", System.currentTimeMillis());
-                                        notification.put("read", false);
-                                        db.collection("notifications").add(notification);
-                                    }
-                                }
-                            }
-                        } else {
-                            Log.d("MembershipCheck", "No active membership found.");
-                        }
-                    })
-                    .addOnFailureListener(e -> Log.e("MembershipCheck", "Error: ", e));
+        private long getTodayStartAsLong() {
+            Calendar cal = Calendar.getInstance();
+            cal.set(Calendar.HOUR_OF_DAY, 0);
+            cal.set(Calendar.MINUTE, 0);
+            cal.set(Calendar.SECOND, 0);
+            cal.set(Calendar.MILLISECOND, 0);
+            return cal.getTimeInMillis();
         }
 
 

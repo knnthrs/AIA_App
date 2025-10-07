@@ -32,6 +32,7 @@ public class SelectMembership extends AppCompatActivity {
     private String selectedPlanLabel = null;
     private String selectedPlanType = null;
     private int selectedMonths = 0;
+    private int selectedDurationDays = 0; // NEW: for daily passes
     private int selectedSessions = 0;
     private double selectedPrice = 0;
 
@@ -119,9 +120,20 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void createNewMembership() {
-        // Calculate expiration date based on months
+        // Calculate expiration date based on package type
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.MONTH, selectedMonths);
+
+        // Handle different duration types
+        if (selectedMonths > 0) {
+            // Monthly packages - add months from today
+            calendar.add(Calendar.MONTH, selectedMonths);
+        } else {
+            // Daily pass - expires in 24 hours (1 day)
+            calendar.add(Calendar.DAY_OF_MONTH, 1);
+            // OR if you want exactly 24 hours:
+            // calendar.add(Calendar.HOUR, 24);
+        }
+
         Date expirationDate = calendar.getTime();
         Timestamp expirationTimestamp = new Timestamp(expirationDate);
         Timestamp startTimestamp = Timestamp.now();
@@ -135,8 +147,9 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("membershipStartDate", startTimestamp);
         membershipData.put("membershipExpirationDate", expirationTimestamp);
         membershipData.put("months", selectedMonths);
+        membershipData.put("durationDays", selectedDurationDays); // Store for reference
         membershipData.put("sessions", selectedSessions);
-        membershipData.put("sessionsRemaining", selectedSessions); // Track remaining PT sessions
+        membershipData.put("sessionsRemaining", selectedSessions);
         membershipData.put("price", selectedPrice);
         membershipData.put("createdAt", startTimestamp);
 
@@ -166,7 +179,6 @@ public class SelectMembership extends AppCompatActivity {
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
-
     private void loadPackagesFromFirestore() {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);
@@ -183,15 +195,19 @@ public class SelectMembership extends AppCompatActivity {
                         String packageId = document.getId();
                         String type = document.getString("type");
                         Long months = document.getLong("months");
+                        Long durationDays = document.getLong("durationDays"); // NEW: get durationDays
                         Long sessions = document.getLong("sessions");
                         Double price = document.getDouble("price");
 
-                        if (type == null || months == null || price == null) continue;
+                        if (type == null || price == null) continue;
+                        if (months == null) months = 0L;
+                        if (durationDays == null) durationDays = 0L;
 
                         CardView card = getCardViewForPackage(packageId);
                         if (card != null) {
                             setPlanClick(card, packageId, type,
                                     months.intValue(),
+                                    durationDays.intValue(), // Pass durationDays
                                     sessions != null ? sessions.intValue() : 0,
                                     price);
                         }
@@ -245,16 +261,17 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void setPlanClick(CardView card, String packageId, String type,
-                              int months, int sessions, double price) {
+                              int months, int durationDays, int sessions, double price) {
         if (card == null) return;
 
-        String planLabel = generatePlanLabel(type, months, sessions, price);
+        String planLabel = generatePlanLabel(type, months, durationDays, sessions, price);
 
         card.setOnClickListener(v -> {
             selectedPackageId = packageId;
             selectedPlanLabel = planLabel;
             selectedPlanType = type;
             selectedMonths = months;
+            selectedDurationDays = durationDays; // Store durationDays
             selectedSessions = sessions;
             selectedPrice = price;
 
@@ -267,10 +284,17 @@ public class SelectMembership extends AppCompatActivity {
         });
     }
 
-    private String generatePlanLabel(String type, int months, int sessions, double price) {
+    private String generatePlanLabel(String type, int months, int durationDays, int sessions, double price) {
         StringBuilder label = new StringBuilder();
 
-        if (months == 0 || months < 1) {
+        // Determine duration display
+        if (durationDays > 0) {
+            if (durationDays == 1) {
+                label.append("Daily Pass");
+            } else {
+                label.append(durationDays).append(" Days");
+            }
+        } else if (months == 0 || months < 1) {
             label.append("Daily Pass");
         } else if (months == 1) {
             label.append("1 Month");

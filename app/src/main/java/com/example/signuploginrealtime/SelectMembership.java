@@ -5,6 +5,7 @@ import android.view.View;
 import android.widget.Toast;
 import android.content.Intent;
 import android.widget.ProgressBar;
+import android.util.Log;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -17,12 +18,24 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.Timestamp;
 
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 public class SelectMembership extends AppCompatActivity {
+
+    private static final String TAG = "SelectMembership";
+    private static final String PAYMONGO_SECRET_KEY = "sk_test_7AjfDjSecFKtHZX6ee8Sa95B"; // Replace with your key
 
     private View backButton;
     private CardView confirmButtonCard;
@@ -32,12 +45,13 @@ public class SelectMembership extends AppCompatActivity {
     private String selectedPlanLabel = null;
     private String selectedPlanType = null;
     private int selectedMonths = 0;
-    private int selectedDurationDays = 0; // NEW: for daily passes
+    private int selectedDurationDays = 0;
     private int selectedSessions = 0;
     private double selectedPrice = 0;
 
     private FirebaseFirestore db;
     private String currentUserId;
+    private Executor executor = Executors.newSingleThreadExecutor();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -61,10 +75,7 @@ public class SelectMembership extends AppCompatActivity {
         backButton.setOnClickListener(v -> finish());
         confirmButtonCard.setVisibility(View.GONE);
 
-        // Check if user already has an active membership
         checkExistingMembership();
-
-        // Load packages from Firestore
         loadPackagesFromFirestore();
 
         confirmButtonCard.setOnClickListener(v -> {
@@ -72,7 +83,8 @@ public class SelectMembership extends AppCompatActivity {
                 Toast.makeText(this, "Please select a plan first.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            saveMembership();
+            // Start payment process instead of directly saving
+            initiatePayMongoPayment();
         });
     }
 
@@ -83,14 +95,150 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     if (!queryDocumentSnapshots.isEmpty()) {
-                        // User already has an active membership
                         Toast.makeText(this, "You already have an active membership", Toast.LENGTH_LONG).show();
-                        // Optionally, you can still allow them to upgrade/change
                     }
                 })
                 .addOnFailureListener(e -> {
-                    // Handle error silently or show message
+                    Log.e(TAG, "Error checking membership", e);
                 });
+    }
+
+    private void initiatePayMongoPayment() {
+        if (loadingProgress != null) {
+            loadingProgress.setVisibility(View.VISIBLE);
+        }
+        confirmButtonCard.setEnabled(false);
+
+        // Convert price to cents (PayMongo uses centavos)
+        int amountInCents = (int) (selectedPrice * 100);
+
+        executor.execute(() -> {
+            try {
+                // Create PayMongo Payment Link
+                String paymentLinkUrl = createPayMongoPaymentLink(amountInCents);
+
+                runOnUiThread(() -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    confirmButtonCard.setEnabled(true);
+
+                    if (paymentLinkUrl != null) {
+                        // Open payment page
+                        Intent intent = new Intent(SelectMembership.this, PayMongoPaymentActivity.class);
+                        intent.putExtra("paymentUrl", paymentLinkUrl);
+                        intent.putExtra("packageId", selectedPackageId);
+                        intent.putExtra("planLabel", selectedPlanLabel);
+                        intent.putExtra("planType", selectedPlanType);
+                        intent.putExtra("months", selectedMonths);
+                        intent.putExtra("durationDays", selectedDurationDays);
+                        intent.putExtra("sessions", selectedSessions);
+                        intent.putExtra("price", selectedPrice);
+                        startActivityForResult(intent, 100);
+                    } else {
+                        Toast.makeText(SelectMembership.this,
+                                "Failed to create payment link. Please try again.",
+                                Toast.LENGTH_LONG).show();
+                    }
+                });
+
+            } catch (Exception e) {
+                Log.e(TAG, "Error creating payment", e);
+                runOnUiThread(() -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    confirmButtonCard.setEnabled(true);
+                    Toast.makeText(SelectMembership.this,
+                            "Payment error: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+            }
+        });
+    }
+
+    private String createPayMongoPaymentLink(int amountInCents) {
+        try {
+            URL url = new URL("https://api.paymongo.com/v1/links");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Authorization", "Basic " +
+                    android.util.Base64.encodeToString(
+                            (PAYMONGO_SECRET_KEY + ":").getBytes(),
+                            android.util.Base64.NO_WRAP
+                    ));
+            conn.setDoOutput(true);
+
+            // Create payment link data
+            JSONObject data = new JSONObject();
+            JSONObject attributes = new JSONObject();
+
+            attributes.put("amount", amountInCents);
+            attributes.put("description", selectedPlanLabel);
+            attributes.put("remarks", "Membership: " + selectedPlanLabel);
+
+            data.put("data", new JSONObject().put("attributes", attributes));
+
+            // Send request
+            OutputStream os = conn.getOutputStream();
+            os.write(data.toString().getBytes());
+            os.flush();
+            os.close();
+
+            int responseCode = conn.getResponseCode();
+            Log.d(TAG, "PayMongo Response Code: " + responseCode);
+
+            if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+
+                JSONObject jsonResponse = new JSONObject(response.toString());
+                String checkoutUrl = jsonResponse.getJSONObject("data")
+                        .getJSONObject("attributes")
+                        .getString("checkout_url");
+
+                Log.d(TAG, "Payment URL created: " + checkoutUrl);
+                return checkoutUrl;
+            } else {
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+                String inputLine;
+                StringBuilder response = new StringBuilder();
+                while ((inputLine = in.readLine()) != null) {
+                    response.append(inputLine);
+                }
+                in.close();
+                Log.e(TAG, "PayMongo Error: " + response.toString());
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error creating PayMongo link", e);
+        }
+        return null;
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == 100) {
+            if (resultCode == RESULT_OK && data != null) {
+                boolean paymentSuccess = data.getBooleanExtra("paymentSuccess", false);
+
+                if (paymentSuccess) {
+                    // Payment successful, save membership
+                    saveMembership();
+                } else {
+                    Toast.makeText(this, "Payment was not completed", Toast.LENGTH_SHORT).show();
+                }
+            }
+        }
     }
 
     private void saveMembership() {
@@ -99,39 +247,26 @@ public class SelectMembership extends AppCompatActivity {
         }
         confirmButtonCard.setEnabled(false);
 
-        // First, check if user already has an active membership and deactivate it
         db.collection("memberships")
                 .whereEqualTo("userId", currentUserId)
                 .whereEqualTo("membershipStatus", "active")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    // Deactivate all existing active memberships
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         document.getReference().update("membershipStatus", "replaced");
                     }
-
-                    // Now create the new membership
                     createNewMembership();
                 })
-                .addOnFailureListener(e -> {
-                    // If check fails, still try to create membership
-                    createNewMembership();
-                });
+                .addOnFailureListener(e -> createNewMembership());
     }
 
     private void createNewMembership() {
-        // Calculate expiration date based on package type
         Calendar calendar = Calendar.getInstance();
 
-        // Handle different duration types
         if (selectedMonths > 0) {
-            // Monthly packages - add months from today
             calendar.add(Calendar.MONTH, selectedMonths);
         } else {
-            // Daily pass - expires in 24 hours (1 day)
             calendar.add(Calendar.DAY_OF_MONTH, 1);
-            // OR if you want exactly 24 hours:
-            // calendar.add(Calendar.HOUR, 24);
         }
 
         Date expirationDate = calendar.getTime();
@@ -147,13 +282,13 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("membershipStartDate", startTimestamp);
         membershipData.put("membershipExpirationDate", expirationTimestamp);
         membershipData.put("months", selectedMonths);
-        membershipData.put("durationDays", selectedDurationDays); // Store for reference
+        membershipData.put("durationDays", selectedDurationDays);
         membershipData.put("sessions", selectedSessions);
         membershipData.put("sessionsRemaining", selectedSessions);
         membershipData.put("price", selectedPrice);
+        membershipData.put("paymentStatus", "paid");
         membershipData.put("createdAt", startTimestamp);
 
-        // Save to memberships collection
         db.collection("memberships")
                 .add(membershipData)
                 .addOnSuccessListener(documentReference -> {
@@ -179,6 +314,7 @@ public class SelectMembership extends AppCompatActivity {
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
+
     private void loadPackagesFromFirestore() {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);
@@ -195,7 +331,7 @@ public class SelectMembership extends AppCompatActivity {
                         String packageId = document.getId();
                         String type = document.getString("type");
                         Long months = document.getLong("months");
-                        Long durationDays = document.getLong("durationDays"); // NEW: get durationDays
+                        Long durationDays = document.getLong("durationDays");
                         Long sessions = document.getLong("sessions");
                         Double price = document.getDouble("price");
 
@@ -207,7 +343,7 @@ public class SelectMembership extends AppCompatActivity {
                         if (card != null) {
                             setPlanClick(card, packageId, type,
                                     months.intValue(),
-                                    durationDays.intValue(), // Pass durationDays
+                                    durationDays.intValue(),
                                     sessions != null ? sessions.intValue() : 0,
                                     price);
                         }
@@ -226,35 +362,16 @@ public class SelectMembership extends AppCompatActivity {
         int cardId = 0;
 
         switch (packageId) {
-            case "5YjEV258bysDMUxZuTUC":
-                cardId = R.id.daily_card;
-                break;
-            case "GDKVR24VY7DNFmdKJroC":
-                cardId = R.id.one_month_card;
-                break;
-            case "QbTXP0cY0M7Wxyrcgt5O":
-                cardId = R.id.three_month_card;
-                break;
-            case "ZyvkZ8WNJb6ZPzGkG74w":
-                cardId = R.id.six_month_card;
-                break;
-            case "fix4Hyr5nVCaC1FpcuFk":
-                cardId = R.id.one_year_card;
-                break;
-            case "kZX2cCdxYAahOfwDrzaK":
-                cardId = R.id.one_month_10pt_card;
-                break;
-            case "q5DtmQjdP0kWoljfe2yf":
-                cardId = R.id.three_month_10pt_card;
-                break;
-            case "rctrNNKdSWLGHe1dmGcy":
-                cardId = R.id.three_month_15pt_card;
-                break;
-            case "w6KSFtEnx3CIk66xkGEW":
-                cardId = R.id.three_month_24pt_card;
-                break;
-            default:
-                return null;
+            case "5YjEV258bysDMUxZuTUC": cardId = R.id.daily_card; break;
+            case "GDKVR24VY7DNFmdKJroC": cardId = R.id.one_month_card; break;
+            case "QbTXP0cY0M7Wxyrcgt5O": cardId = R.id.three_month_card; break;
+            case "ZyvkZ8WNJb6ZPzGkG74w": cardId = R.id.six_month_card; break;
+            case "fix4Hyr5nVCaC1FpcuFk": cardId = R.id.one_year_card; break;
+            case "kZX2cCdxYAahOfwDrzaK": cardId = R.id.one_month_10pt_card; break;
+            case "q5DtmQjdP0kWoljfe2yf": cardId = R.id.three_month_10pt_card; break;
+            case "rctrNNKdSWLGHe1dmGcy": cardId = R.id.three_month_15pt_card; break;
+            case "w6KSFtEnx3CIk66xkGEW": cardId = R.id.three_month_24pt_card; break;
+            default: return null;
         }
 
         return findViewById(cardId);
@@ -271,7 +388,7 @@ public class SelectMembership extends AppCompatActivity {
             selectedPlanLabel = planLabel;
             selectedPlanType = type;
             selectedMonths = months;
-            selectedDurationDays = durationDays; // Store durationDays
+            selectedDurationDays = durationDays;
             selectedSessions = sessions;
             selectedPrice = price;
 
@@ -287,7 +404,6 @@ public class SelectMembership extends AppCompatActivity {
     private String generatePlanLabel(String type, int months, int durationDays, int sessions, double price) {
         StringBuilder label = new StringBuilder();
 
-        // Determine duration display
         if (durationDays > 0) {
             if (durationDays == 1) {
                 label.append("Daily Pass");
@@ -329,18 +445,10 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void enlargeCard(CardView card) {
-        card.animate()
-                .scaleX(1.1f)
-                .scaleY(1.1f)
-                .setDuration(200)
-                .start();
+        card.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start();
     }
 
     private void resetCardSize(CardView card) {
-        card.animate()
-                .scaleX(1f)
-                .scaleY(1f)
-                .setDuration(200)
-                .start();
+        card.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
     }
 }

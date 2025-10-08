@@ -20,6 +20,12 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
+        <activity
+            android:name=".PayMongoPaymentActivity"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".CoachArchiveActivity"
             android:exported="false" />

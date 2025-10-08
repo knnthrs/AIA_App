@@ -592,21 +592,30 @@
                                 long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
                                 if (diffInMillis < 0) {
+                                    // EXPIRED
                                     membershipStatus.setText("EXPIRED");
                                     membershipStatus.setTextColor(getColor(R.color.red));
                                     planType.setText(plan + " (Expired)");
 
-                                } else if (diffInDays <= 0 && diffInHours <= 6 && diffInHours > 0) {
+                                } else if (diffInHours <= 6) {
+                                    // EXPIRING SOON - only in last 6 hours
                                     membershipStatus.setText("EXPIRING SOON");
                                     membershipStatus.setTextColor(getColor(R.color.orange));
-                                    planType.setText(plan + " (Expires in " + diffInHours + "h)");
+                                    if (diffInHours > 0) {
+                                        planType.setText(plan + " (Expires in " + diffInHours + "h)");
+                                    } else {
+                                        long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                                        planType.setText(plan + " (Expires in " + diffInMinutes + "m)");
+                                    }
 
                                 } else if (diffInDays >= 1 && diffInDays <= 3) {
+                                    // EXPIRING SOON - 1 to 3 days
                                     membershipStatus.setText("EXPIRING SOON");
                                     membershipStatus.setTextColor(getColor(R.color.orange));
-                                    planType.setText(plan + " (" + diffInDays + " days left)");
+                                    planType.setText(plan + " (" + diffInDays + " day(s) left)");
 
                                 } else {
+                                    // ACTIVE - more than 6 hours or more than 3 days
                                     membershipStatus.setText("ACTIVE");
                                     membershipStatus.setTextColor(getColor(R.color.green));
                                     planType.setText(plan);
@@ -675,13 +684,10 @@
             if (mAuth.getCurrentUser() != null) {
                 isMembershipLoaded = false;
                 updateStreakDisplay();
-    
-                // Refresh membership display when returning to MainActivity
-                loadUserDataFromFirestore(); // This will trigger updateMembershipDisplay
-    
-                // Refresh workout display when returning from other activities
+                loadUserDataFromFirestore();
                 loadNextWorkoutFromFirestore();
                 checkAndHandleMembershipExpiration();
+                checkAndSendWorkoutReminder();
                 
                 // Check if a workout was just completed
                 boolean workoutCompleted = workoutPrefs.getBoolean("workout_completed", false);
@@ -839,51 +845,53 @@
                                 message = "Your membership has expired. Renew now to continue enjoying gym access.";
                             } else {
                                 title = "Membership Expiring Soon";
-                                message = "Your membership will expire in " + daysRemaining + " day(s). Renew soon!";
+                                // 🔹 Get the actual expiration date from Firestore
+                                db.collection("memberships")
+                                        .document(user.getUid())
+                                        .get()
+                                        .addOnSuccessListener(doc -> {
+                                            if (doc.exists()) {
+                                                Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
+                                                if (expirationTimestamp != null) {
+                                                    Date expDate = expirationTimestamp.toDate();
+                                                    SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault());
+                                                    String formattedDate = sdf.format(expDate);
+
+                                                    String msg = "Your membership will expire on " + formattedDate + ". Renew soon!";
+
+                                                    // Create notification with exact date
+                                                    Map<String, Object> notification = new HashMap<>();
+                                                    notification.put("userId", user.getUid());
+                                                    notification.put("title", title);
+                                                    notification.put("message", msg);
+                                                    notification.put("type", notificationType);
+                                                    notification.put("timestamp", System.currentTimeMillis());
+                                                    notification.put("read", false);
+
+                                                    db.collection("notifications").add(notification);
+                                                }
+                                            }
+                                        });
+                                return; // Exit early since we're handling async
                             }
 
-                            Map<String, Object> notification = new HashMap<>();
-                            notification.put("userId", user.getUid());
-                            notification.put("title", title);
-                            notification.put("message", message);
-                            notification.put("type", notificationType);
-                            notification.put("timestamp", System.currentTimeMillis());
-                            notification.put("read", false);
+                            // For expired notifications (synchronous)
+                            if ("expired".equals(notificationType)) {
+                                Map<String, Object> notification = new HashMap<>();
+                                notification.put("userId", user.getUid());
+                                notification.put("title", title);
+                                notification.put("message", message);
+                                notification.put("type", notificationType);
+                                notification.put("timestamp", System.currentTimeMillis());
+                                notification.put("read", false);
 
-                            db.collection("notifications").add(notification);
+                                db.collection("notifications").add(notification);
+                            }
                         } else {
                             Log.d(TAG, "⚠️ Skipping duplicate " + notificationType + " notification for today");
                         }
                     });
-        }
-
-        // Helper method to create notification without duplicate check
-        private void createNotificationDirectly(String userId, String notificationType, int daysRemaining, FirebaseFirestore db) {
-            String title, message;
-
-            if ("expired".equals(notificationType)) {
-                title = "Membership Expired";
-                message = "Your membership has expired. Renew now to continue enjoying gym access.";
-            } else {
-                title = "Membership Expiring Soon";
-                message = "Your membership will expire in " + daysRemaining + " day(s). Renew soon!";
-            }
-
-            Map<String, Object> notification = new HashMap<>();
-            notification.put("userId", userId);
-            notification.put("title", title);
-            notification.put("message", message);
-            notification.put("type", notificationType);
-            notification.put("timestamp", System.currentTimeMillis());
-            notification.put("read", false);
-
-            db.collection("notifications")
-                    .add(notification)
-                    .addOnSuccessListener(docRef -> {
-                        Log.d(TAG, "✅ Notification created directly! Doc ID: " + docRef.getId());
-                    });
-        }
-
+        }        // Helper method to create notification without duplicate check
         private long getTodayStartAsLong() {
             Calendar cal = Calendar.getInstance();
             cal.set(Calendar.HOUR_OF_DAY, 0);
@@ -893,5 +901,107 @@
             return cal.getTimeInMillis();
         }
 
+        private void checkAndSendWorkoutReminder() {
+            FirebaseUser user = mAuth.getCurrentUser();
+            if (user == null) return;
+
+            String userId = user.getUid();
+            String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+
+            // Check if user already worked out today
+            dbFirestore.collection("users")
+                    .document(userId)
+                    .collection("progress")
+                    .whereEqualTo("date", todayDate)
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
+                        if (querySnapshot.isEmpty()) {
+                            // No workout today, check weekly goal
+                            dbFirestore.collection("users")
+                                    .document(userId)
+                                    .get()
+                                    .addOnSuccessListener(userDoc -> {
+                                        Long workoutGoal = userDoc.getLong("workoutDaysPerWeek");
+
+                                        if (workoutGoal != null && workoutGoal > 0) {
+                                            // Count this week's completed workouts
+                                            dbFirestore.collection("users")
+                                                    .document(userId)
+                                                    .collection("progress")
+                                                    .get()
+                                                    .addOnSuccessListener(progressSnapshot -> {
+                                                        int completedThisWeek = 0;
+                                                        for (DocumentSnapshot doc : progressSnapshot) {
+                                                            String dateStr = doc.getString("date");
+                                                            if (dateStr != null && isDateInCurrentWeek(dateStr)) {
+                                                                completedThisWeek++;
+                                                            }
+                                                        }
+
+                                                        // If not yet reached weekly goal, send reminder
+                                                        if (completedThisWeek < workoutGoal) {
+                                                            sendDailyWorkoutReminder(userId, workoutGoal.intValue(), completedThisWeek);
+                                                        }
+                                                    });
+                                        }
+                                    });
+                        }
+                    });
+        }
+
+        private void sendDailyWorkoutReminder(String userId, int weeklyGoal, int completed) {
+            int remaining = weeklyGoal - completed;
+
+            String title = "Daily Workout Reminder";
+            String message = "You haven't worked out today! " + remaining + " workout(s) remaining this week to reach your goal.";
+
+            Log.d(TAG, "🔔 Preparing to send workout reminder for userId: " + userId);
+
+            // Check if reminder already sent today
+            long todayStart = getTodayStartAsLong();
+            long todayEnd = todayStart + 86400000L;
+
+            dbFirestore.collection("notifications")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("type", "workout_reminder")
+                    .whereGreaterThanOrEqualTo("timestamp", todayStart)
+                    .whereLessThan("timestamp", todayEnd)
+                    .get()
+                    .addOnSuccessListener(querySnapshot -> {
+                        Log.d(TAG, "📊 Existing reminders today: " + querySnapshot.size());
+
+                        if (querySnapshot.isEmpty()) {
+                            Log.d(TAG, "✅ No reminder sent today, creating one...");
+
+                            // No reminder sent today, create one
+                            Map<String, Object> notification = new HashMap<>();
+                            notification.put("userId", userId);
+                            notification.put("title", title);
+                            notification.put("message", message);
+                            notification.put("type", "workout_reminder");
+                            notification.put("timestamp", System.currentTimeMillis());
+                            notification.put("read", false);
+
+                            dbFirestore.collection("notifications")
+                                    .add(notification)
+                                    .addOnSuccessListener(docRef -> {
+                                        Log.d(TAG, "✅ Firestore notification created: " + docRef.getId());
+                                        // Also show local notification
+                                        NotificationHelper.showNotification(MainActivity.this, title, message);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ FAILED to create Firestore notification: " + e.getMessage(), e);
+                                        Log.e(TAG, "Error code: " + e.getClass().getName());
+                                        // Still show local notification even if Firestore fails
+                                        NotificationHelper.showNotification(MainActivity.this, title, message);
+                                    });
+                        } else {
+                            Log.d(TAG, "⚠️ Reminder already sent today, skipping");
+                        }
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Error checking existing reminders: " + e.getMessage(), e);
+                    });
+        }
 
     }

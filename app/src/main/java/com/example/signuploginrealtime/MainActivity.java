@@ -568,15 +568,15 @@
 
             FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+            // Use userId as document ID instead of query
             db.collection("memberships")
-                    .whereEqualTo("userId", user.getUid())
-                    .whereEqualTo("membershipStatus", "active")
+                    .document(user.getUid())
                     .get()
-                    .addOnSuccessListener(queryDocumentSnapshots -> {
+                    .addOnSuccessListener(documentSnapshot -> {
                         isMembershipLoaded = true;
 
-                        if (!queryDocumentSnapshots.isEmpty()) {
-                            DocumentSnapshot membership = queryDocumentSnapshots.getDocuments().get(0);
+                        if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
+                            DocumentSnapshot membership = documentSnapshot;
 
                             String plan = membership.getString("membershipPlanLabel");
                             Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
@@ -627,7 +627,9 @@
                         Log.e(TAG, "Failed to load membership info", e);
                         setDefaultMembershipValues();
                     });
-        }        private String extractPlanName(String planLabel) {
+        }
+
+        private String extractPlanName(String planLabel) {
             if (planLabel != null) {
                 if (planLabel.contains(" – ")) return planLabel.split(" – ")[0];
                 if (planLabel.contains("\n")) return planLabel.split("\n")[0];
@@ -769,14 +771,13 @@
             if (user == null) return;
 
             FirebaseFirestore db = FirebaseFirestore.getInstance();
-            db.collection("memberships")
-                    .whereEqualTo("userId", user.getUid())
-                    .whereEqualTo("membershipStatus", "active")
-                    .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (!querySnapshot.isEmpty()) {
-                            DocumentSnapshot doc = querySnapshot.getDocuments().get(0);
 
+            // Use userId as document ID instead of query
+            db.collection("memberships")
+                    .document(user.getUid())
+                    .get()
+                    .addOnSuccessListener(doc -> {
+                        if (doc.exists() && "active".equals(doc.getString("membershipStatus"))) {
                             com.google.firebase.Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
                             if (expirationTimestamp == null) return;
 
@@ -789,7 +790,7 @@
 
                             if (diffInDays < 0) {
                                 // 🔴 EXPIRED - Update status and notify
-                                db.collection("memberships").document(doc.getId())
+                                db.collection("memberships").document(user.getUid())
                                         .update("membershipStatus", "expired")
                                         .addOnSuccessListener(aVoid -> {
                                             showExpirationPopup("Your membership has expired.");
@@ -805,6 +806,7 @@
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
         }
+
         private void showExpirationPopup(String message) {
             new AlertDialog.Builder(this)
                     .setTitle("Membership Notice")

@@ -42,35 +42,39 @@ public class MembershipHelper {
     public static void checkMembershipStatus(String userId, MembershipStatusCallback callback) {
         FirebaseFirestore db = FirebaseFirestore.getInstance();
 
+        // Directly get the membership document using userId as document ID
         db.collection("memberships")
-                .whereEqualTo("userId", userId)
-                .whereEqualTo("membershipStatus", "active")
+                .document(userId)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (queryDocumentSnapshots.isEmpty()) {
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (!documentSnapshot.exists()) {
                         callback.onResult(false, null);
                         return;
                     }
 
-                    // Get the first active membership
-                    DocumentSnapshot membership = queryDocumentSnapshots.getDocuments().get(0);
+                    // Check if membership is active
+                    String status = documentSnapshot.getString("membershipStatus");
+                    if (!"active".equals(status)) {
+                        callback.onResult(false, null);
+                        return;
+                    }
 
                     // Check if membership has expired
-                    Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
+                    Timestamp expirationTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
                     if (expirationTimestamp != null) {
                         Date expirationDate = expirationTimestamp.toDate();
                         Date currentDate = new Date();
 
                         if (currentDate.after(expirationDate)) {
                             // Membership has expired - update status
-                            membership.getReference().update("membershipStatus", "expired");
+                            documentSnapshot.getReference().update("membershipStatus", "expired");
                             callback.onResult(false, null);
                         } else {
                             // Membership is still active
-                            callback.onResult(true, membership);
+                            callback.onResult(true, documentSnapshot);
                         }
                     } else {
-                        callback.onResult(true, membership);
+                        callback.onResult(true, documentSnapshot);
                     }
                 })
                 .addOnFailureListener(callback::onError);
@@ -125,7 +129,7 @@ public class MembershipHelper {
 
     /**
      * Update remaining PT sessions
-     * @param membershipId The membership document ID
+     * @param membershipId The membership document ID (which is the userId)
      * @param sessionsUsed Number of sessions to deduct
      */
     public static void usePTSession(String membershipId, int sessionsUsed) {

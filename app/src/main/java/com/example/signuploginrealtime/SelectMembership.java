@@ -252,15 +252,38 @@ public class SelectMembership extends AppCompatActivity {
                 .whereEqualTo("membershipStatus", "active")
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        document.getReference().update("membershipStatus", "replaced");
-                    }
+
                     createNewMembership();
                 })
                 .addOnFailureListener(e -> createNewMembership());
     }
 
     private void createNewMembership() {
+        // First, fetch the user's full name from users collection
+        db.collection("users")
+                .document(currentUserId)
+                .get()
+                .addOnSuccessListener(userDoc -> {
+                    String fullName = "Unknown User"; // Default value
+
+                    if (userDoc.exists()) {
+                        fullName = userDoc.getString("fullname"); // or "fullName" depending on your field name
+                        if (fullName == null || fullName.isEmpty()) {
+                            fullName = "Unknown User";
+                        }
+                    }
+
+                    // Now create the membership with the user's name
+                    saveMembershipWithUserName(fullName);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error fetching user name", e);
+                    // Continue with default name if fetch fails
+                    saveMembershipWithUserName("Unknown User");
+                });
+    }
+
+    private void saveMembershipWithUserName(String fullName) {
         Calendar calendar = Calendar.getInstance();
 
         if (selectedMonths > 0) {
@@ -274,7 +297,7 @@ public class SelectMembership extends AppCompatActivity {
         Timestamp startTimestamp = Timestamp.now();
 
         Map<String, Object> membershipData = new HashMap<>();
-        membershipData.put("userId", currentUserId);
+        membershipData.put("fullName", fullName);  // Add full name instead of userId
         membershipData.put("packageId", selectedPackageId);
         membershipData.put("membershipPlanLabel", selectedPlanLabel);
         membershipData.put("membershipPlanType", selectedPlanType);
@@ -289,9 +312,11 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("paymentStatus", "paid");
         membershipData.put("createdAt", startTimestamp);
 
+        // Use userId as document ID
         db.collection("memberships")
-                .add(membershipData)
-                .addOnSuccessListener(documentReference -> {
+                .document(currentUserId)
+                .set(membershipData)
+                .addOnSuccessListener(aVoid -> {
                     if (loadingProgress != null) {
                         loadingProgress.setVisibility(View.GONE);
                     }
@@ -302,7 +327,7 @@ public class SelectMembership extends AppCompatActivity {
                     resultIntent.putExtra("selectedPackageId", selectedPackageId);
                     resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
                     resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
-                    resultIntent.putExtra("membershipId", documentReference.getId());
+                    resultIntent.putExtra("membershipId", currentUserId);
                     setResult(RESULT_OK, resultIntent);
                     finish();
                 })
@@ -314,7 +339,6 @@ public class SelectMembership extends AppCompatActivity {
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
-
     private void loadPackagesFromFirestore() {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Semi-transparent black overlay for entire screen -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#80000000" />
+        </shape>
+    </item>
+
+    <!-- Transparent circle in the center (crop area) -->
+    <item
+        android:gravity="center">
+        <shape android:shape="oval">
+            <size
+                android:width="300dp"
+                android:height="300dp" />
+            <solid android:color="@android:color/transparent" />
+            <stroke
+                android:width="3dp"
+                android:color="#FFFFFF" />
+        </shape>
+    </item>
+</layer-list>

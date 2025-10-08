@@ -78,6 +78,9 @@ public class Profile extends AppCompatActivity {
     private ActivityResultLauncher<String> imagePickerLauncher;
     private ProgressDialog uploadProgressDialog;
 
+    private ActivityResultLauncher<Intent> cropImageLauncher;
+    private static final int REQUEST_CROP_IMAGE = 200;
+
 
     // Email and phone validation patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
@@ -125,7 +128,10 @@ public class Profile extends AppCompatActivity {
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
-                        uploadImageToCloudinary(uri);
+                        // Open crop activity instead of uploading directly
+                        Intent cropIntent = new Intent(Profile.this, ImageCropActivity.class);
+                        cropIntent.putExtra("imageUri", uri.toString());
+                        startActivityForResult(cropIntent, REQUEST_CROP_IMAGE);
                     }
                 }
         );
@@ -1033,6 +1039,19 @@ public class Profile extends AppCompatActivity {
                     .error(R.drawable.ic_profile)
                     .circleCrop()
                     .into(profilePicture);
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == REQUEST_CROP_IMAGE && resultCode == RESULT_OK && data != null) {
+            String croppedUriString = data.getStringExtra("croppedImageUri");
+            if (croppedUriString != null) {
+                Uri croppedUri = Uri.parse(croppedUriString);
+                uploadImageToCloudinary(croppedUri);
+            }
         }
     }
 }

@@ -7,6 +7,7 @@
     import android.content.pm.PackageManager;
     import android.os.Build;
     import android.os.Bundle;
+    import android.widget.FrameLayout;
     import android.widget.ImageView;
     import android.widget.TextView;
     import android.util.Log;
@@ -56,6 +57,9 @@
         private static final String PREFS_DAILY = "daily_workout_prefs";
         private static final String KEY_DATE = "last_date";
         private static final String KEY_COUNT = "count";
+
+        private View notificationBadge;
+        private ListenerRegistration unreadNotifListener;
     
     
         TextView greetingText;
@@ -156,6 +160,7 @@
             streakCard = findViewById(R.id.streak_counter_card);
             activitiesCard = findViewById(R.id.activities_card);
             activitiesContainer = findViewById(R.id.activities_horizontal_container);
+            notificationBadge = findViewById(R.id.notification_badge);
         }
     
         private void showExitDialog() {
@@ -168,7 +173,7 @@
                     .setNegativeButton("No", null)
                     .show();
         }
-    
+
         private void setupPromoListener() {
             DocumentReference latestPromoRef = dbFirestore.collection("promotions").document("latest");
             latestPromoRef.addSnapshotListener((snapshot, e) -> {
@@ -178,6 +183,7 @@
                 }
                 if (snapshot != null && snapshot.exists()) {
                     String imageUrl = snapshot.getString("imageUrl");
+
                     if (imageUrl != null && !imageUrl.isEmpty()) {
                         ImageView testImage = findViewById(R.id.testImage);
                         Glide.with(this).load(imageUrl)
@@ -190,13 +196,18 @@
                             intent.putExtra("promoUrl", imageUrl);
                             startActivity(intent);
                         });
+
+                        // 🔔 Create notification for new promo using imageUrl as unique identifier
+                        FirebaseUser currentUser = mAuth.getCurrentUser();
+                        if (currentUser != null) {
+                            checkAndCreatePromoNotification(currentUser.getUid(), imageUrl);
+                        }
                     }
                 } else {
                     Log.d(TAG, "No data found in latest promotion document");
                 }
             });
         }
-    
         private void setupClickListeners() {
             findViewById(R.id.membershipCard).setOnClickListener(v -> {
                 Intent intent = new Intent(MainActivity.this, SelectMembership.class);
@@ -246,7 +257,43 @@
                 }
                 return false;
             });
+
+            FrameLayout bellIconContainer = findViewById(R.id.bell_icon_container);
+            if (bellIconContainer != null) {
+                bellIconContainer.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, Notification.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
+
+            fab.setOnClickListener(v -> {
+                Intent intent = new Intent(this, QR.class);
+                startActivity(intent);
+            });
+            bottomNavigationView.setSelectedItemId(R.id.item_1);
+            bottomNavigationView.setOnItemSelectedListener(item -> {
+                int itemId = item.getItemId();
+                if (itemId == R.id.item_1) return true;
+                else if (itemId == R.id.item_2) {
+                    startActivity(new Intent(getApplicationContext(), Profile.class));
+                    overridePendingTransition(0, 0); finish(); return true;
+                }
+                else if (itemId == R.id.item_3) {
+                    startActivity(new Intent(getApplicationContext(), WorkoutList.class));
+                    overridePendingTransition(0, 0); return true;
+                }
+                else if (itemId == R.id.item_4) {
+                    startActivity(new Intent(getApplicationContext(), Achievement.class));
+                    overridePendingTransition(0, 0); return true;
+                }
+                return false;
+            });
+
+            // Start listening for unread notifications
+            setupUnreadNotificationListener();
         }
+
     
     
         // Helper method to get current week's workout progress
@@ -688,6 +735,7 @@
                 loadNextWorkoutFromFirestore();
                 checkAndHandleMembershipExpiration();
                 checkAndSendWorkoutReminder();
+                setupUnreadNotificationListener();
                 
                 // Check if a workout was just completed
                 boolean workoutCompleted = workoutPrefs.getBoolean("workout_completed", false);
@@ -728,9 +776,13 @@
         @Override
         protected void onDestroy() {
             super.onDestroy();
-            if (userDataListenerRegistrationFS != null) userDataListenerRegistrationFS.remove();
+            if (userDataListenerRegistrationFS != null) {
+                userDataListenerRegistrationFS.remove();
+            }
+            if (unreadNotifListener != null) {
+                unreadNotifListener.remove();
+            }
         }
-    
         private void showAccountDeletedDialog() {
             new AlertDialog.Builder(this)
                     .setTitle("Account Unavailable")
@@ -778,7 +830,6 @@
 
             FirebaseFirestore db = FirebaseFirestore.getInstance();
 
-            // Use userId as document ID instead of query
             db.collection("memberships")
                     .document(user.getUid())
                     .get()
@@ -794,25 +845,24 @@
 
                             Log.d(TAG, "Membership expires in " + diffInDays + " days");
 
-                            if (diffInDays < 0) {
-                                // 🔴 EXPIRED - Update status and notify
+                            if (diffInMillis < 0) {
+                                // 🔴 EXPIRED - Update status and notify ONCE
                                 db.collection("memberships").document(user.getUid())
                                         .update("membershipStatus", "expired")
                                         .addOnSuccessListener(aVoid -> {
                                             showExpirationPopup("Your membership has expired.");
                                             saveNotificationToFirestore("expired", 0);
-                                            loadUserDataFromFirestore(); // Refresh UI
+                                            loadUserDataFromFirestore();
                                         });
 
                             } else if (diffInDays <= 3 && diffInDays >= 0) {
-                                // 🟠 EXPIRING SOON
+                                // 🟠 EXPIRING SOON - Notify ONCE per day
                                 saveNotificationToFirestore("expiring_soon", (int) diffInDays);
                             }
                         }
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
         }
-
         private void showExpirationPopup(String message) {
             new AlertDialog.Builder(this)
                     .setTitle("Membership Notice")
@@ -827,14 +877,13 @@
             if (user == null) return;
 
             FirebaseFirestore db = FirebaseFirestore.getInstance();
-            long todayStart = getTodayStartAsLong();
-            long todayEnd = todayStart + 86400000L; // 24h later
+            String todayDateStr = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
+            // ✅ Check if notification already exists for TODAY
             db.collection("notifications")
                     .whereEqualTo("userId", user.getUid())
                     .whereEqualTo("type", notificationType)
-                    .whereGreaterThanOrEqualTo("timestamp", todayStart)
-                    .whereLessThan("timestamp", todayEnd)
+                    .whereEqualTo("notificationDate", todayDateStr) // Use date string instead of timestamp range
                     .get()
                     .addOnSuccessListener(querySnapshot -> {
                         if (querySnapshot.isEmpty()) {
@@ -843,9 +892,14 @@
                             if ("expired".equals(notificationType)) {
                                 title = "Membership Expired";
                                 message = "Your membership has expired. Renew now to continue enjoying gym access.";
+
+                                // Create notification
+                                createNotificationWithDate(user.getUid(), title, message, notificationType, todayDateStr);
+
                             } else {
                                 title = "Membership Expiring Soon";
-                                // 🔹 Get the actual expiration date from Firestore
+
+                                // Get the actual expiration date from Firestore
                                 db.collection("memberships")
                                         .document(user.getUid())
                                         .get()
@@ -859,39 +913,17 @@
 
                                                     String msg = "Your membership will expire on " + formattedDate + ". Renew soon!";
 
-                                                    // Create notification with exact date
-                                                    Map<String, Object> notification = new HashMap<>();
-                                                    notification.put("userId", user.getUid());
-                                                    notification.put("title", title);
-                                                    notification.put("message", msg);
-                                                    notification.put("type", notificationType);
-                                                    notification.put("timestamp", System.currentTimeMillis());
-                                                    notification.put("read", false);
-
-                                                    db.collection("notifications").add(notification);
+                                                    // Create notification with date tracking
+                                                    createNotificationWithDate(user.getUid(), title, msg, notificationType, todayDateStr);
                                                 }
                                             }
                                         });
-                                return; // Exit early since we're handling async
-                            }
-
-                            // For expired notifications (synchronous)
-                            if ("expired".equals(notificationType)) {
-                                Map<String, Object> notification = new HashMap<>();
-                                notification.put("userId", user.getUid());
-                                notification.put("title", title);
-                                notification.put("message", message);
-                                notification.put("type", notificationType);
-                                notification.put("timestamp", System.currentTimeMillis());
-                                notification.put("read", false);
-
-                                db.collection("notifications").add(notification);
                             }
                         } else {
-                            Log.d(TAG, "⚠️ Skipping duplicate " + notificationType + " notification for today");
+                            Log.d(TAG, "⚠️ Skipping duplicate " + notificationType + " notification for today (" + todayDateStr + ")");
                         }
                     });
-        }        // Helper method to create notification without duplicate check
+        }// Helper method to create notification without duplicate check
         private long getTodayStartAsLong() {
             Calendar cal = Calendar.getInstance();
             cal.set(Calendar.HOUR_OF_DAY, 0);
@@ -908,99 +940,180 @@
             String userId = user.getUid();
             String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
-            // Check if user already worked out today
-            dbFirestore.collection("users")
-                    .document(userId)
-                    .collection("progress")
-                    .whereEqualTo("date", todayDate)
+            // ✅ First check if reminder already sent TODAY
+            dbFirestore.collection("notifications")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("type", "workout_reminder")
+                    .whereEqualTo("notificationDate", todayDate) // Check by date string
                     .get()
-                    .addOnSuccessListener(querySnapshot -> {
-                        if (querySnapshot.isEmpty()) {
-                            // No workout today, check weekly goal
-                            dbFirestore.collection("users")
-                                    .document(userId)
-                                    .get()
-                                    .addOnSuccessListener(userDoc -> {
-                                        Long workoutGoal = userDoc.getLong("workoutDaysPerWeek");
-
-                                        if (workoutGoal != null && workoutGoal > 0) {
-                                            // Count this week's completed workouts
-                                            dbFirestore.collection("users")
-                                                    .document(userId)
-                                                    .collection("progress")
-                                                    .get()
-                                                    .addOnSuccessListener(progressSnapshot -> {
-                                                        int completedThisWeek = 0;
-                                                        for (DocumentSnapshot doc : progressSnapshot) {
-                                                            String dateStr = doc.getString("date");
-                                                            if (dateStr != null && isDateInCurrentWeek(dateStr)) {
-                                                                completedThisWeek++;
-                                                            }
-                                                        }
-
-                                                        // If not yet reached weekly goal, send reminder
-                                                        if (completedThisWeek < workoutGoal) {
-                                                            sendDailyWorkoutReminder(userId, workoutGoal.intValue(), completedThisWeek);
-                                                        }
-                                                    });
-                                        }
-                                    });
+                    .addOnSuccessListener(existingNotifs -> {
+                        if (!existingNotifs.isEmpty()) {
+                            Log.d(TAG, "⚠️ Workout reminder already sent today, skipping");
+                            return;
                         }
+
+                        // Check if user already worked out today
+                        dbFirestore.collection("users")
+                                .document(userId)
+                                .collection("progress")
+                                .whereEqualTo("date", todayDate)
+                                .get()
+                                .addOnSuccessListener(querySnapshot -> {
+                                    if (querySnapshot.isEmpty()) {
+                                        // No workout today, check weekly goal
+                                        dbFirestore.collection("users")
+                                                .document(userId)
+                                                .get()
+                                                .addOnSuccessListener(userDoc -> {
+                                                    Long workoutGoal = userDoc.getLong("workoutDaysPerWeek");
+
+                                                    if (workoutGoal != null && workoutGoal > 0) {
+                                                        // Count this week's completed workouts
+                                                        dbFirestore.collection("users")
+                                                                .document(userId)
+                                                                .collection("progress")
+                                                                .get()
+                                                                .addOnSuccessListener(progressSnapshot -> {
+                                                                    int completedThisWeek = 0;
+                                                                    for (DocumentSnapshot doc : progressSnapshot) {
+                                                                        String dateStr = doc.getString("date");
+                                                                        if (dateStr != null && isDateInCurrentWeek(dateStr)) {
+                                                                            completedThisWeek++;
+                                                                        }
+                                                                    }
+
+                                                                    // If not yet reached weekly goal, send reminder
+                                                                    if (completedThisWeek < workoutGoal) {
+                                                                        sendDailyWorkoutReminder(userId, workoutGoal.intValue(), completedThisWeek, todayDate);
+                                                                    }
+                                                                });
+                                                    }
+                                                });
+                                    }
+                                });
                     });
         }
-
-        private void sendDailyWorkoutReminder(String userId, int weeklyGoal, int completed) {
+        private void sendDailyWorkoutReminder(String userId, int weeklyGoal, int completed, String todayDate) {
             int remaining = weeklyGoal - completed;
 
             String title = "Daily Workout Reminder";
             String message = "You haven't worked out today! " + remaining + " workout(s) remaining this week to reach your goal.";
 
-            Log.d(TAG, "🔔 Preparing to send workout reminder for userId: " + userId);
+            Log.d(TAG, "🔔 Creating workout reminder for " + todayDate);
 
-            // Check if reminder already sent today
-            long todayStart = getTodayStartAsLong();
-            long todayEnd = todayStart + 86400000L;
+            // Create notification with date tracking to prevent duplicates
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("userId", userId);
+            notification.put("title", title);
+            notification.put("message", message);
+            notification.put("type", "workout_reminder");
+            notification.put("notificationDate", todayDate); // Track date
+            notification.put("timestamp", System.currentTimeMillis());
+            notification.put("read", false);
 
             dbFirestore.collection("notifications")
+                    .add(notification)
+                    .addOnSuccessListener(docRef -> {
+                        Log.d(TAG, "✅ Workout reminder created for " + todayDate + ": " + docRef.getId());
+                        NotificationHelper.showNotification(MainActivity.this, title, message);
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ FAILED to create workout reminder: " + e.getMessage(), e);
+                    });
+        }
+        private void checkAndCreatePromoNotification(String userId, String imageUrl) {
+            // Use imageUrl as unique identifier to prevent duplicate notifications
+            dbFirestore.collection("notifications")
                     .whereEqualTo("userId", userId)
-                    .whereEqualTo("type", "workout_reminder")
-                    .whereGreaterThanOrEqualTo("timestamp", todayStart)
-                    .whereLessThan("timestamp", todayEnd)
+                    .whereEqualTo("type", "promo")
+                    .whereEqualTo("promoImageUrl", imageUrl) // Check if we already notified for this image
                     .get()
                     .addOnSuccessListener(querySnapshot -> {
-                        Log.d(TAG, "📊 Existing reminders today: " + querySnapshot.size());
-
                         if (querySnapshot.isEmpty()) {
-                            Log.d(TAG, "✅ No reminder sent today, creating one...");
+                            // No notification exists for this promo yet, create one
+                            String title = "New Promotion Available!";
+                            String message = "Check out our latest promotion. Tap to view details!";
 
-                            // No reminder sent today, create one
                             Map<String, Object> notification = new HashMap<>();
                             notification.put("userId", userId);
                             notification.put("title", title);
                             notification.put("message", message);
-                            notification.put("type", "workout_reminder");
+                            notification.put("type", "promo");
+                            notification.put("promoImageUrl", imageUrl); // Store imageUrl to prevent duplicates
                             notification.put("timestamp", System.currentTimeMillis());
                             notification.put("read", false);
 
                             dbFirestore.collection("notifications")
                                     .add(notification)
                                     .addOnSuccessListener(docRef -> {
-                                        Log.d(TAG, "✅ Firestore notification created: " + docRef.getId());
-                                        // Also show local notification
+                                        Log.d(TAG, "✅ Promo notification created: " + docRef.getId());
+                                        // Show local notification
                                         NotificationHelper.showNotification(MainActivity.this, title, message);
                                     })
-                                    .addOnFailureListener(e -> {
-                                        Log.e(TAG, "❌ FAILED to create Firestore notification: " + e.getMessage(), e);
-                                        Log.e(TAG, "Error code: " + e.getClass().getName());
-                                        // Still show local notification even if Firestore fails
-                                        NotificationHelper.showNotification(MainActivity.this, title, message);
-                                    });
+                                    .addOnFailureListener(ex ->
+                                            Log.e(TAG, "❌ Failed to create promo notification", ex));
                         } else {
-                            Log.d(TAG, "⚠️ Reminder already sent today, skipping");
+                            Log.d(TAG, "⚠️ Promo notification already exists for this image, skipping");
                         }
                     })
+                    .addOnFailureListener(ex ->
+                            Log.e(TAG, "Error checking existing promo notifications", ex));
+        }
+
+        private void setupUnreadNotificationListener() {
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser == null) return;
+
+            String userId = currentUser.getUid();
+
+            // Remove previous listener if any
+            if (unreadNotifListener != null) {
+                unreadNotifListener.remove();
+            }
+
+            // Listen for unread notifications in real-time
+            unreadNotifListener = dbFirestore.collection("notifications")
+                    .whereEqualTo("userId", userId)
+                    .whereEqualTo("read", false)
+                    .addSnapshotListener((snapshots, e) -> {
+                        if (e != null) {
+                            Log.w(TAG, "Listen failed for unread notifications.", e);
+                            return;
+                        }
+
+                        if (snapshots != null && !snapshots.isEmpty()) {
+                            // Has unread notifications - show badge
+                            if (notificationBadge != null) {
+                                notificationBadge.setVisibility(View.VISIBLE);
+                            }
+                            Log.d(TAG, "Unread notifications: " + snapshots.size());
+                        } else {
+                            // No unread notifications - hide badge
+                            if (notificationBadge != null) {
+                                notificationBadge.setVisibility(View.GONE);
+                            }
+                            Log.d(TAG, "No unread notifications");
+                        }
+                    });
+        }
+
+        private void createNotificationWithDate(String userId, String title, String message, String type, String dateStr) {
+            Map<String, Object> notification = new HashMap<>();
+            notification.put("userId", userId);
+            notification.put("title", title);
+            notification.put("message", message);
+            notification.put("type", type);
+            notification.put("notificationDate", dateStr); // Track which date this notification was created
+            notification.put("timestamp", System.currentTimeMillis());
+            notification.put("read", false);
+
+            dbFirestore.collection("notifications")
+                    .add(notification)
+                    .addOnSuccessListener(docRef -> {
+                        Log.d(TAG, "✅ Notification created for " + dateStr + ": " + docRef.getId());
+                    })
                     .addOnFailureListener(e -> {
-                        Log.e(TAG, "❌ Error checking existing reminders: " + e.getMessage(), e);
+                        Log.e(TAG, "❌ Failed to create notification", e);
                     });
         }
 

@@ -297,6 +297,7 @@ public class SelectMembership extends AppCompatActivity {
         Timestamp startTimestamp = Timestamp.now();
 
         Map<String, Object> membershipData = new HashMap<>();
+        membershipData.put("userId", currentUserId);
         membershipData.put("fullName", fullName);  // Add full name instead of userId
         membershipData.put("packageId", selectedPackageId);
         membershipData.put("membershipPlanLabel", selectedPlanLabel);
@@ -311,6 +312,9 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("price", selectedPrice);
         membershipData.put("paymentStatus", "paid");
         membershipData.put("createdAt", startTimestamp);
+
+        Log.d(TAG, "Saving membership with userId: " + currentUserId);
+        Log.d(TAG, "Membership data: " + membershipData.toString());
 
         // Use userId as document ID
         db.collection("memberships")

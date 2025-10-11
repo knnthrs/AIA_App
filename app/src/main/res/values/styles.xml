@@ -25,4 +25,9 @@
         <item name="android:textSize">14sp</item>
     </style>
 
+    <style name="WhiteButton" parent="Widget.AppCompat.Button">
+        <item name="android:background">@drawable/rounded_button_black</item>
+        <item name="backgroundTint">@null</item>
+    </style>
+
 </resources>

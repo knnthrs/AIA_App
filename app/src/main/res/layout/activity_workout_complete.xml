@@ -17,16 +17,24 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"/>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btn_end_session"
         android:text="End Session"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/button_black"
+        android:textAllCaps="false"
+        android:paddingVertical="16dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="16dp"/>
 
-    <Button
+    <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btn_view_streaks"
         android:text="View Streak Calendar"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/button_black"
+        android:textAllCaps="false"
+        android:paddingVertical="16dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"/>
 </LinearLayout>

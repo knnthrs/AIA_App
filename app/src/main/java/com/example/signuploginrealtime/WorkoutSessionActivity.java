@@ -85,6 +85,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private ArrayList<String> originalExerciseDetails;
     private ArrayList<String> originalExerciseImageUrls;
 
+    private ArrayList<Integer> completedSetsPerExercise; // Track completed sets for each exercise
+    private ArrayList<Integer> totalSetsPerExercise; // Total sets needed for each exercise
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -174,6 +177,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         // STEP 5: Initialize equipment mode (NOW data is loaded)
         initializeEquipmentModeCard();
+        initializeSetsTracking();
 
         // STEP 6: Set time and index (DO THIS ONLY ONCE)
         workoutStartTime = System.currentTimeMillis();
@@ -184,6 +188,12 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
 
         btnPause.setOnClickListener(v -> {
+            if (btnPause.getText().equals("START")) {
+                // Starting fresh after equipment mode switch
+                startReadyCountdown();
+                return;
+            }
+
             if (isReadyCountdown) {
                 if (isTimerRunning) {
                     stopAllTTS();
@@ -264,8 +274,21 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void showExercise(int index) {
         String cleanExerciseName = getCleanExerciseName(exerciseNames.get(index));
         tvExerciseName.setText(cleanExerciseName);
+
+        // Get current set number for this exercise
+        int currentSet = completedSetsPerExercise.get(index) + 1;
+        int totalSets = totalSetsPerExercise.get(index);
+
         String setsRepsInfo = extractSetsRepsInfo(exerciseNames.get(index), exerciseDetails.get(index));
-        tvExerciseDetails.setText(setsRepsInfo);
+
+        // Show set progress
+        String displayText;
+        if (totalSets > 1) {
+            displayText = "Set " + currentSet + " of " + totalSets + " | " + setsRepsInfo;
+        } else {
+            displayText = setsRepsInfo;
+        }
+        tvExerciseDetails.setText(displayText);
 
         if (tvInstructions != null && exerciseDetails != null && index < exerciseDetails.size()) {
             String fullInstructions = getFullExerciseInstructions(index);
@@ -277,25 +300,19 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         updateButtonStates();
         loadExerciseImage(index);
 
-        // Start ready countdown immediately when showing exercise
-        // Wait for TTS to be ready before starting countdown
         if (isTTSReady) {
             startReadyCountdown();
         } else {
-            // Wait for TTS to initialize, then start
             tvExerciseTimer.postDelayed(() -> {
                 if (isTTSReady) {
                     startReadyCountdown();
                 } else {
-                    // TTS still not ready, start without voice
                     Log.w(TAG, "TTS not ready, starting countdown without voice");
                     startReadyCountdown();
                 }
-            }, 1000); // Give TTS 1 second to initialize
+            }, 1000);
         }
-
     }
-
     private String getCleanExerciseName(String fullName) {
         String cleaned = fullName;
         cleaned = cleaned.replaceAll("(?i)\\s*(each\\s+side\\s*)?x\\s*\\d+.*$", "");
@@ -516,8 +533,11 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         isCounterPaused = false;
         isTimerRunning = true;
         btnPause.setText("PAUSE");
-    }
 
+        // Continue from where we left off
+        int targetReps = getTargetReps(currentIndex);
+        speakNextRep(targetReps);
+    }
     private void updateProgressBar() {
         if (progressBar != null && exerciseNames != null && !exerciseNames.isEmpty()) {
             int progress = (int) (((float) (currentIndex + 1) / exerciseNames.size()) * 100);
@@ -545,14 +565,19 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void skipCurrentExercise() {
         Log.d(TAG, "Skipping exercise: " + exerciseNames.get(currentIndex));
         stopAllTTS();
-        recordAndLogExercisePerformance(0, 0, "skipped"); // Log skipped exercise
+        recordAndLogExercisePerformance(0, 0, "skipped");
         cancelAllTimers();
 
-        if (currentIndex >= exerciseNames.size() - 1) {
-            // Last exercise skipped → mark workout completed
-            markWorkoutCompletedInFirestore();
+        // Mark current set as completed even though skipped
+        int completedSets = completedSetsPerExercise.get(currentIndex);
+        completedSetsPerExercise.set(currentIndex, completedSets + 1);
 
-            // Show completion
+        // Find next exercise with sets remaining
+        int nextIndex = findNextExerciseWithSetsRemaining(currentIndex + 1);
+
+        if (nextIndex == -1) {
+            // All done
+            markWorkoutCompletedInFirestore();
             Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
@@ -563,8 +588,21 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             return;
         }
 
-        currentIndex++;
-        showExercise(currentIndex);
+        // Go to rest timer
+        Intent intent = new Intent(WorkoutSessionActivity.this, RestTimerActivity.class);
+        intent.putExtra("nextIndex", nextIndex);
+        intent.putStringArrayListExtra("exerciseNames", exerciseNames);
+        intent.putStringArrayListExtra("exerciseDetails", exerciseDetails);
+        intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls);
+        intent.putIntegerArrayListExtra("exerciseTimes", exerciseDurations);
+        intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
+        intent.putIntegerArrayListExtra("completedSetsPerExercise", completedSetsPerExercise);
+        intent.putIntegerArrayListExtra("totalSetsPerExercise", totalSetsPerExercise);
+        intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
+        intent.putExtra("performanceData", performanceDataList);
+        intent.putExtra("workoutStartTime", workoutStartTime);
+        startActivity(intent);
+        finish();
     }
 
 
@@ -635,16 +673,22 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void moveToNextExercise() {
         cancelAllTimers();
 
-        if (exerciseNames == null || currentIndex >= exerciseNames.size() - 1) { // Last exercise
-            // Record last exercise if needed
-            if (!isReadyCountdown && isRepetitionBased) {
-                recordAndLogExercisePerformance(currentRepCount, 0, "completed");
-            }
+        // Mark current exercise set as completed
+        int completedSets = completedSetsPerExercise.get(currentIndex);
+        completedSetsPerExercise.set(currentIndex, completedSets + 1);
 
-            // Mark workout completed in Firestore
+        // Record last exercise if needed
+        if (!isReadyCountdown && isRepetitionBased) {
+            recordAndLogExercisePerformance(currentRepCount, 0, "completed");
+        }
+
+        // Find next exercise that still has sets remaining
+        int nextIndex = findNextExerciseWithSetsRemaining(currentIndex + 1);
+
+        if (nextIndex == -1) {
+            // No more exercises with remaining sets - workout complete!
             markWorkoutCompletedInFirestore();
 
-            // Launch completion activity
             Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
@@ -656,7 +700,6 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
 
         // Move to rest period before next exercise
-        int nextIndex = currentIndex + 1;
         Intent intent = new Intent(WorkoutSessionActivity.this, RestTimerActivity.class);
         intent.putExtra("nextIndex", nextIndex);
         intent.putStringArrayListExtra("exerciseNames", exerciseNames);
@@ -664,6 +707,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls);
         intent.putIntegerArrayListExtra("exerciseTimes", exerciseDurations);
         intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
+        intent.putIntegerArrayListExtra("completedSetsPerExercise", completedSetsPerExercise);
+        intent.putIntegerArrayListExtra("totalSetsPerExercise", totalSetsPerExercise);
         intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
         intent.putExtra("performanceData", performanceDataList);
         intent.putExtra("workoutStartTime", workoutStartTime);
@@ -672,6 +717,29 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }
 
 
+    // Helper method to find next exercise with remaining sets:
+    private int findNextExerciseWithSetsRemaining(int startFrom) {
+        // First, check from startFrom to end of list
+        for (int i = startFrom; i < exerciseNames.size(); i++) {
+            int completed = completedSetsPerExercise.get(i);
+            int total = totalSetsPerExercise.get(i);
+            if (completed < total) {
+                return i; // Found an exercise with remaining sets
+            }
+        }
+
+        // If we reached the end, loop back to beginning
+        for (int i = 0; i < startFrom; i++) {
+            int completed = completedSetsPerExercise.get(i);
+            int total = totalSetsPerExercise.get(i);
+            if (completed < total) {
+                return i; // Found an exercise with remaining sets
+            }
+        }
+
+        // All exercises completed all sets
+        return -1;
+    }
 
     // FIXED: Updated onPause method
     @Override
@@ -958,13 +1026,17 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
 
     // Replace exercise at index
+// Replace exercise at index
     private void replaceExerciseAtIndex(int index, ExerciseInfo replacement) {
         if (index < 0 || index >= exerciseNames.size()) return;
+
+        // KEEP the original number of sets for this exercise
+        int originalSets = totalSetsPerExercise.get(index);
 
         exerciseNames.set(index, replacement.getName());
 
         StringBuilder details = new StringBuilder();
-        details.append("Sets: 3\n");
+        details.append("Sets: ").append(originalSets).append("\n"); // Use original sets
         details.append("Reps: 12\n\n");
         details.append("Instructions:\n");
 
@@ -989,8 +1061,35 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
 
         Log.d(TAG, "Replaced exercise with: " + replacement.getName());
-        showExercise(currentIndex);
+
+        // Restart the exercise from the beginning (don't call showExercise which auto-starts)
+        String cleanExerciseName = getCleanExerciseName(exerciseNames.get(currentIndex));
+        tvExerciseName.setText(cleanExerciseName);
+
+        int currentSet = completedSetsPerExercise.get(index) + 1;
+        int totalSets = totalSetsPerExercise.get(index);
+        String setsRepsInfo = extractSetsRepsInfo(exerciseNames.get(index), exerciseDetails.get(index));
+
+        String displayText;
+        if (totalSets > 1) {
+            displayText = "Set " + currentSet + " of " + totalSets + " | " + setsRepsInfo;
+        } else {
+            displayText = setsRepsInfo;
+        }
+        tvExerciseDetails.setText(displayText);
+
+        updateProgressBar();
+        updateButtonStates();
+        loadExerciseImage(index);
+
+        // Reset states and wait for user to resume
+        isTimerRunning = false;
+        isCounterPaused = false;
+        btnPause.setText("START");
+        tvExerciseTimer.setText("Ready");
+        tvExerciseTimer.setVisibility(View.VISIBLE);
     }
+
 
     // Check if two exercises have the same target muscles
     private boolean hasSameTargetMuscles(List<String> muscles1, List<String> muscles2) {
@@ -1014,4 +1113,60 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         return false;
     }
 
+    private int extractTotalSets(String exerciseNameInput, String exerciseDetails) {
+        if (exerciseDetails != null) {
+            String[] lines = exerciseDetails.split("\\n");
+            for (String line : lines) {
+                line = line.trim();
+                if (line.startsWith("Sets: ")) {
+                    try {
+                        return Integer.parseInt(line.substring(6).trim());
+                    } catch (NumberFormatException e) {
+                        // Continue to fallback
+                    }
+                }
+            }
+        }
+
+        // Try to extract from exercise name (e.g., "Push-ups 3 sets x 10")
+        if (exerciseNameInput != null) {
+            String nameLower = exerciseNameInput.toLowerCase();
+            if (nameLower.contains("sets")) {
+                try {
+                    String[] parts = nameLower.split("\\s+");
+                    for (int i = 0; i < parts.length - 1; i++) {
+                        if (parts[i + 1].contains("set")) {
+                            return Integer.parseInt(parts[i].replaceAll("[^0-9]", ""));
+                        }
+                    }
+                } catch (Exception e) {
+                    // Continue to fallback
+                }
+            }
+        }
+
+        return 1; // Default to 1 set
+    }
+
+
+    private void initializeSetsTracking() {
+        completedSetsPerExercise = new ArrayList<>();
+        totalSetsPerExercise = new ArrayList<>();
+
+        // Get existing tracking from intent if returning to workout
+        ArrayList<Integer> existingCompleted = getIntent().getIntegerArrayListExtra("completedSetsPerExercise");
+        ArrayList<Integer> existingTotal = getIntent().getIntegerArrayListExtra("totalSetsPerExercise");
+
+        if (existingCompleted != null && existingTotal != null) {
+            completedSetsPerExercise = existingCompleted;
+            totalSetsPerExercise = existingTotal;
+        } else {
+            // First time - initialize for all exercises
+            for (int i = 0; i < exerciseNames.size(); i++) {
+                completedSetsPerExercise.add(0); // No sets completed yet
+                int totalSets = extractTotalSets(exerciseNames.get(i), exerciseDetails.get(i));
+                totalSetsPerExercise.add(totalSets);
+            }
+        }
+    }
 }

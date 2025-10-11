@@ -91,8 +91,10 @@ public class activity_workout_complete extends AppCompatActivity {
         editor.putBoolean("workout_completed", true);
         editor.apply();
 
-        Toast.makeText(this, "Workout recorded! Keep up the streak!", Toast.LENGTH_SHORT).show();
-        goToMain();
+        // SHOW FEEDBACK SCREEN INSTEAD OF GOING DIRECTLY TO MAIN
+        Intent intent = new Intent(this, Activity_workout_feedback.class);
+        startActivity(intent);
+        finish();
     }
 
     private void viewStreaks() {

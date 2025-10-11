@@ -96,7 +96,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Equipment"
-                android:textSize="11sp"
+                android:textSize="16sp"
                 android:textColor="@android:color/white"
                 android:background="@drawable/selected_equipment_bg"
                 android:paddingHorizontal="12dp"
@@ -144,8 +144,8 @@
 
             <ImageView
                 android:id="@+id/iv_info"
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="25dp"
+                android:layout_height="25dp"
                 android:layout_marginStart="8dp"
                 android:src="@android:drawable/ic_dialog_info"
                 android:contentDescription="Info"
@@ -189,7 +189,7 @@
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_pause"
                 android:layout_width="wrap_content"
-                android:layout_height="50dp"
+                android:layout_height="55dp"
                 android:layout_marginEnd="8dp"
                 android:paddingHorizontal="90dp"
                 android:text="PAUSE"

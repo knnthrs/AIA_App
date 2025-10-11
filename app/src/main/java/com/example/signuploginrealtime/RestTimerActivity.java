@@ -5,9 +5,13 @@ import android.os.Bundle;
 import android.os.CountDownTimer;
 import android.widget.Button;
 import android.widget.TextView;
+import android.widget.ImageView;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.engine.DiskCacheStrategy;
 
 import java.util.ArrayList;
 
@@ -15,6 +19,10 @@ public class RestTimerActivity extends AppCompatActivity {
 
     private TextView tvRestTimer;
     private Button btnSkipRest, btnAddTime;
+    private TextView tvNextExerciseLabel;
+    private TextView tvNextExerciseName;
+    private ImageView ivNextExerciseImage;
+    private TextView tvNextExerciseReps;
 
     private int nextExerciseIndex;
     private CountDownTimer timer;
@@ -28,6 +36,8 @@ public class RestTimerActivity extends AppCompatActivity {
     private ArrayList<ExercisePerformanceData> performanceDataList;
     private long workoutStartTime;
     private String workoutName;
+    private ArrayList<Integer> completedSetsPerExercise;
+    private ArrayList<Integer> totalSetsPerExercise;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -37,6 +47,12 @@ public class RestTimerActivity extends AppCompatActivity {
         tvRestTimer = findViewById(R.id.tv_rest_timer);
         btnSkipRest = findViewById(R.id.btn_skip_rest);
         btnAddTime = findViewById(R.id.btn_add_time);
+
+        // New views for next exercise preview
+        tvNextExerciseLabel = findViewById(R.id.tv_next_exercise_label);
+        tvNextExerciseName = findViewById(R.id.tv_next_exercise_name);
+        ivNextExerciseImage = findViewById(R.id.iv_next_exercise_image);
+        tvNextExerciseReps = findViewById(R.id.tv_next_exercise_reps);
 
         // Get data from Intent
         nextExerciseIndex = getIntent().getIntExtra("nextIndex", 0);
@@ -49,6 +65,9 @@ public class RestTimerActivity extends AppCompatActivity {
         workoutStartTime = getIntent().getLongExtra("workoutStartTime", System.currentTimeMillis());
         workoutName = getIntent().getStringExtra("workout_name");
 
+        completedSetsPerExercise = getIntent().getIntegerArrayListExtra("completedSetsPerExercise");
+        totalSetsPerExercise = getIntent().getIntegerArrayListExtra("totalSetsPerExercise");
+
         // Validate data
         if (exerciseNames == null || exerciseDetails == null || exerciseImageUrls == null
                 || exerciseTimes == null || exerciseRests == null
@@ -59,6 +78,9 @@ public class RestTimerActivity extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Display next exercise info
+        displayNextExerciseInfo();
 
         remainingRestMillis = exerciseRests.get(nextExerciseIndex) * 1000L;
         updateTimerText();
@@ -74,6 +96,79 @@ public class RestTimerActivity extends AppCompatActivity {
             if (timer != null) timer.cancel();
             startTimer();
         });
+    }
+
+    private void displayNextExerciseInfo() {
+        if (nextExerciseIndex < exerciseNames.size()) {
+            // Get clean exercise name
+            String cleanName = getCleanExerciseName(exerciseNames.get(nextExerciseIndex));
+            tvNextExerciseName.setText(cleanName.toUpperCase());
+
+            // Get set and rep info
+            int currentSet = completedSetsPerExercise.get(nextExerciseIndex) + 1;
+            int totalSets = totalSetsPerExercise.get(nextExerciseIndex);
+            String setsRepsInfo = extractSetsRepsInfo(
+                    exerciseNames.get(nextExerciseIndex),
+                    exerciseDetails.get(nextExerciseIndex)
+            );
+
+            // Format the reps display
+            String repsDisplay = "X " + extractRepsNumber(setsRepsInfo);
+            tvNextExerciseReps.setText(repsDisplay);
+
+            // Load exercise GIF
+            String imageUrl = exerciseImageUrls.get(nextExerciseIndex);
+            if (imageUrl != null && !imageUrl.isEmpty()) {
+                Glide.with(this)
+                        .asGif()
+                        .load(imageUrl)
+                        .diskCacheStrategy(DiskCacheStrategy.ALL)
+                        .into(ivNextExerciseImage);
+            }
+        }
+    }
+
+    private String getCleanExerciseName(String fullName) {
+        String cleaned = fullName;
+        cleaned = cleaned.replaceAll("(?i)\\s*(each\\s+side\\s*)?x\\s*\\d+.*$", "");
+        cleaned = cleaned.replaceAll("(?i)\\s*\\d+\\s*sets?.*$", "");
+        cleaned = cleaned.replaceAll("(?i)\\s*-\\s*\\d+.*$", "");
+        return cleaned.trim();
+    }
+
+    private String extractSetsRepsInfo(String exerciseNameInput, String exerciseDetails) {
+        if (exerciseDetails != null) {
+            int sets = 1;
+            int reps = 1;
+            String[] lines = exerciseDetails.split("\\n");
+            for (String line : lines) {
+                line = line.trim();
+                if (line.startsWith("Sets: ")) {
+                    try {
+                        sets = Integer.parseInt(line.substring(6).trim());
+                    } catch (NumberFormatException e) { /* Keep default */ }
+                } else if (line.startsWith("Reps: ")) {
+                    try {
+                        reps = Integer.parseInt(line.substring(6).trim());
+                    } catch (NumberFormatException e) { /* Keep default */ }
+                }
+            }
+            if (sets > 0 && reps > 0) {
+                return sets + " sets x " + reps + " reps";
+            }
+        }
+        return "Follow the instructions";
+    }
+
+    private String extractRepsNumber(String setsRepsInfo) {
+        // Extract just the number of reps from "X sets x Y reps"
+        if (setsRepsInfo.contains(" x ")) {
+            String[] parts = setsRepsInfo.split(" x ");
+            if (parts.length >= 2) {
+                return parts[1].replaceAll("[^0-9]", "");
+            }
+        }
+        return "12"; // Default
     }
 
     private void startTimer() {
@@ -94,17 +189,17 @@ public class RestTimerActivity extends AppCompatActivity {
 
     private void updateTimerText() {
         int secondsLeft = (int) (remainingRestMillis / 1000);
-        tvRestTimer.setText("Rest: " + secondsLeft + "s");
+        int minutes = secondsLeft / 60;
+        int seconds = secondsLeft % 60;
+        tvRestTimer.setText(String.format("%02d:%02d", minutes, seconds));
     }
 
     private void goToNextExercise() {
         if (nextExerciseIndex >= exerciseNames.size()) {
-            // All exercises done, go to workout complete screen
             showWorkoutCompleteScreen();
             return;
         }
 
-        // Start next exercise
         Intent intent = new Intent(RestTimerActivity.this, WorkoutSessionActivity.class);
         intent.putExtra("currentIndex", nextExerciseIndex);
         intent.putStringArrayListExtra("exerciseNames", exerciseNames);
@@ -112,6 +207,8 @@ public class RestTimerActivity extends AppCompatActivity {
         intent.putStringArrayListExtra("exerciseImageUrls", exerciseImageUrls);
         intent.putIntegerArrayListExtra("exerciseTimes", exerciseTimes);
         intent.putIntegerArrayListExtra("exerciseRests", exerciseRests);
+        intent.putIntegerArrayListExtra("completedSetsPerExercise", completedSetsPerExercise);
+        intent.putIntegerArrayListExtra("totalSetsPerExercise", totalSetsPerExercise);
         intent.putExtra("performanceData", performanceDataList);
         intent.putExtra("workoutStartTime", workoutStartTime);
         intent.putExtra("workout_name", workoutName);

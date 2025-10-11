@@ -35,7 +35,8 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import androidx.appcompat.app.AlertDialog;
-
+import android.content.SharedPreferences;
+import com.example.signuploginrealtime.logic.WorkoutAdjustmentHelper;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,7 +46,7 @@ import java.util.List;
 public class WorkoutList extends AppCompatActivity {
 
     private static final String TAG = "WorkoutList";
-
+    private SharedPreferences workoutPrefs;
     private LinearLayout exercisesContainer;
     private TextView exerciseCount, workoutDuration;
     private ProgressBar loadingIndicator;
@@ -76,6 +77,13 @@ public class WorkoutList extends AppCompatActivity {
 
         firestore = FirebaseFirestore.getInstance();
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
+
+        if (currentUser != null) {
+            String userId = currentUser.getUid();
+            workoutPrefs = getSharedPreferences("workout_prefs_" + userId, MODE_PRIVATE);
+        } else {
+            workoutPrefs = getSharedPreferences("workout_prefs_default", MODE_PRIVATE);
+        }
 
 
         userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
@@ -298,15 +306,28 @@ public class WorkoutList extends AppCompatActivity {
         String uid = currentUser.getUid();
         DocumentReference userDocRef = firestore.collection("users").document(uid);
 
-        // ✅ FETCH FRESH USER PROFILE DATA FIRST
+        // ✅ GET DIFFICULTY MULTIPLIER FROM PREFERENCES
+        float savedMultiplier = workoutPrefs.getFloat("workout_difficulty_multiplier", 1.0f);
+        final double difficultyMultiplier = WorkoutAdjustmentHelper.getDifficultyMultiplier(savedMultiplier);
+
+        Log.d(TAG, "Using difficulty multiplier: " + difficultyMultiplier);
+
         userDocRef.get().addOnSuccessListener(userSnapshot -> {
             if (!userSnapshot.exists()) {
                 Toast.makeText(this, "User profile not found", Toast.LENGTH_SHORT).show();
                 return;
             }
 
-            // ✅ UPDATE userProfile with fresh Firestore data
             updateUserProfileFromFirestore(userSnapshot);
+
+            // ✅ ALSO CHECK FOR MULTIPLIER IN FIRESTORE (if user adjusted on another device)
+            Double firestoreMultiplier = userSnapshot.getDouble("workoutDifficultyMultiplier");
+            final double finalMultiplier = (firestoreMultiplier != null) ? firestoreMultiplier : difficultyMultiplier;
+
+            if (firestoreMultiplier != null && firestoreMultiplier != savedMultiplier) {
+                // Update local preference to match Firestore
+                workoutPrefs.edit().putFloat("workout_difficulty_multiplier", firestoreMultiplier.floatValue()).apply();
+            }
 
             Long profileLastModified = userSnapshot.getLong("profileLastModified");
 
@@ -315,7 +336,6 @@ public class WorkoutList extends AppCompatActivity {
                     .collection("currentWorkout")
                     .document("week_" + userProfile.getCurrentWeek());
 
-            // Check if there's an existing workout
             workoutRef.get().addOnSuccessListener(workoutSnapshot -> {
                 boolean shouldRegenerate = false;
 
@@ -335,23 +355,46 @@ public class WorkoutList extends AppCompatActivity {
                                 Toast.LENGTH_LONG).show();
                         shouldRegenerate = true;
                     } else {
-                        Log.d(TAG, "Loading existing workout (profile unchanged).");
-                        currentWorkoutExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
-                        showExercises(currentWorkoutExercises);
-                        startWorkoutButton.setEnabled(true);
-                        return;
+                        // ✅ CHECK IF DIFFICULTY WAS ADJUSTED AFTER WORKOUT CREATION
+                        Long lastAdjustmentTime = workoutPrefs.getLong("last_adjustment_timestamp", 0);
+                        if (lastAdjustmentTime > 0 && workoutCreatedAt != null && lastAdjustmentTime > workoutCreatedAt) {
+                            Log.d(TAG, "Difficulty adjusted after workout creation. Regenerating workout.");
+                            Toast.makeText(this, "Workout difficulty adjusted. Generating new workout...",
+                                    Toast.LENGTH_LONG).show();
+                            shouldRegenerate = true;
+                        } else {
+                            Log.d(TAG, "Loading existing workout (profile unchanged).");
+                            currentWorkoutExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
+                            showExercises(currentWorkoutExercises);
+                            startWorkoutButton.setEnabled(true);
+                            return;
+                        }
                     }
                 }
 
                 if (shouldRegenerate) {
                     com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
+
+                    // ✅ GENERATE BASE WORKOUT
                     Workout baseWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
                             availableExercises, modelProfile);
-                    Workout finalWorkout = WorkoutProgression.generateProgressiveWorkout(
+
+                    // ✅ APPLY PROGRESSION
+                    Workout progressedWorkout = WorkoutProgression.generateProgressiveWorkout(
                             baseWorkout,
                             userProfile.getCurrentWeek(),
                             modelProfile
                     );
+
+                    // ✅ APPLY DIFFICULTY ADJUSTMENT
+                    Workout finalWorkout = progressedWorkout;
+                    if (finalMultiplier != 1.0) {
+                        Log.d(TAG, "Applying difficulty adjustment: " + finalMultiplier);
+                        finalWorkout = WorkoutAdjustmentHelper.adjustWorkoutDifficulty(
+                                progressedWorkout,
+                                finalMultiplier
+                        );
+                    }
 
                     if (finalWorkout != null && finalWorkout.getExercises() != null
                             && !finalWorkout.getExercises().isEmpty()) {
@@ -364,7 +407,7 @@ public class WorkoutList extends AppCompatActivity {
 
                         workoutRef.set(wrapper)
                                 .addOnSuccessListener(aVoid ->
-                                        Log.d(TAG, "New workout saved to Firestore with timestamp."))
+                                        Log.d(TAG, "New workout saved to Firestore with timestamp and difficulty adjustment."))
                                 .addOnFailureListener(e ->
                                         Log.e(TAG, "Error saving workout", e));
                     } else {
@@ -384,7 +427,6 @@ public class WorkoutList extends AppCompatActivity {
             Toast.makeText(this, "Error loading profile data", Toast.LENGTH_SHORT).show();
         });
     }
-
     // ✅ ADD THIS NEW METHOD to update the UserProfile object with fresh Firestore data
     private void updateUserProfileFromFirestore(com.google.firebase.firestore.DocumentSnapshot snapshot) {
         if (snapshot != null && snapshot.exists()) {

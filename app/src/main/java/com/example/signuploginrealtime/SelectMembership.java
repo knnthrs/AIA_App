@@ -6,6 +6,11 @@ import android.widget.Toast;
 import android.content.Intent;
 import android.widget.ProgressBar;
 import android.util.Log;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import android.graphics.Color;
+import android.view.Gravity;
+import android.view.ViewGroup;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
@@ -31,15 +36,22 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SelectMembership extends AppCompatActivity {
 
     private static final String TAG = "SelectMembership";
-    private static final String PAYMONGO_SECRET_KEY = "sk_test_7AjfDjSecFKtHZX6ee8Sa95B"; // Replace with your key
+    private static final String PAYMONGO_SECRET_KEY = "sk_test_7AjfDjSecFKtHZX6ee8Sa95B";
 
     private View backButton;
     private CardView confirmButtonCard;
     private ProgressBar loadingProgress;
+
+    // Containers for dynamic cards
+    private LinearLayout dailyContainer;
+    private LinearLayout standardContainer;
+    private LinearLayout ptContainer;
 
     private String selectedPackageId = null;
     private String selectedPlanLabel = null;
@@ -52,6 +64,9 @@ public class SelectMembership extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId;
     private Executor executor = Executors.newSingleThreadExecutor();
+
+    private CardView currentlySelectedCard = null;
+    private List<CardView> allCards = new ArrayList<>();
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -72,6 +87,11 @@ public class SelectMembership extends AppCompatActivity {
         confirmButtonCard = findViewById(R.id.confirm_membership_button);
         loadingProgress = findViewById(R.id.loading_progress);
 
+        // Get the containers from layout
+        dailyContainer = findViewById(R.id.daily_container);
+        standardContainer = findViewById(R.id.standard_container);
+        ptContainer = findViewById(R.id.pt_container);
+
         backButton.setOnClickListener(v -> finish());
         confirmButtonCard.setVisibility(View.GONE);
 
@@ -83,18 +103,16 @@ public class SelectMembership extends AppCompatActivity {
                 Toast.makeText(this, "Please select a plan first.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            // Start payment process instead of directly saving
             initiatePayMongoPayment();
         });
     }
 
     private void checkExistingMembership() {
         db.collection("memberships")
-                .whereEqualTo("userId", currentUserId)
-                .whereEqualTo("membershipStatus", "active")
+                .document(currentUserId)
                 .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (!queryDocumentSnapshots.isEmpty()) {
+                .addOnSuccessListener(documentSnapshot -> {
+                    if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
                         Toast.makeText(this, "You already have an active membership", Toast.LENGTH_LONG).show();
                     }
                 })
@@ -103,18 +121,318 @@ public class SelectMembership extends AppCompatActivity {
                 });
     }
 
+    private void loadPackagesFromFirestore() {
+        if (loadingProgress != null) {
+            loadingProgress.setVisibility(View.VISIBLE);
+        }
+
+        db.collection("packages")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+
+                    // Clear existing cards
+                    dailyContainer.removeAllViews();
+                    standardContainer.removeAllViews();
+                    ptContainer.removeAllViews();
+                    allCards.clear();
+
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String packageId = document.getId();
+                        String type = document.getString("type");
+                        Long months = document.getLong("months");
+                        Long durationDays = document.getLong("durationDays");
+                        Long sessions = document.getLong("sessions");
+                        Double price = document.getDouble("price");
+
+                        if (type == null || price == null) continue;
+                        if (months == null) months = 0L;
+                        if (durationDays == null) durationDays = 0L;
+
+                        // Create card dynamically
+                        CardView card = createPackageCard(
+                                packageId,
+                                type,
+                                months.intValue(),
+                                durationDays.intValue(),
+                                sessions != null ? sessions.intValue() : 0,
+                                price
+                        );
+
+                        // Add to appropriate container
+                        addCardToContainer(card, type, sessions != null ? sessions.intValue() : 0, durationDays.intValue());
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    Toast.makeText(this, "Failed to load packages: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
+
+    private void addCardToContainer(CardView card, String type, int sessions, int durationDays) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                (int) (300 * getResources().getDisplayMetrics().density),
+                (int) (170 * getResources().getDisplayMetrics().density)
+        );
+        params.setMargins(0, 0, (int) (16 * getResources().getDisplayMetrics().density), 0);
+        card.setLayoutParams(params);
+
+        // Determine which container based on type and sessions
+        if ("Daily".equals(type) || durationDays == 1) {
+            dailyContainer.addView(card);
+        } else if (sessions > 0) {
+            ptContainer.addView(card);
+        } else {
+            standardContainer.addView(card);
+        }
+    }
+
+    private CardView createPackageCard(String packageId, String type, int months, int durationDays, int sessions, double price) {
+        CardView card = new CardView(this);
+        card.setCardElevation(6 * getResources().getDisplayMetrics().density);
+        card.setRadius(32 * getResources().getDisplayMetrics().density);
+        card.setCardBackgroundColor(Color.WHITE);
+        card.setClickable(true);
+        card.setFocusable(true);
+        card.setForeground(getDrawable(android.R.drawable.list_selector_background));
+
+        LinearLayout mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        mainLayout.setPadding(padding, padding, padding, padding);
+
+        // Header with title and badge
+        LinearLayout headerLayout = new LinearLayout(this);
+        headerLayout.setOrientation(LinearLayout.HORIZONTAL);
+        headerLayout.setGravity(Gravity.CENTER_VERTICAL);
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        headerParams.setMargins(0, 0, 0, (int) (12 * getResources().getDisplayMetrics().density));
+        headerLayout.setLayoutParams(headerParams);
+
+        // Title section
+        LinearLayout titleSection = new LinearLayout(this);
+        titleSection.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        titleSection.setLayoutParams(titleParams);
+
+        TextView titleText = new TextView(this);
+        titleText.setText(generateTitleText(type, months, durationDays, sessions));
+        titleText.setTextColor(Color.parseColor("#333333"));
+        titleText.setTextSize(20);
+        titleText.setTypeface(null, android.graphics.Typeface.BOLD);
+        titleSection.addView(titleText);
+
+        TextView subtitleText = new TextView(this);
+        subtitleText.setText(generateSubtitleText(type, months, sessions));
+        subtitleText.setTextColor(Color.parseColor("#666666"));
+        subtitleText.setTextSize(14);
+        titleSection.addView(subtitleText);
+
+        headerLayout.addView(titleSection);
+
+        // Badge (optional)
+        String badgeText = getBadgeText(months, sessions);
+        if (badgeText != null) {
+            CardView badge = new CardView(this);
+            badge.setCardBackgroundColor(getBadgeColor(months, sessions));
+            badge.setRadius(24 * getResources().getDisplayMetrics().density);
+            badge.setCardElevation(0);
+
+            TextView badgeTextView = new TextView(this);
+            badgeTextView.setText(badgeText);
+            badgeTextView.setTextColor(Color.WHITE);
+            badgeTextView.setTextSize(12);
+            badgeTextView.setTypeface(null, android.graphics.Typeface.BOLD);
+            int badgePadding = (int) (6 * getResources().getDisplayMetrics().density);
+            int badgePaddingH = (int) (12 * getResources().getDisplayMetrics().density);
+            badgeTextView.setPadding(badgePaddingH, badgePadding, badgePaddingH, badgePadding);
+
+            badge.addView(badgeTextView);
+            headerLayout.addView(badge);
+        }
+
+        mainLayout.addView(headerLayout);
+
+        // Price
+        TextView priceText = new TextView(this);
+        priceText.setText("₱" + String.format("%.0f", price));
+        priceText.setTextColor(getPriceColor(sessions));
+        priceText.setTextSize(28);
+        priceText.setTypeface(null, android.graphics.Typeface.BOLD);
+        mainLayout.addView(priceText);
+
+        // Features
+        TextView featuresText = new TextView(this);
+        featuresText.setText(generateFeaturesText(sessions));
+        featuresText.setTextColor(Color.parseColor("#666666"));
+        featuresText.setTextSize(12);
+        LinearLayout.LayoutParams featuresParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        featuresParams.setMargins(0, (int) (4 * getResources().getDisplayMetrics().density), 0, 0);
+        featuresText.setLayoutParams(featuresParams);
+        mainLayout.addView(featuresText);
+
+        card.addView(mainLayout);
+
+        // Set click listener
+        String planLabel = generatePlanLabel(type, months, durationDays, sessions, price);
+        card.setOnClickListener(v -> selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price));
+
+        allCards.add(card);
+        return card;
+    }
+
+    private String generateTitleText(String type, int months, int durationDays, int sessions) {
+        StringBuilder title = new StringBuilder();
+
+        if (durationDays == 1) {
+            title.append("Daily Pass");
+        } else if (months == 1) {
+            title.append("1 Month");
+        } else if (months == 12) {
+            title.append("12 Months / 1 Year");
+        } else if (months > 0) {
+            title.append(months).append(" Months");
+        }
+
+        if (sessions > 0) {
+            title.append(" + ").append(sessions).append("PT");
+        }
+
+        return title.toString();
+    }
+
+    private String generateSubtitleText(String type, int months, int sessions) {
+        if (sessions > 0) {
+            return "Membership + personal training";
+        } else if (months == 1) {
+            return "Basic monthly membership";
+        } else if (months == 3) {
+            return "Save ₱900 vs monthly";
+        } else if (months == 6) {
+            return "Save ₱3,000 vs monthly";
+        } else if (months == 12) {
+            return "Save ₱9,000 vs monthly";
+        } else {
+            return "Perfect for single workout sessions";
+        }
+    }
+
+    private String getBadgeText(int months, int sessions) {
+        if (sessions >= 24) return "Ultimate";
+        if (sessions > 0) return "Premium";
+        if (months == 12) return "Max Save";
+        if (months == 6) return "Best Value";
+        if (months == 3) return "Save";
+        if (months == 1) return "Popular";
+        if (months == 0) return "Try Now";
+        return null;
+    }
+
+    private int getBadgeColor(int months, int sessions) {
+        if (sessions >= 24) return Color.parseColor("#FF5722");
+        if (sessions > 0) return Color.parseColor("#9C27B0");
+        if (months == 12) return Color.parseColor("#FF5722");
+        if (months == 6) return Color.parseColor("#2196F3");
+        if (months == 3) return Color.parseColor("#2196F3");
+        if (months == 1) return Color.parseColor("#4CAF50");
+        return Color.parseColor("#FFC107");
+    }
+
+    private int getPriceColor(int sessions) {
+        if (sessions >= 24) return Color.parseColor("#FF5722");
+        if (sessions > 0) return Color.parseColor("#9C27B0");
+        return Color.parseColor("#4CAF50");
+    }
+
+    private String generateFeaturesText(int sessions) {
+        if (sessions > 0) {
+            return "Gym access + " + sessions + " personal training sessions";
+        }
+        return "Full gym access • All equipment • Locker room";
+    }
+
+    private void selectPackage(CardView card, String packageId, String planLabel, String type,
+                               int months, int durationDays, int sessions, double price) {
+        selectedPackageId = packageId;
+        selectedPlanLabel = planLabel;
+        selectedPlanType = type;
+        selectedMonths = months;
+        selectedDurationDays = durationDays;
+        selectedSessions = sessions;
+        selectedPrice = price;
+
+        resetAllCards();
+        enlargeCard(card);
+        currentlySelectedCard = card;
+
+        if (confirmButtonCard.getVisibility() != View.VISIBLE) {
+            confirmButtonCard.setVisibility(View.VISIBLE);
+        }
+    }
+
+    private String generatePlanLabel(String type, int months, int durationDays, int sessions, double price) {
+        StringBuilder label = new StringBuilder();
+
+        if (durationDays > 0) {
+            if (durationDays == 1) {
+                label.append("Daily Pass");
+            } else {
+                label.append(durationDays).append(" Days");
+            }
+        } else if (months == 0 || months < 1) {
+            label.append("Daily Pass");
+        } else if (months == 1) {
+            label.append("1 Month");
+        } else if (months == 12) {
+            label.append("12 Months / 1 Year");
+        } else {
+            label.append(months).append(" Months");
+        }
+
+        if (sessions > 0) {
+            label.append(" + ").append(sessions).append(" PT Sessions");
+        }
+
+        label.append(" — ₱").append(String.format("%.0f", price));
+
+        return label.toString();
+    }
+
+    private void resetAllCards() {
+        for (CardView card : allCards) {
+            card.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
+        }
+    }
+
+    private void enlargeCard(CardView card) {
+        card.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start();
+    }
+
     private void initiatePayMongoPayment() {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);
         }
         confirmButtonCard.setEnabled(false);
 
-        // Convert price to cents (PayMongo uses centavos)
         int amountInCents = (int) (selectedPrice * 100);
 
         executor.execute(() -> {
             try {
-                // Create PayMongo Payment Link
                 String paymentLinkUrl = createPayMongoPaymentLink(amountInCents);
 
                 runOnUiThread(() -> {
@@ -124,7 +442,6 @@ public class SelectMembership extends AppCompatActivity {
                     confirmButtonCard.setEnabled(true);
 
                     if (paymentLinkUrl != null) {
-                        // Open payment page
                         Intent intent = new Intent(SelectMembership.this, PayMongoPaymentActivity.class);
                         intent.putExtra("paymentUrl", paymentLinkUrl);
                         intent.putExtra("packageId", selectedPackageId);
@@ -170,7 +487,6 @@ public class SelectMembership extends AppCompatActivity {
                     ));
             conn.setDoOutput(true);
 
-            // Create payment link data
             JSONObject data = new JSONObject();
             JSONObject attributes = new JSONObject();
 
@@ -180,7 +496,6 @@ public class SelectMembership extends AppCompatActivity {
 
             data.put("data", new JSONObject().put("attributes", attributes));
 
-            // Send request
             OutputStream os = conn.getOutputStream();
             os.write(data.toString().getBytes());
             os.flush();
@@ -232,7 +547,6 @@ public class SelectMembership extends AppCompatActivity {
                 boolean paymentSuccess = data.getBooleanExtra("paymentSuccess", false);
 
                 if (paymentSuccess) {
-                    // Payment successful, save membership
                     saveMembership();
                 } else {
                     Toast.makeText(this, "Payment was not completed", Toast.LENGTH_SHORT).show();
@@ -247,38 +561,27 @@ public class SelectMembership extends AppCompatActivity {
         }
         confirmButtonCard.setEnabled(false);
 
-        db.collection("memberships")
-                .whereEqualTo("userId", currentUserId)
-                .whereEqualTo("membershipStatus", "active")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-
-                    createNewMembership();
-                })
-                .addOnFailureListener(e -> createNewMembership());
+        createNewMembership();
     }
 
     private void createNewMembership() {
-        // First, fetch the user's full name from users collection
         db.collection("users")
                 .document(currentUserId)
                 .get()
                 .addOnSuccessListener(userDoc -> {
-                    String fullName = "Unknown User"; // Default value
+                    String fullName = "Unknown User";
 
                     if (userDoc.exists()) {
-                        fullName = userDoc.getString("fullname"); // or "fullName" depending on your field name
+                        fullName = userDoc.getString("fullname");
                         if (fullName == null || fullName.isEmpty()) {
                             fullName = "Unknown User";
                         }
                     }
 
-                    // Now create the membership with the user's name
                     saveMembershipWithUserName(fullName);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error fetching user name", e);
-                    // Continue with default name if fetch fails
                     saveMembershipWithUserName("Unknown User");
                 });
     }
@@ -298,7 +601,7 @@ public class SelectMembership extends AppCompatActivity {
 
         Map<String, Object> membershipData = new HashMap<>();
         membershipData.put("userId", currentUserId);
-        membershipData.put("fullName", fullName);  // Add full name instead of userId
+        membershipData.put("fullName", fullName);
         membershipData.put("packageId", selectedPackageId);
         membershipData.put("membershipPlanLabel", selectedPlanLabel);
         membershipData.put("membershipPlanType", selectedPlanType);
@@ -314,9 +617,7 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("createdAt", startTimestamp);
 
         Log.d(TAG, "Saving membership with userId: " + currentUserId);
-        Log.d(TAG, "Membership data: " + membershipData.toString());
 
-        // Use userId as document ID
         db.collection("memberships")
                 .document(currentUserId)
                 .set(membershipData)
@@ -342,141 +643,5 @@ public class SelectMembership extends AppCompatActivity {
                     confirmButtonCard.setEnabled(true);
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
-    }
-    private void loadPackagesFromFirestore() {
-        if (loadingProgress != null) {
-            loadingProgress.setVisibility(View.VISIBLE);
-        }
-
-        db.collection("packages")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    if (loadingProgress != null) {
-                        loadingProgress.setVisibility(View.GONE);
-                    }
-
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        String packageId = document.getId();
-                        String type = document.getString("type");
-                        Long months = document.getLong("months");
-                        Long durationDays = document.getLong("durationDays");
-                        Long sessions = document.getLong("sessions");
-                        Double price = document.getDouble("price");
-
-                        if (type == null || price == null) continue;
-                        if (months == null) months = 0L;
-                        if (durationDays == null) durationDays = 0L;
-
-                        CardView card = getCardViewForPackage(packageId);
-                        if (card != null) {
-                            setPlanClick(card, packageId, type,
-                                    months.intValue(),
-                                    durationDays.intValue(),
-                                    sessions != null ? sessions.intValue() : 0,
-                                    price);
-                        }
-                    }
-                })
-                .addOnFailureListener(e -> {
-                    if (loadingProgress != null) {
-                        loadingProgress.setVisibility(View.GONE);
-                    }
-                    Toast.makeText(this, "Failed to load packages: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
-                });
-    }
-
-    private CardView getCardViewForPackage(String packageId) {
-        int cardId = 0;
-
-        switch (packageId) {
-            case "5YjEV258bysDMUxZuTUC": cardId = R.id.daily_card; break;
-            case "GDKVR24VY7DNFmdKJroC": cardId = R.id.one_month_card; break;
-            case "QbTXP0cY0M7Wxyrcgt5O": cardId = R.id.three_month_card; break;
-            case "ZyvkZ8WNJb6ZPzGkG74w": cardId = R.id.six_month_card; break;
-            case "fix4Hyr5nVCaC1FpcuFk": cardId = R.id.one_year_card; break;
-            case "kZX2cCdxYAahOfwDrzaK": cardId = R.id.one_month_10pt_card; break;
-            case "q5DtmQjdP0kWoljfe2yf": cardId = R.id.three_month_10pt_card; break;
-            case "rctrNNKdSWLGHe1dmGcy": cardId = R.id.three_month_15pt_card; break;
-            case "w6KSFtEnx3CIk66xkGEW": cardId = R.id.three_month_24pt_card; break;
-            default: return null;
-        }
-
-        return findViewById(cardId);
-    }
-
-    private void setPlanClick(CardView card, String packageId, String type,
-                              int months, int durationDays, int sessions, double price) {
-        if (card == null) return;
-
-        String planLabel = generatePlanLabel(type, months, durationDays, sessions, price);
-
-        card.setOnClickListener(v -> {
-            selectedPackageId = packageId;
-            selectedPlanLabel = planLabel;
-            selectedPlanType = type;
-            selectedMonths = months;
-            selectedDurationDays = durationDays;
-            selectedSessions = sessions;
-            selectedPrice = price;
-
-            resetAllCards();
-            enlargeCard(card);
-
-            if (confirmButtonCard.getVisibility() != View.VISIBLE) {
-                confirmButtonCard.setVisibility(View.VISIBLE);
-            }
-        });
-    }
-
-    private String generatePlanLabel(String type, int months, int durationDays, int sessions, double price) {
-        StringBuilder label = new StringBuilder();
-
-        if (durationDays > 0) {
-            if (durationDays == 1) {
-                label.append("Daily Pass");
-            } else {
-                label.append(durationDays).append(" Days");
-            }
-        } else if (months == 0 || months < 1) {
-            label.append("Daily Pass");
-        } else if (months == 1) {
-            label.append("1 Month");
-        } else if (months == 12) {
-            label.append("12 Months / 1 Year");
-        } else {
-            label.append(months).append(" Months");
-        }
-
-        if (sessions > 0) {
-            label.append(" + ").append(sessions).append(" PT Sessions");
-        }
-
-        label.append(" — ₱").append(String.format("%.0f", price));
-
-        return label.toString();
-    }
-
-    private void resetAllCards() {
-        int[] cardIds = {
-                R.id.daily_card, R.id.one_month_card, R.id.three_month_card,
-                R.id.six_month_card, R.id.one_year_card, R.id.one_month_10pt_card,
-                R.id.three_month_10pt_card, R.id.three_month_15pt_card, R.id.three_month_24pt_card
-        };
-
-        for (int cardId : cardIds) {
-            CardView card = findViewById(cardId);
-            if (card != null) {
-                resetCardSize(card);
-            }
-        }
-    }
-
-    private void enlargeCard(CardView card) {
-        card.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start();
-    }
-
-    private void resetCardSize(CardView card) {
-        card.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
     }
 }

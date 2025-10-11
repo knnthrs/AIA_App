@@ -6,7 +6,7 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
-
+import com.google.firebase.firestore.QuerySnapshot;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -121,8 +121,19 @@ public class LoginActivity extends AppCompatActivity {
             String email = loginEmail.getText().toString().trim();
             String password = loginPassword.getText().toString().trim();
 
+            // Clear previous errors
+            loginEmail.setError(null);
+            loginPassword.setError(null);
+
             if (email.isEmpty()) {
                 loginEmail.setError("Email is required");
+                loginEmail.requestFocus();
+                return;
+            }
+
+            // Validate email format
+            if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                loginEmail.setError("Please enter a valid email address");
                 loginEmail.requestFocus();
                 return;
             }
@@ -150,27 +161,73 @@ public class LoginActivity extends AppCompatActivity {
                         } else {
                             // Hide loading state
                             showLoading(false, isCoach);
-                            Log.w(TAG, "signInWithEmail:failure", task.getException());
-                            String errorMessage = "Login failed. Please try again.";
 
-                            // Get specific error message if available
-                            if (task.getException() != null) {
-                                String error = task.getException().getMessage();
-                                if (error != null) {
-                                    if (error.contains("user not found") || error.contains("invalid-user-token") || error.contains("INVALID_LOGIN_CREDENTIALS") || error.contains("ERROR_USER_NOT_FOUND")) {
-                                        errorMessage = "No account found with this email.";
-                                    } else if (error.contains("wrong-password") || error.contains("invalid-credential") || error.contains("INVALID_LOGIN_CREDENTIALS") || error.contains("ERROR_WRONG_PASSWORD")) {
-                                        errorMessage = "Invalid email or password.";
-                                    } else if (error.contains("network") || error.contains("NETWORK_ERROR")) {
-                                        errorMessage = "Network error. Please check your connection.";
+                            // Get the exception to determine what went wrong
+                            Exception exception = task.getException();
+                            if (exception != null) {
+                                String errorMessage = exception.getMessage();
+                                Log.w(TAG, "signInWithEmail:failure", exception);
+
+                                // Parse specific error codes
+                                if (errorMessage != null) {
+                                    if (errorMessage.contains("There is no user record") ||
+                                            errorMessage.contains("user-not-found") ||
+                                            errorMessage.contains("ERROR_USER_NOT_FOUND")) {
+                                        // Email doesn't exist in the system
+                                        loginEmail.setError("No account found with this email");
+                                        loginEmail.requestFocus();
+                                        Toast.makeText(LoginActivity.this,
+                                                "Email not registered. Please sign up first.",
+                                                Toast.LENGTH_LONG).show();
+
+                                    } else if (errorMessage.contains("password is invalid") ||
+                                            errorMessage.contains("wrong-password") ||
+                                            errorMessage.contains("INVALID_LOGIN_CREDENTIALS") ||
+                                            errorMessage.contains("invalid-credential") ||
+                                            errorMessage.contains("ERROR_WRONG_PASSWORD")) {
+                                        // Password is incorrect
+                                        loginPassword.setError("Incorrect password");
+                                        loginPassword.requestFocus();
+                                        Toast.makeText(LoginActivity.this,
+                                                "Wrong password. Please try again.",
+                                                Toast.LENGTH_LONG).show();
+
+                                    } else if (errorMessage.contains("network") ||
+                                            errorMessage.contains("NETWORK_ERROR")) {
+                                        // Network error
+                                        Toast.makeText(LoginActivity.this,
+                                                "Network error. Please check your internet connection.",
+                                                Toast.LENGTH_LONG).show();
+
+                                    } else if (errorMessage.contains("too-many-requests")) {
+                                        // Too many failed attempts
+                                        Toast.makeText(LoginActivity.this,
+                                                "Too many failed attempts. Please try again later.",
+                                                Toast.LENGTH_LONG).show();
+
+                                    } else if (errorMessage.contains("user-disabled")) {
+                                        // Account disabled
+                                        Toast.makeText(LoginActivity.this,
+                                                "This account has been disabled. Please contact support.",
+                                                Toast.LENGTH_LONG).show();
+
+                                    } else {
+                                        // Generic INVALID_LOGIN_CREDENTIALS error
+                                        // This is tricky - Firebase doesn't tell us which is wrong for security
+                                        // But we can check if the email exists first
+                                        checkEmailAndShowError(email, loginEmail, loginPassword);
                                     }
+                                } else {
+                                    // Unknown error
+                                    Toast.makeText(LoginActivity.this,
+                                            "Login failed. Please try again.",
+                                            Toast.LENGTH_LONG).show();
                                 }
                             }
-
-                            Toast.makeText(LoginActivity.this, errorMessage, Toast.LENGTH_LONG).show();
                         }
                     });
         });
+
 
         signupRedirectText.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
@@ -193,10 +250,20 @@ public class LoginActivity extends AppCompatActivity {
                             if ("coach".equals(userType)) {
                                 saveRoleAndProceed("coach", coach_clients.class);
                             } else {
-                                Toast.makeText(LoginActivity.this, "This account is not registered as a coach.", Toast.LENGTH_LONG).show();
+                                // Show specific error with AlertDialog
+                                new AlertDialog.Builder(LoginActivity.this)
+                                        .setTitle("Account Type Mismatch")
+                                        .setMessage("This email is registered as a regular user, not a coach. Please select 'User' and try again.")
+                                        .setPositiveButton("OK", null)
+                                        .show();
                             }
                         } else {
-                            Toast.makeText(LoginActivity.this, "No coach account found. Please try again.", Toast.LENGTH_LONG).show();
+                            // No coach record found
+                            new AlertDialog.Builder(LoginActivity.this)
+                                    .setTitle("Coach Account Not Found")
+                                    .setMessage("This email is not registered as a coach. Please check your account type or contact support.")
+                                    .setPositiveButton("OK", null)
+                                    .show();
                         }
                     });
         } else {
@@ -208,15 +275,84 @@ public class LoginActivity extends AppCompatActivity {
                             if ("user".equals(userType)) {
                                 saveRoleAndProceed("user", MainActivity.class);
                             } else {
-                                Toast.makeText(LoginActivity.this, "This account is not registered as a user.", Toast.LENGTH_LONG).show();
+                                // Show specific error with AlertDialog
+                                new AlertDialog.Builder(LoginActivity.this)
+                                        .setTitle("Account Type Mismatch")
+                                        .setMessage("This email is registered as a coach, not a regular user. Please select 'Coach' and try again.")
+                                        .setPositiveButton("OK", null)
+                                        .show();
                             }
                         } else {
-                            Toast.makeText(LoginActivity.this, "No user account found. Please try again.", Toast.LENGTH_LONG).show();
+                            // No user record found
+                            new AlertDialog.Builder(LoginActivity.this)
+                                    .setTitle("User Account Not Found")
+                                    .setMessage("This email is not registered as a user. Please check your account type or sign up first.")
+                                    .setPositiveButton("OK", null)
+                                    .show();
                         }
                     });
         }
     }
 
+    // Check if email exists in Firestore (both users and coaches collections)
+// Check if email exists in Firestore (both users and coaches collections)
+    private void checkEmailAndShowError(String email, EditText emailField, EditText passwordField) {
+        Log.d(TAG, "=== STARTING EMAIL CHECK ===");
+        Log.d(TAG, "Searching for email: " + email);
+
+        // First check in users collection
+        mDatabase.collection("users")
+                .whereEqualTo("email", email)
+                .get()
+                .addOnCompleteListener(userTask -> {
+                    Log.d(TAG, "Users query completed");
+                    Log.d(TAG, "Query successful: " + userTask.isSuccessful());
+
+                    if (userTask.isSuccessful()) {
+                        Log.d(TAG, "Number of documents found in users: " + userTask.getResult().size());
+
+                        if (userTask.getResult() != null && !userTask.getResult().isEmpty()) {
+                            // Email exists in users collection, so password must be wrong
+                            Log.d(TAG, "✓ Email FOUND in users collection - showing wrong password");
+                            passwordField.setError("Incorrect password");
+                            passwordField.requestFocus();
+                            Toast.makeText(LoginActivity.this,
+                                    "Wrong password. Please try again.",
+                                    Toast.LENGTH_LONG).show();
+                        } else {
+                            // Not in users, check coaches collection
+                            Log.d(TAG, "Email NOT in users, checking coaches collection...");
+                            mDatabase.collection("coaches")
+                                    .whereEqualTo("email", email)
+                                    .get()
+                                    .addOnCompleteListener(coachTask -> {
+                                        Log.d(TAG, "Coaches query completed");
+                                        Log.d(TAG, "Number of documents found in coaches: " + coachTask.getResult().size());
+
+                                        if (coachTask.isSuccessful() && coachTask.getResult() != null && !coachTask.getResult().isEmpty()) {
+                                            // Email exists in coaches collection, so password must be wrong
+                                            Log.d(TAG, "✓ Email FOUND in coaches collection - showing wrong password");
+                                            passwordField.setError("Incorrect password");
+                                            passwordField.requestFocus();
+                                            Toast.makeText(LoginActivity.this,
+                                                    "Wrong password. Please try again.",
+                                                    Toast.LENGTH_LONG).show();
+                                        } else {
+                                            // Email doesn't exist in either collection
+                                            Log.d(TAG, "✗ Email NOT FOUND in either collection - showing email not found");
+                                            emailField.setError("No account found with this email");
+                                            emailField.requestFocus();
+                                            Toast.makeText(LoginActivity.this,
+                                                    "Email not registered. Please sign up first.",
+                                                    Toast.LENGTH_LONG).show();
+                                        }
+                                    });
+                        }
+                    } else {
+                        Log.e(TAG, "Query FAILED: " + userTask.getException().getMessage());
+                    }
+                });
+    }
     private void showSuccessDialogAndNavigate(String message, Class<?> targetActivity) {
         new AlertDialog.Builder(LoginActivity.this)
                 .setTitle("Success")

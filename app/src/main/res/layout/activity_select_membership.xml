@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -72,8 +73,9 @@
             android:orientation="vertical"
             android:paddingBottom="120dp">
 
-            <!-- Section Header for Daily Package -->
+            <!-- Daily Package Section -->
             <TextView
+                android:id="@+id/daily_section_header"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Daily Package"
@@ -84,105 +86,32 @@
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="20dp" />
 
-            <!-- Daily Package Section -->
-            <LinearLayout
-                android:layout_width="wrap_content"
+            <HorizontalScrollView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:paddingStart="20dp"
-                android:paddingEnd="20dp"
-                android:paddingTop="30dp"
-                android:paddingBottom="30dp"
+                android:scrollbars="none"
+                android:overScrollMode="never"
                 android:clipChildren="false"
                 android:clipToPadding="false">
 
-                <!-- Daily Pass Card -->
-                <androidx.cardview.widget.CardView
-                    android:id="@+id/daily_card"
-                    android:layout_width="match_parent"
-                    android:layout_height="170dp"
-                    android:backgroundTint="#FFFFFF"
-                    android:clickable="true"
-                    android:focusable="true"
-                    android:foreground="?attr/selectableItemBackground"
-                    app:cardCornerRadius="32dp"
-                    app:cardElevation="6dp">
+                <LinearLayout
+                    android:id="@+id/daily_container"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:paddingStart="20dp"
+                    android:paddingEnd="20dp"
+                    android:paddingTop="30dp"
+                    android:paddingBottom="30dp"
+                    android:clipChildren="false"
+                    android:clipToPadding="false">
+                    <!-- Cards will be added dynamically here -->
+                </LinearLayout>
+            </HorizontalScrollView>
 
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="vertical"
-                        android:padding="20dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:layout_marginBottom="12dp">
-
-                            <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Daily Pass"
-                                    android:textColor="#333333"
-                                    android:textSize="20sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Perfect for single workout sessions"
-                                    android:textColor="#666666"
-                                    android:textSize="14sp" />
-                            </LinearLayout>
-
-                            <androidx.cardview.widget.CardView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:backgroundTint="#FFC107"
-                                app:cardCornerRadius="24dp"
-                                app:cardElevation="0dp">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:paddingHorizontal="12dp"
-                                    android:paddingVertical="6dp"
-                                    android:text="Try Now"
-                                    android:textColor="#FFFFFF"
-                                    android:textSize="12sp"
-                                    android:textStyle="bold" />
-                            </androidx.cardview.widget.CardView>
-                        </LinearLayout>
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="₱150"
-                            android:textColor="#FFC107"
-                            android:textSize="28sp"
-                            android:textStyle="bold" />
-
-                        <TextView
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:text="Full gym access • All equipment • Locker room"
-                            android:textColor="#666666"
-                            android:textSize="12sp"
-                            android:layout_marginTop="4dp" />
-                    </LinearLayout>
-                </androidx.cardview.widget.CardView>
-
-            </LinearLayout>
-
-            <!-- Section Header for Standard Packages -->
+            <!-- Standard Monthly Packages Section -->
             <TextView
+                android:id="@+id/standard_section_header"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Standard Monthly Packages"
@@ -193,7 +122,6 @@
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="20dp" />
 
-            <!-- Basic Membership Section -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -203,6 +131,7 @@
                 android:clipToPadding="false">
 
                 <LinearLayout
+                    android:id="@+id/standard_container"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -212,395 +141,13 @@
                     android:paddingBottom="30dp"
                     android:clipChildren="false"
                     android:clipToPadding="false">
-
-                    <!-- 1 Month Basic -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/one_month_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="32dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="1 Month"
-                                        android:textColor="#333333"
-                                        android:textSize="20sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Basic monthly membership"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#4CAF50"
-                                    app:cardCornerRadius="24dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Popular"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₱1,500"
-                                android:textColor="#4CAF50"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Full gym access • All equipment • Locker room"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 3 Months Basic -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/three_month_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="32dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="3 Months"
-                                        android:textColor="#333333"
-                                        android:textSize="20sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Save ₱900 vs monthly"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#2196F3"
-                                    app:cardCornerRadius="16dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Save"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-
-
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="₱3,600"
-                                    android:textColor="#2196F3"
-                                    android:textSize="28sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text=" (₱1,200/month)"
-                                    android:textColor="#666666"
-                                    android:textSize="14sp"
-                                    android:layout_marginStart="8dp" />
-
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Full gym access • All equipment • Locker room"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 6 Months Basic -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/six_month_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="32dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="6 Months"
-                                        android:textColor="#333333"
-                                        android:textSize="20sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Save ₱3,000 vs monthly"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#2196F3"
-                                    app:cardCornerRadius="16dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Best Value"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="₱6,000"
-                                    android:textColor="#2196F3"
-                                    android:textSize="28sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text=" (₱1,000/month)"
-                                    android:textColor="#666666"
-                                    android:textSize="14sp"
-                                    android:layout_marginStart="8dp" />
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Full gym access • All equipment • Locker room"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 12 Months / 1 Year -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/one_year_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="32dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="12 Months / 1 Year"
-                                        android:textColor="#333333"
-                                        android:textSize="20sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Save ₱9,000 vs monthly"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#FF5722"
-                                    app:cardCornerRadius="16dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Max Save"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-                            </LinearLayout>
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical">
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="₱9,000"
-                                    android:textColor="#FF5722"
-                                    android:textSize="28sp"
-                                    android:textStyle="bold" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text=" (₱750/month)"
-                                    android:textColor="#666666"
-                                    android:textSize="14sp"
-                                    android:layout_marginStart="8dp" />
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Full gym access • All equipment • Locker room"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
+                    <!-- Cards will be added dynamically here -->
                 </LinearLayout>
             </HorizontalScrollView>
 
-            <!-- Section Header for PT Packages -->
+            <!-- PT Packages Section -->
             <TextView
+                android:id="@+id/pt_section_header"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Monthly With Personal Trainer Packages"
@@ -611,7 +158,6 @@
                 android:layout_marginBottom="16dp"
                 android:layout_marginStart="20dp" />
 
-            <!-- PT Packages Section -->
             <HorizontalScrollView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -621,6 +167,7 @@
                 android:clipToPadding="false">
 
                 <LinearLayout
+                    android:id="@+id/pt_container"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -630,308 +177,7 @@
                     android:paddingBottom="30dp"
                     android:clipChildren="false"
                     android:clipToPadding="false">
-
-                    <!-- 1 Month + 10PT Sessions -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/one_month_10pt_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="20dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="1 Month + 10PT Sessions"
-                                        android:textColor="#333333"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Monthly membership + personal training"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#9C27B0"
-                                    app:cardCornerRadius="8dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Premium"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₱4,500"
-                                android:textColor="#9C27B0"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="Gym access + 10 personal training sessions"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 3 Months + 10PT Sessions -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/three_month_10pt_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="20dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="3 Months + 10PT Sessions"
-                                        android:textColor="#333333"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Extended membership + personal training"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₱6,000"
-                                android:textColor="#9C27B0"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="3 months gym access + 10 personal training sessions"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 3 Months + 15PT Sessions -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/three_month_15pt_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:layout_marginEnd="16dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="20dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:gravity="center_vertical"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="3 Months + 15PT Sessions"
-                                        android:textColor="#333333"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="More training sessions included"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₱7,500"
-                                android:textColor="#9C27B0"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="3 months gym access + 15 personal training sessions"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
-                    <!-- 3 Months + 24PT Sessions -->
-                    <androidx.cardview.widget.CardView
-                        android:id="@+id/three_month_24pt_card"
-                        android:layout_width="300dp"
-                        android:layout_height="170dp"
-                        android:backgroundTint="#FFFFFF"
-                        android:clickable="true"
-                        android:focusable="true"
-                        android:foreground="?attr/selectableItemBackground"
-                        app:cardCornerRadius="20dp"
-                        app:cardElevation="6dp">
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:padding="20dp">
-
-                            <LinearLayout
-                                android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:orientation="horizontal"
-                                android:layout_marginBottom="12dp">
-
-                                <LinearLayout
-                                    android:layout_width="0dp"
-                                    android:layout_height="wrap_content"
-                                    android:layout_weight="1"
-                                    android:orientation="vertical">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="3 Months + 24PT Sessions"
-                                        android:textColor="#333333"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Maximum training sessions"
-                                        android:textColor="#666666"
-                                        android:textSize="14sp" />
-                                </LinearLayout>
-
-                                <androidx.cardview.widget.CardView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:backgroundTint="#FF5722"
-                                    app:cardCornerRadius="8dp"
-                                    app:cardElevation="0dp">
-
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:paddingHorizontal="12dp"
-                                        android:paddingVertical="6dp"
-                                        android:text="Ultimate"
-                                        android:textColor="#FFFFFF"
-                                        android:textSize="12sp"
-                                        android:textStyle="bold" />
-                                </androidx.cardview.widget.CardView>
-                            </LinearLayout>
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="₱9,000"
-                                android:textColor="#FF5722"
-                                android:textSize="28sp"
-                                android:textStyle="bold" />
-
-                            <TextView
-                                android:layout_width="wrap_content"
-                                android:layout_height="wrap_content"
-                                android:text="3 months gym access + 24 personal training sessions"
-                                android:textColor="#666666"
-                                android:textSize="12sp"
-                                android:layout_marginTop="4dp" />
-                        </LinearLayout>
-                    </androidx.cardview.widget.CardView>
-
+                    <!-- Cards will be added dynamically here -->
                 </LinearLayout>
             </HorizontalScrollView>
 

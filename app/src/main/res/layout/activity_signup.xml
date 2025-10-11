@@ -140,15 +140,15 @@
 
                 </LinearLayout>
 
-                <Button
+                <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/signup_button"
                     android:layout_width="match_parent"
                     android:layout_height="60dp"
                     android:layout_marginTop="24dp"
                     android:text="Sign Up"
                     android:textSize="18sp"
-                    android:textColor="@android:color/black"
-                    app:cornerRadius="20dp" />
+                    android:textColor="@color/white"
+                    android:background="@drawable/black_button_bg" />
 
                 <TextView
                     android:id="@+id/loginRedirectText"

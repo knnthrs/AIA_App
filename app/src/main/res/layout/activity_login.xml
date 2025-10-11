@@ -50,6 +50,7 @@
                     android:textColor="@color/black"
                     android:textSize="16sp"
                     android:checked="true"
+                    android:buttonTint="@color/black"
                     android:layout_marginEnd="20dp"/>
 
                 <RadioButton
@@ -58,7 +59,8 @@
                     android:layout_height="wrap_content"
                     android:text="Coach"
                     android:textColor="@color/black"
-                    android:textSize="16sp"/>
+                    android:textSize="16sp"
+                    android:buttonTint="@color/black"/>
 
             </RadioGroup>
 
@@ -111,14 +113,14 @@
                 android:layout_height="60dp"
                 android:layout_marginTop="30dp">
 
-                <Button
+                <androidx.appcompat.widget.AppCompatButton
                     android:id="@+id/login_button"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:textColor="@color/white"
                     android:text="Login"
-                    android:textSize="18sp"
-                    app:cornerRadius="20dp" />
+                    android:background="@drawable/black_button_bg"
+                    android:textSize="18sp" />
 
                 <!-- Loading Indicator (Initially Hidden) -->
                 <ProgressBar

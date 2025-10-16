@@ -336,9 +336,9 @@ public class QR extends AppCompatActivity {
                     if (savedQr != null && !savedQr.isEmpty()) {
                         generateQRCode(savedQr);
                     } else {
-                        String qrData = String.format("%s_%s_%s",
+                        // Only include username and UID, skip membership type
+                        String qrData = String.format("%s_%s",
                                 userName.replaceAll("[\\s\\W]", ""),
-                                membershipType.replaceAll("[\\s\\W]", ""),
                                 currentUser.getUid());
                         userDocRef.update("qrCode", qrData);
                         generateQRCode(qrData);
@@ -349,7 +349,6 @@ public class QR extends AppCompatActivity {
             });
         }
     }
-
     private void generateQRCode(String text) {
         QRCodeWriter writer = new QRCodeWriter();
         try {

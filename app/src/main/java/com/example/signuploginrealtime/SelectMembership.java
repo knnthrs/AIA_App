@@ -2,6 +2,7 @@ package com.example.signuploginrealtime;
 
 import android.os.Bundle;
 import android.view.View;
+import android.widget.ScrollView;
 import android.widget.Toast;
 import android.content.Intent;
 import android.widget.ProgressBar;
@@ -22,7 +23,7 @@ import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.Timestamp;
-
+import android.app.AlertDialog;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -52,6 +53,11 @@ public class SelectMembership extends AppCompatActivity {
     private LinearLayout dailyContainer;
     private LinearLayout standardContainer;
     private LinearLayout ptContainer;
+
+    // Active membership tracking
+    private boolean hasActiveMembership = false;
+    private String currentMembershipPlan = "";
+    private Date currentExpirationDate = null;
 
     private String selectedPackageId = null;
     private String selectedPlanLabel = null;
@@ -113,13 +119,84 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
-                        Toast.makeText(this, "You already have an active membership", Toast.LENGTH_LONG).show();
+                        hasActiveMembership = true;
+                        currentMembershipPlan = documentSnapshot.getString("membershipPlanLabel");
+
+                        Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
+                        if (expTimestamp != null) {
+                            currentExpirationDate = expTimestamp.toDate();
+                        }
+
+                        // Show warning banner
+                        showActiveMembershipWarning();
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error checking membership", e);
                 });
     }
+
+    private void showActiveMembershipWarning() {
+        // Find the ScrollView - it's a direct child of the CoordinatorLayout
+        View rootView = findViewById(R.id.main);
+        ScrollView scrollView = null;
+
+        if (rootView instanceof ViewGroup) {
+            ViewGroup parent = (ViewGroup) rootView;
+            for (int i = 0; i < parent.getChildCount(); i++) {
+                View child = parent.getChildAt(i);
+                if (child instanceof ScrollView) {
+                    scrollView = (ScrollView) child;
+                    break;
+                }
+            }
+        }
+
+        if (scrollView == null) return;
+
+        LinearLayout scrollContent = (LinearLayout) scrollView.getChildAt(0);
+
+        // Create warning banner
+        CardView warningBanner = new CardView(this);
+        LinearLayout.LayoutParams bannerParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        bannerParams.setMargins(
+                (int) (20 * getResources().getDisplayMetrics().density),
+                (int) (16 * getResources().getDisplayMetrics().density),
+                (int) (20 * getResources().getDisplayMetrics().density),
+                (int) (20 * getResources().getDisplayMetrics().density)
+        );
+        warningBanner.setLayoutParams(bannerParams);
+        warningBanner.setCardBackgroundColor(Color.parseColor("#FFF3CD"));
+        warningBanner.setRadius(12 * getResources().getDisplayMetrics().density);
+        warningBanner.setCardElevation(4 * getResources().getDisplayMetrics().density);
+
+        // Simple TextView with icon in the text
+        TextView warningText = new TextView(this);
+        String warningMessage = "⚠️ You have an active membership: " + currentMembershipPlan +
+                ". Selecting a new plan will replace your current membership.";
+        warningText.setText(warningMessage);
+        warningText.setTextColor(Color.parseColor("#856404"));
+        warningText.setTextSize(13);
+
+        LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        );
+        warningText.setLayoutParams(textParams);
+
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        warningText.setPadding(padding, padding, padding, padding);
+
+        warningBanner.addView(warningText);
+
+        // Insert banner at the top of scroll content (before Daily Package header)
+        scrollContent.addView(warningBanner, 0);
+    }
+
+
 
     private void loadPackagesFromFirestore() {
         if (loadingProgress != null) {
@@ -290,10 +367,57 @@ public class SelectMembership extends AppCompatActivity {
 
         // Set click listener
         String planLabel = generatePlanLabel(type, months, durationDays, sessions, price);
-        card.setOnClickListener(v -> selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price));
+        card.setOnClickListener(v -> {
+            // Check if user has active membership before allowing selection
+            if (hasActiveMembership) {
+                showMembershipChangeConfirmation(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            } else {
+                selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            }
+        });
 
         allCards.add(card);
         return card;
+    }
+
+    private void showMembershipChangeConfirmation(CardView card, String packageId, String planLabel,
+                                                  String type, int months, int durationDays,
+                                                  int sessions, double price) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("⚠️ Change Membership?");
+
+        String expirationInfo = "";
+        if (currentExpirationDate != null) {
+            expirationInfo = "\n\nYour current plan expires on: " +
+                    android.text.format.DateFormat.format("MMM dd, yyyy", currentExpirationDate);
+        }
+
+        builder.setMessage("You currently have an active membership:\n\n" +
+                "Current Plan: " + currentMembershipPlan + expirationInfo +
+                "\n\nNew Plan: " + planLabel +
+                "\n\n⚠️ WARNING: If you proceed with this change, you will:\n" +
+                "• Lose access to your current membership\n" +
+                "• Forfeit any remaining time on your current plan\n" +
+                "• Not receive a refund for the previous payment\n\n" +
+                "Are you sure you want to continue?");
+
+        builder.setPositiveButton("Yes, Change Membership", (dialog, which) -> {
+            selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            dialog.dismiss();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> {
+            dialog.dismiss();
+        });
+
+        builder.setCancelable(true);
+
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        // Style the buttons
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#D32F2F"));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#666666"));
     }
 
     private String generateTitleText(String type, int months, int durationDays, int sessions) {

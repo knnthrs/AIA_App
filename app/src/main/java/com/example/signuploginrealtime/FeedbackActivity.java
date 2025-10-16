@@ -125,4 +125,10 @@ public class FeedbackActivity extends AppCompatActivity {
                     Toast.makeText(FeedbackActivity.this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
     }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, 0);
+    }
 }

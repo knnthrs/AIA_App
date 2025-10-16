@@ -225,19 +225,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         ivInfo.setOnClickListener(v -> {
             if (exerciseDetails != null && currentIndex < exerciseDetails.size()) {
                 String fullInstructions = getFullExerciseInstructions(currentIndex);
-                tvInstructions.setText(fullInstructions);
+                showInstructionsDialog(fullInstructions);
             }
-            tvInstructions.setVisibility(View.VISIBLE);
-            flInstructionsOverlay.setVisibility(View.VISIBLE);
-            flInstructionsOverlay.setAlpha(0f);
-            flInstructionsOverlay.animate().alpha(1f).setDuration(300).start();
         });
 
-        flInstructionsOverlay.setOnClickListener(v ->
-                flInstructionsOverlay.animate().alpha(0f).setDuration(300)
-                        .withEndAction(() -> flInstructionsOverlay.setVisibility(View.GONE))
-                        .start()
-        );
     }
     // MODIFIED: Added status parameter
     private void recordAndLogExercisePerformance(int actualRepsAchieved, int actualDurationAchievedSeconds, String status) {
@@ -1169,4 +1160,107 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             }
         }
     }
+
+    @Override
+    public void onBackPressed() {
+        showExitWorkoutDialog();
+    }
+
+    private void showExitWorkoutDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("⚠️ Exit Workout?");
+        builder.setMessage("Are you sure you want to exit?\n\n" +
+                "WARNING: Your workout progress will NOT be saved if you exit now.\n\n" +
+                "All completed exercises and performance data will be lost.");
+
+        builder.setPositiveButton("Yes, Exit", (dialog, which) -> {
+            stopAllTTS();
+            cancelAllTimers();
+            finish();
+        });
+
+        builder.setNegativeButton("Continue Workout", (dialog, which) -> {
+            dialog.dismiss();
+        });
+
+        builder.setCancelable(true);
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
+
+        // Style the buttons
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+    }
+
+    private void showInstructionsDialog(String instructions) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("📋 Exercise Instructions");
+
+        // Format the instructions text
+        String formattedInstructions = formatInstructionsText(instructions);
+        builder.setMessage(formattedInstructions);
+
+        builder.setPositiveButton("Got it", (dialog, which) -> {
+            dialog.dismiss();
+        });
+
+        builder.setCancelable(true);
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
+
+        // Style the button
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_blue_dark));
+    }
+
+    private String formatInstructionsText(String instructions) {
+        if (instructions == null || instructions.isEmpty()) {
+            return "No instructions available";
+        }
+
+        StringBuilder formatted = new StringBuilder();
+        String[] lines = instructions.split("\n");
+
+        String sets = "";
+        String reps = "";
+        boolean instructionsSectionStarted = false;
+
+        for (String line : lines) {
+            line = line.trim();
+
+            if (line.startsWith("Sets:")) {
+                sets = line.replace("Sets:", "").trim();
+            } else if (line.startsWith("Reps:")) {
+                reps = line.replace("Reps:", "").trim();
+            } else if (line.equalsIgnoreCase("Instructions:")) {
+                // Add sets and reps on one line before instructions
+                if (!sets.isEmpty() || !reps.isEmpty()) {
+                    formatted.append("Sets: ").append(sets.isEmpty() ? "N/A" : sets)
+                            .append("  Reps: ").append(reps.isEmpty() ? "N/A" : reps)
+                            .append("\n\n");
+                }
+                formatted.append("Instructions:\n");
+                instructionsSectionStarted = true;
+            } else if (!line.isEmpty() && instructionsSectionStarted) {
+                // Add spacing between steps
+                formatted.append(line).append("\n\n");
+            }
+        }
+
+        return formatted.toString().trim();
+    }
+
 }

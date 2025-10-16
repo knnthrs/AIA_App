@@ -126,4 +126,10 @@ public class StreakCalendar extends AppCompatActivity {
         SimpleDateFormat sdf = new SimpleDateFormat("EEEE, MMM dd, yyyy", Locale.getDefault());
         return sdf.format(calendar.getTime());
     }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, 0);
+    }
 }

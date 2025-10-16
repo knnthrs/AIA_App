@@ -23,6 +23,9 @@
             android:name=".Activity_adjusting_workout"
             android:exported="false" />
 
+        <activity android:name=".ContactUsActivity"
+            android:exported="false" />
+
         <activity
             android:name=".Activity_prepare_easier_plan"
             android:exported="false" />

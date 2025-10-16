@@ -248,4 +248,43 @@ public class RestTimerActivity extends AppCompatActivity {
         super.onDestroy();
         if (timer != null) timer.cancel();
     }
+
+    @Override
+    public void onBackPressed() {
+        showExitWorkoutDialog();
+    }
+
+    private void showExitWorkoutDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("⚠️ Exit Workout?");
+        builder.setMessage("Are you sure you want to exit?\n\n" +
+                "WARNING: Your workout progress will NOT be saved if you exit now.\n\n" +
+                "All completed exercises and performance data will be lost.");
+
+        builder.setPositiveButton("Yes, Exit", (dialog, which) -> {
+            if (timer != null) timer.cancel();
+            finish();
+        });
+
+        builder.setNegativeButton("Continue Workout", (dialog, which) -> {
+            dialog.dismiss();
+            // Restart the timer since we paused it
+            startTimer();
+        });
+
+        builder.setCancelable(true);
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
+
+        // Style the buttons
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+    }
 }

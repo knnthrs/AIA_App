@@ -142,6 +142,13 @@ public class Profile extends AppCompatActivity {
         LinearLayout layoutFeedback = findViewById(R.id.layout_feedback);
         layoutFeedback.setOnClickListener(v -> {
             startActivity(new Intent(Profile.this, FeedbackActivity.class));
+            overridePendingTransition(0, 0);
+        });
+
+        LinearLayout layoutContact = findViewById(R.id.layout_contact);
+        layoutContact.setOnClickListener(v -> {
+            startActivity(new Intent(Profile.this, ContactUsActivity.class));
+            overridePendingTransition(0, 0);
         });
 
         // Initialize date components
@@ -222,11 +229,10 @@ public class Profile extends AppCompatActivity {
     }
 
     private void showFitnessLevelDialog() {
-        // Match exactly with AdvancedWorkoutDecisionMaker cases
         String[] levels = {"Sedentary", "Lightly Active", "Moderately Active", "Very Active"};
         String[] levelValues = {"sedentary", "lightly active", "moderately active", "very active"};
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Select Fitness Level");
 
         builder.setItems(levels, (dialog, which) -> {
@@ -236,15 +242,18 @@ public class Profile extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        builder.show();
-    }
 
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+    }
     private void showFitnessGoalDialog() {
-        // Match exactly with AdvancedWorkoutDecisionMaker cases
         String[] goals = {"Lose Weight", "Gain Muscle", "Increase Endurance", "General Fitness"};
         String[] goalValues = {"lose weight", "gain muscle", "increase endurance", "general fitness"};
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Select Fitness Goal");
 
         builder.setItems(goals, (dialog, which) -> {
@@ -254,7 +263,12 @@ public class Profile extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        builder.show();
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
     }
 
     private void showWorkoutFrequencyDialog() {
@@ -262,7 +276,7 @@ public class Profile extends AppCompatActivity {
                 "4 days per week", "5 days per week", "6 days per week",
                 "7 days per week"};
 
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Select Workout Frequency");
 
         builder.setItems(frequencies, (dialog, which) -> {
@@ -272,7 +286,12 @@ public class Profile extends AppCompatActivity {
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
-        builder.show();
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
     }
 
     private void updateFitnessLevel(String value, String displayText) {
@@ -396,29 +415,25 @@ public class Profile extends AppCompatActivity {
     }
 
     private void showChangePasswordDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Change Password");
-        builder.setMessage("To change your password, you\'ll need to verify your current password first.");
+        builder.setMessage("To change your password, you'll need to verify your current password first.");
 
-        // Create a LinearLayout to hold multiple EditText views
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
         int padding = (int) (16 * getResources().getDisplayMetrics().density);
         layout.setPadding(padding, padding, padding, padding);
 
-        // Current password field
         final EditText currentPasswordInput = new EditText(this);
         currentPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         currentPasswordInput.setHint("Current Password");
         layout.addView(currentPasswordInput);
 
-        // New password field
         final EditText newPasswordInput = new EditText(this);
         newPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         newPasswordInput.setHint("New Password (min 6 characters)");
         layout.addView(newPasswordInput);
 
-        // Confirm new password field
         final EditText confirmPasswordInput = new EditText(this);
         confirmPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         confirmPasswordInput.setHint("Confirm New Password");
@@ -439,8 +454,12 @@ public class Profile extends AppCompatActivity {
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
         dialog.show();
     }
+
 
     private boolean validatePasswordChange(String currentPassword, String newPassword, String confirmPassword) {
         if (currentPassword.isEmpty()) {
@@ -515,7 +534,7 @@ public class Profile extends AppCompatActivity {
     }
 
     private void showEditEmailDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Edit Email Address");
 
         final EditText input = new EditText(this);
@@ -540,12 +559,15 @@ public class Profile extends AppCompatActivity {
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
         dialog.show();
         input.requestFocus();
     }
 
     private void showEditPhoneDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Edit Phone Number");
 
         final EditText input = new EditText(this);
@@ -578,6 +600,9 @@ public class Profile extends AppCompatActivity {
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
         dialog.show();
         input.requestFocus();
     }
@@ -841,16 +866,34 @@ public class Profile extends AppCompatActivity {
     }
 
     private void showLogoutDialog() {
-        new AlertDialog.Builder(this)
-                .setTitle("Logout")
-                .setMessage("Are you sure you want to log out?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    mAuth.signOut();
-                    startActivity(new Intent(Profile.this, LoginActivity.class));
-                    finish();
-                })
-                .setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss())
-                .show();
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Logout");
+        builder.setMessage("Are you sure you want to log out?");
+
+        builder.setPositiveButton("Yes", (dialog, which) -> {
+            mAuth.signOut();
+            startActivity(new Intent(Profile.this, LoginActivity.class));
+            finish();
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
+
+        // Style the buttons AFTER showing the dialog
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
     }
 
     private void initCloudinary() {

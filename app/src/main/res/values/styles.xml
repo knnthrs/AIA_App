@@ -30,4 +30,9 @@
         <item name="backgroundTint">@null</item>
     </style>
 
+    <style name="RoundedDialogStyle" parent="Theme.AppCompat.Light.Dialog.Alert">
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:backgroundDimEnabled">true</item>
+    </style>
+
 </resources>

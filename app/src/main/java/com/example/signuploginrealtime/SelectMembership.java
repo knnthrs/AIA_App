@@ -383,7 +383,7 @@ public class SelectMembership extends AppCompatActivity {
     private void showMembershipChangeConfirmation(CardView card, String packageId, String planLabel,
                                                   String type, int months, int durationDays,
                                                   int sessions, double price) {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("⚠️ Change Membership?");
 
         String expirationInfo = "";
@@ -413,12 +413,19 @@ public class SelectMembership extends AppCompatActivity {
         builder.setCancelable(true);
 
         AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
         dialog.show();
 
         // Style the buttons
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#D32F2F"));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#666666"));
     }
+
 
     private String generateTitleText(String type, int months, int durationDays, int sessions) {
         StringBuilder title = new StringBuilder();

@@ -689,13 +689,6 @@
                                 android:text="Payment History"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
-
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:src="@drawable/ic_edit"
-                                app:tint="#CCCCCC" />
-
                         </LinearLayout>
 
                         <!-- Feedback -->
@@ -724,12 +717,6 @@
                                 android:text="Send Feedback"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
-
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:src="@drawable/ic_edit"
-                                app:tint="#CCCCCC" />
 
                         </LinearLayout>
 
@@ -760,11 +747,6 @@
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
 
-                            <ImageView
-                                android:layout_width="20dp"
-                                android:layout_height="20dp"
-                                android:src="@drawable/ic_edit"
-                                app:tint="#CCCCCC" />
 
                         </LinearLayout>
 

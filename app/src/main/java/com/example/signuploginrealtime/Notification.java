@@ -143,4 +143,10 @@ public class Notification extends AppCompatActivity {
             notificationListener.remove();
         }
     }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, 0);
+    }
 }

@@ -238,17 +238,32 @@ public class Profile extends AppCompatActivity {
         builder.setItems(levels, (dialog, which) -> {
             String selectedLevel = levels[which];
             String selectedValue = levelValues[which];
-            updateFitnessLevel(selectedValue, selectedLevel);
+
+            // Show confirmation before updating
+            showConfirmationDialog(
+                    "Confirm Fitness Level",
+                    "Set fitness level to:\n" + selectedLevel + "?",
+                    () -> updateFitnessLevel(selectedValue, selectedLevel)
+            );
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
+
         dialog.show();
+
+        // Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
     }
+
+
     private void showFitnessGoalDialog() {
         String[] goals = {"Lose Weight", "Gain Muscle", "Increase Endurance", "General Fitness"};
         String[] goalValues = {"lose weight", "gain muscle", "increase endurance", "general fitness"};
@@ -259,17 +274,31 @@ public class Profile extends AppCompatActivity {
         builder.setItems(goals, (dialog, which) -> {
             String selectedGoal = goals[which];
             String selectedValue = goalValues[which];
-            updateFitnessGoal(selectedValue, selectedGoal);
+
+            // Show confirmation before updating
+            showConfirmationDialog(
+                    "Confirm Fitness Goal",
+                    "Set fitness goal to:\n" + selectedGoal + "?",
+                    () -> updateFitnessGoal(selectedValue, selectedGoal)
+            );
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
+
         dialog.show();
+
+        // Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
     }
+
 
     private void showWorkoutFrequencyDialog() {
         String[] frequencies = {"1 day per week", "2 days per week", "3 days per week",
@@ -282,16 +311,29 @@ public class Profile extends AppCompatActivity {
         builder.setItems(frequencies, (dialog, which) -> {
             int daysPerWeek = which + 1;
             String displayText = frequencies[which];
-            updateWorkoutFrequency(daysPerWeek, displayText);
+
+            // Show confirmation before updating
+            showConfirmationDialog(
+                    "Confirm Workout Frequency",
+                    "Set workout frequency to:\n" + displayText + "?",
+                    () -> updateWorkoutFrequency(daysPerWeek, displayText)
+            );
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
+
         dialog.show();
+
+        // Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
     }
 
     private void updateFitnessLevel(String value, String displayText) {
@@ -299,7 +341,7 @@ public class Profile extends AppCompatActivity {
             userDocRef.update("fitnessLevel", value)
                     .addOnSuccessListener(aVoid -> {
                         tvFitnessLevel.setText(displayText);
-                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        markProfileAsChanged();
                         Toast.makeText(this, "Fitness level updated", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
@@ -314,7 +356,7 @@ public class Profile extends AppCompatActivity {
             userDocRef.update("fitnessGoal", value)
                     .addOnSuccessListener(aVoid -> {
                         tvFitnessGoal.setText(displayText);
-                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        markProfileAsChanged();
                         Toast.makeText(this, "Fitness goal updated", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
@@ -329,7 +371,7 @@ public class Profile extends AppCompatActivity {
             userDocRef.update("workoutDaysPerWeek", days)
                     .addOnSuccessListener(aVoid -> {
                         tvWorkoutFrequency.setText(displayText);
-                        markProfileAsChanged(); // ✅ ADD THIS LINE
+                        markProfileAsChanged();
                         Toast.makeText(this, "Workout frequency updated", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
@@ -338,7 +380,6 @@ public class Profile extends AppCompatActivity {
                     });
         }
     }
-
     private void loadFitnessProfileData() {
         if (userDocRef != null) {
             userDocRef.get().addOnSuccessListener(snapshot -> {
@@ -447,19 +488,32 @@ public class Profile extends AppCompatActivity {
             String confirmPassword = confirmPasswordInput.getText().toString().trim();
 
             if (validatePasswordChange(currentPassword, newPassword, confirmPassword)) {
-                changeUserPassword(currentPassword, newPassword);
+                showConfirmationDialog(
+                        "Confirm Password Change",
+                        "Are you sure you want to change your password?\n\nYou will need to use the new password for future logins.",
+                        () -> changeUserPassword(currentPassword, newPassword)
+                );
             }
         });
 
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
-        dialog.show();
-    }
 
+        dialog.show();
+
+        // CRITICAL: Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
 
     private boolean validatePasswordChange(String currentPassword, String newPassword, String confirmPassword) {
         if (currentPassword.isEmpty()) {
@@ -537,20 +591,28 @@ public class Profile extends AppCompatActivity {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Edit Email Address");
 
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         input.setText(profileEmail.getText().toString());
         input.setSelection(input.getText().length());
+        input.setHint("Enter email address");
 
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
-
-        builder.setView(input);
+        container.addView(input);
+        builder.setView(container);
 
         builder.setPositiveButton("Save", (dialog, which) -> {
             String newEmail = input.getText().toString().trim();
             if (validateEmail(newEmail)) {
-                updateEmail(newEmail);
+                showConfirmationDialog(
+                        "Confirm Email Change",
+                        "Change email to:\n" + newEmail + "?",
+                        () -> updateEmail(newEmail)
+                );
             } else {
                 Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
             }
@@ -559,16 +621,33 @@ public class Profile extends AppCompatActivity {
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
+
         dialog.show();
+
+        // CRITICAL: Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+
         input.requestFocus();
     }
+
 
     private void showEditPhoneDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Edit Phone Number");
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
 
         final EditText input = new EditText(this);
         input.setInputType(InputType.TYPE_CLASS_PHONE);
@@ -581,17 +660,19 @@ public class Profile extends AppCompatActivity {
 
         input.setHint("Enter your phone number");
 
-        int padding = (int) (16 * getResources().getDisplayMetrics().density);
-        input.setPadding(padding, padding, padding, padding);
-
-        builder.setView(input);
+        container.addView(input);
+        builder.setView(container);
 
         builder.setPositiveButton("Save", (dialog, which) -> {
             String newPhone = input.getText().toString().trim();
             if (newPhone.isEmpty()) {
                 Toast.makeText(this, "Phone number cannot be empty", Toast.LENGTH_SHORT).show();
             } else if (validatePhone(newPhone)) {
-                updatePhone(newPhone);
+                showConfirmationDialog(
+                        "Confirm Phone Change",
+                        "Change phone number to:\n" + newPhone + "?",
+                        () -> updatePhone(newPhone)
+                );
             } else {
                 Toast.makeText(this, "Please enter a valid phone number", Toast.LENGTH_SHORT).show();
             }
@@ -600,12 +681,24 @@ public class Profile extends AppCompatActivity {
         builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
 
         AlertDialog dialog = builder.create();
+
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
+
         dialog.show();
+
+        // CRITICAL: Style buttons AFTER showing dialog
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+
         input.requestFocus();
     }
+
 
     private boolean validateEmail(String email) {
         return email != null && EMAIL_PATTERN.matcher(email).matches();
@@ -628,6 +721,7 @@ public class Profile extends AppCompatActivity {
             userDocRef.update("email", newEmail)
                     .addOnSuccessListener(aVoid -> {
                         profileEmail.setText(newEmail);
+                        markProfileAsChanged();
                         Toast.makeText(this, "Email updated successfully", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
@@ -636,12 +730,12 @@ public class Profile extends AppCompatActivity {
                     });
         }
     }
-
     private void updatePhone(String newPhone) {
         if (userDocRef != null) {
             userDocRef.update("phone", newPhone)
                     .addOnSuccessListener(aVoid -> {
                         tvPhone.setText(newPhone);
+                        markProfileAsChanged();
                         Toast.makeText(this, "Phone number updated successfully", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
@@ -665,16 +759,26 @@ public class Profile extends AppCompatActivity {
                 new DatePickerDialog.OnDateSetListener() {
                     @Override
                     public void onDateSet(DatePicker view, int year, int month, int dayOfMonth) {
-                        selectedDate.set(Calendar.YEAR, year);
-                        selectedDate.set(Calendar.MONTH, month);
-                        selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                        Calendar tempDate = Calendar.getInstance();
+                        tempDate.set(Calendar.YEAR, year);
+                        tempDate.set(Calendar.MONTH, month);
+                        tempDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
 
-                        String formattedDate = dateFormat.format(selectedDate.getTime());
-                        tvDob.setText(formattedDate);
+                        String formattedDate = dateFormat.format(tempDate.getTime());
 
-                        saveDateOfBirth(formattedDate);
-
-                        Toast.makeText(Profile.this, "Date of birth updated", Toast.LENGTH_SHORT).show();
+                        // Show confirmation dialog before updating
+                        showConfirmationDialog(
+                                "Confirm Date of Birth",
+                                "Set date of birth to:\n" + formattedDate + "?",
+                                () -> {
+                                    selectedDate.set(Calendar.YEAR, year);
+                                    selectedDate.set(Calendar.MONTH, month);
+                                    selectedDate.set(Calendar.DAY_OF_MONTH, dayOfMonth);
+                                    tvDob.setText(formattedDate);
+                                    saveDateOfBirth(formattedDate);
+                                    Toast.makeText(Profile.this, "Date of birth updated", Toast.LENGTH_SHORT).show();
+                                }
+                        );
                     }
                 },
                 currentYear,
@@ -692,6 +796,7 @@ public class Profile extends AppCompatActivity {
 
         datePickerDialog.show();
     }
+
 
     private void saveDateOfBirth(String dateOfBirth) {
         SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
@@ -1097,4 +1202,34 @@ public class Profile extends AppCompatActivity {
             }
         }
     }
-}
+
+    private void showConfirmationDialog(String title, String message, Runnable onConfirm) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle(title);
+        builder.setMessage(message);
+
+        builder.setPositiveButton("Yes", (dialog, which) -> {
+            if (onConfirm != null) {
+                onConfirm.run();
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
+
+        // CRITICAL: Style the buttons AFTER showing the dialog (same as logout dialog)
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }}

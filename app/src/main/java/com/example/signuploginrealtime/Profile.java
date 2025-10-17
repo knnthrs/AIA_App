@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.InputType;
 import android.util.Log;
+import android.view.View;
 import android.widget.DatePicker;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -81,13 +82,15 @@ public class Profile extends AppCompatActivity {
     private ActivityResultLauncher<Intent> cropImageLauncher;
     private static final int REQUEST_CROP_IMAGE = 200;
 
+    private static final int MIN_PASSWORD_LENGTH = 8;
+
 
     // Email and phone validation patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$"
     );
     private static final Pattern PHONE_PATTERN = Pattern.compile(
-            "^[+]?[1-9]\\d{1,14}$" // International phone format
+            "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
 
     @Override
@@ -472,13 +475,63 @@ public class Profile extends AppCompatActivity {
 
         final EditText newPasswordInput = new EditText(this);
         newPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        newPasswordInput.setHint("New Password (min 6 characters)");
+        newPasswordInput.setHint("New Password (min 8 characters)");
         layout.addView(newPasswordInput);
+
+        // Add password strength indicator
+        final TextView strengthIndicator = new TextView(this);
+        strengthIndicator.setPadding(0, 8, 0, 0);
+        strengthIndicator.setTextSize(12);
+        strengthIndicator.setVisibility(View.GONE);
+        layout.addView(strengthIndicator);
+
+        // Add password requirements
+        final TextView requirementsText = new TextView(this);
+        requirementsText.setPadding(0, 8, 0, 0);
+        requirementsText.setTextSize(11);
+        requirementsText.setVisibility(View.GONE);
+        layout.addView(requirementsText);
 
         final EditText confirmPasswordInput = new EditText(this);
         confirmPasswordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         confirmPasswordInput.setHint("Confirm New Password");
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, (int) (8 * getResources().getDisplayMetrics().density), 0, 0);
+        confirmPasswordInput.setLayoutParams(params);
         layout.addView(confirmPasswordInput);
+
+        // Add TextWatcher for real-time validation
+        newPasswordInput.addTextChangedListener(new android.text.TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                String password = s.toString();
+                if (password.isEmpty()) {
+                    strengthIndicator.setVisibility(View.GONE);
+                    requirementsText.setVisibility(View.GONE);
+                } else {
+                    strengthIndicator.setVisibility(View.VISIBLE);
+                    requirementsText.setVisibility(View.VISIBLE);
+
+                    int strength = calculatePasswordStrength(password);
+                    String strengthText = "Password Strength: " + getPasswordStrengthText(strength);
+                    int color = getPasswordStrengthColor(strength);
+
+                    strengthIndicator.setText(strengthText);
+                    strengthIndicator.setTextColor(color);
+
+                    requirementsText.setText(getPasswordRequirementsText(password));
+                }
+            }
+
+            @Override
+            public void afterTextChanged(android.text.Editable s) {}
+        });
 
         builder.setView(layout);
 
@@ -506,7 +559,7 @@ public class Profile extends AppCompatActivity {
 
         dialog.show();
 
-        // CRITICAL: Style buttons AFTER showing dialog
+        // Style buttons AFTER showing dialog
         if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
         }
@@ -514,7 +567,6 @@ public class Profile extends AppCompatActivity {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         }
     }
-
     private boolean validatePasswordChange(String currentPassword, String newPassword, String confirmPassword) {
         if (currentPassword.isEmpty()) {
             Toast.makeText(this, "Please enter your current password", Toast.LENGTH_SHORT).show();
@@ -526,13 +578,37 @@ public class Profile extends AppCompatActivity {
             return false;
         }
 
-        if (newPassword.length() < 6) {
-            Toast.makeText(this, "New password must be at least 6 characters", Toast.LENGTH_SHORT).show();
+        if (newPassword.length() < MIN_PASSWORD_LENGTH) {
+            Toast.makeText(this, "New password must be at least " + MIN_PASSWORD_LENGTH + " characters", Toast.LENGTH_SHORT).show();
+            return false;
+        }
+
+        // Check for uppercase letter
+        if (!newPassword.matches(".*[A-Z].*")) {
+            Toast.makeText(this, "Password must contain at least one uppercase letter", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        // Check for lowercase letter
+        if (!newPassword.matches(".*[a-z].*")) {
+            Toast.makeText(this, "Password must contain at least one lowercase letter", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        // Check for digit
+        if (!newPassword.matches(".*\\d.*")) {
+            Toast.makeText(this, "Password must contain at least one number", Toast.LENGTH_LONG).show();
+            return false;
+        }
+
+        // Check for special character
+        if (!newPassword.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
+            Toast.makeText(this, "Password must contain at least one special character (!@#$%^&*...)", Toast.LENGTH_LONG).show();
             return false;
         }
 
         if (!newPassword.equals(confirmPassword)) {
-            Toast.makeText(this, "Passwords don\'t match", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Passwords don't match", Toast.LENGTH_SHORT).show();
             return false;
         }
 
@@ -543,6 +619,7 @@ public class Profile extends AppCompatActivity {
 
         return true;
     }
+
 
     private void changeUserPassword(String currentPassword, String newPassword) {
         FirebaseUser user = mAuth.getCurrentUser();
@@ -590,28 +667,41 @@ public class Profile extends AppCompatActivity {
     private void showEditEmailDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Edit Email Address");
+        builder.setMessage("To change your email, you'll need to verify your current password first.");
 
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        int padding = (int) (20 * getResources().getDisplayMetrics().density);
-        container.setPadding(padding, padding / 2, padding, padding);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (16 * getResources().getDisplayMetrics().density);
+        layout.setPadding(padding, padding, padding, padding);
 
-        final EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
-        input.setText(profileEmail.getText().toString());
-        input.setSelection(input.getText().length());
-        input.setHint("Enter email address");
+        final EditText newEmailInput = new EditText(this);
+        newEmailInput.setInputType(InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+        newEmailInput.setText(profileEmail.getText().toString());
+        newEmailInput.setSelection(newEmailInput.getText().length());
+        newEmailInput.setHint("New Email Address");
+        layout.addView(newEmailInput);
 
-        container.addView(input);
-        builder.setView(container);
+        final EditText passwordInput = new EditText(this);
+        passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        passwordInput.setHint("Current Password");
+        layout.addView(passwordInput);
+
+        builder.setView(layout);
 
         builder.setPositiveButton("Save", (dialog, which) -> {
-            String newEmail = input.getText().toString().trim();
+            String newEmail = newEmailInput.getText().toString().trim();
+            String password = passwordInput.getText().toString().trim();
+
+            if (password.isEmpty()) {
+                Toast.makeText(this, "Password is required to change email", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (validateEmail(newEmail)) {
                 showConfirmationDialog(
                         "Confirm Email Change",
-                        "Change email to:\n" + newEmail + "?",
-                        () -> updateEmail(newEmail)
+                        "Change email to:\n" + newEmail + "?\n\nYou will need to use this email for future logins.",
+                        () -> updateEmailWithAuth(newEmail, password)  // ✅ NOW CALLING THE RIGHT METHOD
                 );
             } else {
                 Toast.makeText(this, "Please enter a valid email address", Toast.LENGTH_SHORT).show();
@@ -628,7 +718,7 @@ public class Profile extends AppCompatActivity {
 
         dialog.show();
 
-        // CRITICAL: Style buttons AFTER showing dialog
+        // Style buttons AFTER showing dialog
         if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
         }
@@ -636,9 +726,8 @@ public class Profile extends AppCompatActivity {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         }
 
-        input.requestFocus();
+        newEmailInput.requestFocus();
     }
-
 
     private void showEditPhoneDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
@@ -709,27 +798,103 @@ public class Profile extends AppCompatActivity {
             return false;
         }
 
+        // Remove spaces, dashes, and parentheses
         String cleanPhone = phone.replaceAll("[\\s\\-\\(\\)]", "");
 
-        return cleanPhone.length() >= 10 &&
-                (cleanPhone.matches("^\\+?[1-9]\\d{9,14}$") ||
-                        cleanPhone.matches("^[0-9]{10,15}$"));
+        // Check if it matches Philippine format: starts with 0 and has exactly 11 digits
+        return cleanPhone.matches("^0\\d{10}$");
     }
 
-    private void updateEmail(String newEmail) {
-        if (userDocRef != null) {
-            userDocRef.update("email", newEmail)
-                    .addOnSuccessListener(aVoid -> {
-                        profileEmail.setText(newEmail);
-                        markProfileAsChanged();
-                        Toast.makeText(this, "Email updated successfully", Toast.LENGTH_SHORT).show();
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "Failed to update email: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    });
+    private void updateEmailWithAuth(String newEmail, String password) {
+        FirebaseUser user = mAuth.getCurrentUser();
+        if (user == null || user.getEmail() == null) {
+            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        Toast.makeText(this, "Updating email...", Toast.LENGTH_SHORT).show();
+
+        // Step 1: Re-authenticate the user
+        AuthCredential credential = EmailAuthProvider.getCredential(user.getEmail(), password);
+
+        user.reauthenticate(credential).addOnCompleteListener(new OnCompleteListener<Void>() {
+            @Override
+            public void onComplete(@NonNull Task<Void> task) {
+                if (task.isSuccessful()) {
+                    // Step 2: Update Firebase Authentication email
+                    user.verifyBeforeUpdateEmail(newEmail).addOnCompleteListener(new OnCompleteListener<Void>() {
+                        @Override
+                        public void onComplete(@NonNull Task<Void> emailTask) {
+                            if (emailTask.isSuccessful()) {
+                                // Step 3: Update Firestore email
+                                if (userDocRef != null) {
+                                    userDocRef.update("email", newEmail)
+                                            .addOnSuccessListener(aVoid -> {
+                                                profileEmail.setText(newEmail);
+                                                markProfileAsChanged();
+
+                                                // ✅ FIXED: Added proper styling to the verification dialog
+                                                AlertDialog.Builder builder = new AlertDialog.Builder(Profile.this, R.style.RoundedDialogStyle);
+                                                builder.setTitle("⚠️ Email Verification Required");
+                                                builder.setMessage(
+                                                        "📧 A verification email has been sent to:\n" +
+                                                                newEmail +
+                                                                "\n\n" +
+                                                                "🔐 IMPORTANT STEPS:\n" +
+                                                                "1. Check your email inbox/spam\n" +
+                                                                "2. Click the verification link\n" +
+                                                                "3. After verification, you can login with your new email\n\n" +
+                                                                "⚠️ NOTE: You cannot login your old and new email until you verify it."
+                                                );
+                                                builder.setPositiveButton("I Understand", null);
+                                                builder.setCancelable(false);
+
+                                                AlertDialog dialog = builder.create();
+
+                                                // ✅ Apply rounded background
+                                                if (dialog.getWindow() != null) {
+                                                    dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+                                                }
+
+                                                dialog.show();
+
+                                                // ✅ Style the button AFTER showing
+                                                if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+                                                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(
+                                                            getResources().getColor(android.R.color.holo_green_dark)
+                                                    );
+                                                }
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                Toast.makeText(Profile.this,
+                                                        "Failed to update email in database: " + e.getMessage(),
+                                                        Toast.LENGTH_SHORT).show();
+                                            });
+                                }
+                            } else {
+                                String errorMessage = emailTask.getException() != null ?
+                                        emailTask.getException().getMessage() : "Failed to update email";
+
+                                if (errorMessage.contains("already in use")) {
+                                    Toast.makeText(Profile.this,
+                                            "This email is already in use by another account",
+                                            Toast.LENGTH_LONG).show();
+                                } else {
+                                    Toast.makeText(Profile.this, "Error: " + errorMessage,
+                                            Toast.LENGTH_LONG).show();
+                                }
+                            }
+                        }
+                    });
+                } else {
+                    Toast.makeText(Profile.this, "Incorrect password. Please try again.",
+                            Toast.LENGTH_LONG).show();
+                }
+            }
+        });
     }
+
+
     private void updatePhone(String newPhone) {
         if (userDocRef != null) {
             userDocRef.update("phone", newPhone)
@@ -1232,4 +1397,87 @@ public class Profile extends AppCompatActivity {
         if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         }
-    }}
+    }
+    private int calculatePasswordStrength(String password) {
+        int strength = 0;
+
+        if (password.length() >= MIN_PASSWORD_LENGTH) strength++;
+        if (password.matches(".*[A-Z].*")) strength++;
+        if (password.matches(".*[a-z].*")) strength++;
+        if (password.matches(".*\\d.*")) strength++;
+        if (password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) strength++;
+
+        return strength;
+    }
+
+    private String getPasswordStrengthText(int strength) {
+        switch (strength) {
+            case 0:
+            case 1:
+                return "Weak";
+            case 2:
+            case 3:
+                return "Medium";
+            case 4:
+                return "Good";
+            case 5:
+                return "Strong";
+            default:
+                return "Weak";
+        }
+    }
+
+    private int getPasswordStrengthColor(int strength) {
+        switch (strength) {
+            case 0:
+            case 1:
+                return getResources().getColor(android.R.color.holo_red_dark);
+            case 2:
+            case 3:
+                return getResources().getColor(android.R.color.holo_orange_dark);
+            case 4:
+                return getResources().getColor(android.R.color.holo_blue_dark);
+            case 5:
+                return getResources().getColor(android.R.color.holo_green_dark);
+            default:
+                return getResources().getColor(android.R.color.holo_red_dark);
+        }
+    }
+
+
+    private String getPasswordRequirementsText(String password) {
+        StringBuilder requirements = new StringBuilder("\nPassword Requirements:\n");
+
+        if (password.length() >= MIN_PASSWORD_LENGTH) {
+            requirements.append("✓ At least 8 characters\n");
+        } else {
+            requirements.append("✗ At least 8 characters\n");
+        }
+
+        if (password.matches(".*[A-Z].*")) {
+            requirements.append("✓ One uppercase letter\n");
+        } else {
+            requirements.append("✗ One uppercase letter\n");
+        }
+
+        if (password.matches(".*[a-z].*")) {
+            requirements.append("✓ One lowercase letter\n");
+        } else {
+            requirements.append("✗ One lowercase letter\n");
+        }
+
+        if (password.matches(".*\\d.*")) {
+            requirements.append("✓ One number\n");
+        } else {
+            requirements.append("✗ One number\n");
+        }
+
+        if (password.matches(".*[!@#$%^&*(),.?\":{}|<>].*")) {
+            requirements.append("✓ One special character");
+        } else {
+            requirements.append("✗ One special character");
+        }
+
+        return requirements.toString();
+    }
+}

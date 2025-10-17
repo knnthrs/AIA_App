@@ -6,6 +6,8 @@ import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.widget.*;
+
+import com.example.signuploginrealtime.models.UserProfile;
 import com.google.firebase.firestore.QuerySnapshot;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -16,7 +18,6 @@ import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-// Firestore imports
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 
@@ -44,7 +45,7 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        loginEmail = findViewById(R.id.login_username); // now used for email
+        loginEmail = findViewById(R.id.login_username);
         loginPassword = findViewById(R.id.login_password);
         loginButton = findViewById(R.id.login_button);
         signupRedirectText = findViewById(R.id.signupRedirectText);
@@ -56,7 +57,6 @@ public class LoginActivity extends AppCompatActivity {
         forgotPasswordText.setPaintFlags(
                 forgotPasswordText.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
 
-        // Initialize new radio button components
         userTypeGroup = findViewById(R.id.userTypeGroup);
         radioUser = findViewById(R.id.radioUser);
         radioCoach = findViewById(R.id.radioCoach);
@@ -73,28 +73,51 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
-            mAuth.sendPasswordResetEmail(email)
-                    .addOnCompleteListener(task -> {
-                        if (task.isSuccessful()) {
-                            Toast.makeText(LoginActivity.this, "Reset link sent to your email.", Toast.LENGTH_LONG).show();
-                        } else {
-                            Toast.makeText(LoginActivity.this, "Error: " + task.getException().getMessage(), Toast.LENGTH_LONG).show();
-                        }
-                    });
+            // Show dialog with password requirements info
+            AlertDialog.Builder builder = new AlertDialog.Builder(LoginActivity.this);
+            builder.setTitle("Reset Password");
+            builder.setMessage(
+                    "A password reset link will be sent to:\n" + email +
+                            "\n\nYour new password must contain:" +
+                            "\n✓ At least 8 characters" +
+                            "\n✓ One uppercase letter (A-Z)" +
+                            "\n✓ One lowercase letter (a-z)" +
+                            "\n✓ One number (0-9)" +
+                            "\n✓ One special character (!@#$...)" +
+                            "\n\nDo you want to proceed?"
+            );
+
+            builder.setPositiveButton("Send Reset Link", (dialog, which) -> {
+                mAuth.sendPasswordResetEmail(email)
+                        .addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                Toast.makeText(LoginActivity.this,
+                                        "Reset link sent! Check your email and follow the password requirements.",
+                                        Toast.LENGTH_LONG).show();
+                            } else {
+                                Toast.makeText(LoginActivity.this,
+                                        "Error: " + task.getException().getMessage(),
+                                        Toast.LENGTH_LONG).show();
+                            }
+                        });
+            });
+
+            builder.setNegativeButton("Cancel", (dialog, which) -> dialog.dismiss());
+            builder.show();
         });
+
 
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         String role = prefs.getString(KEY_ROLE, "");
         String uid = prefs.getString(KEY_UID, null);
 
-// If Firebase still has a logged-in user AND SharedPreferences has role/uid → skip login screen
         if (FirebaseAuth.getInstance().getCurrentUser() != null && uid != null && !role.isEmpty()) {
             if ("coach".equals(role)) {
                 Intent intent = new Intent(this, coach_clients.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
                 startActivity(intent);
                 finish();
-                return; // stop running the rest of onCreate
+                return;
             } else if ("user".equals(role)) {
                 Intent intent = new Intent(this, MainActivity.class);
                 intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -104,16 +127,13 @@ public class LoginActivity extends AppCompatActivity {
             }
         }
 
-
-
-        // Optional: Update button text based on selection
         userTypeGroup.setOnCheckedChangeListener((group, checkedId) -> {
             if (checkedId == R.id.radioCoach) {
                 loginButton.setText("Login as Coach");
-                signupRedirectText.setVisibility(View.GONE); // hide sign up text for coach
+                signupRedirectText.setVisibility(View.GONE);
             } else {
                 loginButton.setText("Login as User");
-                signupRedirectText.setVisibility(View.VISIBLE); // show sign up text for user
+                signupRedirectText.setVisibility(View.VISIBLE);
             }
         });
 
@@ -121,7 +141,6 @@ public class LoginActivity extends AppCompatActivity {
             String email = loginEmail.getText().toString().trim();
             String password = loginPassword.getText().toString().trim();
 
-            // Clear previous errors
             loginEmail.setError(null);
             loginPassword.setError(null);
 
@@ -131,7 +150,6 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
-            // Validate email format
             if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
                 loginEmail.setError("Please enter a valid email address");
                 loginEmail.requestFocus();
@@ -144,10 +162,8 @@ public class LoginActivity extends AppCompatActivity {
                 return;
             }
 
-            // Check if coach or user is selected
             boolean isCoach = userTypeGroup.getCheckedRadioButtonId() == R.id.radioCoach;
 
-            // Show loading state
             showLoading(true, isCoach);
 
             mAuth.signInWithEmailAndPassword(email, password)
@@ -155,25 +171,28 @@ public class LoginActivity extends AppCompatActivity {
                         if (task.isSuccessful()) {
                             FirebaseUser user = mAuth.getCurrentUser();
                             if (user != null) {
-                                // Always validate user type after successful login
+                                // ✅ CHECK EMAIL VERIFICATION HERE - RIGHT AFTER SUCCESSFUL LOGIN
+                                if (!user.isEmailVerified()) {
+                                    showLoading(false, isCoach);
+                                    showEmailNotVerifiedDialog(user);
+                                    return; // Stop here, don't proceed to validation
+                                }
+
+                                // Email is verified, proceed with normal validation
                                 validateUserTypeAndNavigate(user.getUid(), isCoach);
                             }
                         } else {
-                            // Hide loading state
                             showLoading(false, isCoach);
 
-                            // Get the exception to determine what went wrong
                             Exception exception = task.getException();
                             if (exception != null) {
                                 String errorMessage = exception.getMessage();
                                 Log.w(TAG, "signInWithEmail:failure", exception);
 
-                                // Parse specific error codes
                                 if (errorMessage != null) {
                                     if (errorMessage.contains("There is no user record") ||
                                             errorMessage.contains("user-not-found") ||
                                             errorMessage.contains("ERROR_USER_NOT_FOUND")) {
-                                        // Email doesn't exist in the system
                                         loginEmail.setError("No account found with this email");
                                         loginEmail.requestFocus();
                                         Toast.makeText(LoginActivity.this,
@@ -185,7 +204,6 @@ public class LoginActivity extends AppCompatActivity {
                                             errorMessage.contains("INVALID_LOGIN_CREDENTIALS") ||
                                             errorMessage.contains("invalid-credential") ||
                                             errorMessage.contains("ERROR_WRONG_PASSWORD")) {
-                                        // Password is incorrect
                                         loginPassword.setError("Incorrect password");
                                         loginPassword.requestFocus();
                                         Toast.makeText(LoginActivity.this,
@@ -194,31 +212,24 @@ public class LoginActivity extends AppCompatActivity {
 
                                     } else if (errorMessage.contains("network") ||
                                             errorMessage.contains("NETWORK_ERROR")) {
-                                        // Network error
                                         Toast.makeText(LoginActivity.this,
                                                 "Network error. Please check your internet connection.",
                                                 Toast.LENGTH_LONG).show();
 
                                     } else if (errorMessage.contains("too-many-requests")) {
-                                        // Too many failed attempts
                                         Toast.makeText(LoginActivity.this,
                                                 "Too many failed attempts. Please try again later.",
                                                 Toast.LENGTH_LONG).show();
 
                                     } else if (errorMessage.contains("user-disabled")) {
-                                        // Account disabled
                                         Toast.makeText(LoginActivity.this,
                                                 "This account has been disabled. Please contact support.",
                                                 Toast.LENGTH_LONG).show();
 
                                     } else {
-                                        // Generic INVALID_LOGIN_CREDENTIALS error
-                                        // This is tricky - Firebase doesn't tell us which is wrong for security
-                                        // But we can check if the email exists first
                                         checkEmailAndShowError(email, loginEmail, loginPassword);
                                     }
                                 } else {
-                                    // Unknown error
                                     Toast.makeText(LoginActivity.this,
                                             "Login failed. Please try again.",
                                             Toast.LENGTH_LONG).show();
@@ -227,7 +238,6 @@ public class LoginActivity extends AppCompatActivity {
                         }
                     });
         });
-
 
         signupRedirectText.setOnClickListener(v -> {
             Intent intent = new Intent(LoginActivity.this, SignupActivity.class);
@@ -240,6 +250,34 @@ public class LoginActivity extends AppCompatActivity {
         });
     }
 
+    // ✅ ADD THIS NEW METHOD - Email Verification Dialog
+    private void showEmailNotVerifiedDialog(FirebaseUser user) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(LoginActivity.this);
+        builder.setTitle("Email Not Verified");
+        builder.setMessage("Please verify your email address before logging in. Check your inbox for the verification email.\n\nDidn't receive the email?");
+        builder.setCancelable(false);
+        builder.setPositiveButton("Resend Verification Email", (dialog, which) -> {
+            user.sendEmailVerification()
+                    .addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Toast.makeText(LoginActivity.this,
+                                    "Verification email sent! Please check your inbox.",
+                                    Toast.LENGTH_LONG).show();
+                        } else {
+                            Toast.makeText(LoginActivity.this,
+                                    "Failed to send verification email: " + task.getException().getMessage(),
+                                    Toast.LENGTH_LONG).show();
+                        }
+                    });
+            mAuth.signOut();
+        });
+        builder.setNegativeButton("OK", (dialog, which) -> {
+            mAuth.signOut();
+            dialog.dismiss();
+        });
+        builder.show();
+    }
+
     private void validateUserTypeAndNavigate(String userId, boolean isCoach) {
         if (isCoach) {
             mDatabase.collection("coaches").document(userId).get()
@@ -248,9 +286,10 @@ public class LoginActivity extends AppCompatActivity {
                         if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
                             String userType = task.getResult().getString("userType");
                             if ("coach".equals(userType)) {
+                                mDatabase.collection("coaches").document(userId)
+                                        .update("emailVerified", true);
                                 saveRoleAndProceed("coach", coach_clients.class);
                             } else {
-                                // Show specific error with AlertDialog
                                 new AlertDialog.Builder(LoginActivity.this)
                                         .setTitle("Account Type Mismatch")
                                         .setMessage("This email is registered as a regular user, not a coach. Please select 'User' and try again.")
@@ -258,7 +297,6 @@ public class LoginActivity extends AppCompatActivity {
                                         .show();
                             }
                         } else {
-                            // No coach record found
                             new AlertDialog.Builder(LoginActivity.this)
                                     .setTitle("Coach Account Not Found")
                                     .setMessage("This email is not registered as a coach. Please check your account type or contact support.")
@@ -273,9 +311,22 @@ public class LoginActivity extends AppCompatActivity {
                         if (task.isSuccessful() && task.getResult() != null && task.getResult().exists()) {
                             String userType = task.getResult().getString("userType");
                             if ("user".equals(userType)) {
-                                saveRoleAndProceed("user", MainActivity.class);
+                                mDatabase.collection("users").document(userId)
+                                        .update("emailVerified", true);
+
+                                // ✅ CHECK IF PROFILE IS COMPLETE
+                                DocumentSnapshot doc = task.getResult();
+                                String gender = doc.getString("gender");
+
+                                // If gender is null, profile is incomplete → go to GenderSelection
+                                if (gender == null || gender.isEmpty()) {
+                                    saveRoleOnly("user");
+                                    redirectToProfileSetup();
+                                } else {
+                                    // Profile complete → go to MainActivity
+                                    saveRoleAndProceed("user", MainActivity.class);
+                                }
                             } else {
-                                // Show specific error with AlertDialog
                                 new AlertDialog.Builder(LoginActivity.this)
                                         .setTitle("Account Type Mismatch")
                                         .setMessage("This email is registered as a coach, not a regular user. Please select 'Coach' and try again.")
@@ -283,7 +334,6 @@ public class LoginActivity extends AppCompatActivity {
                                         .show();
                             }
                         } else {
-                            // No user record found
                             new AlertDialog.Builder(LoginActivity.this)
                                     .setTitle("User Account Not Found")
                                     .setMessage("This email is not registered as a user. Please check your account type or sign up first.")
@@ -294,13 +344,35 @@ public class LoginActivity extends AppCompatActivity {
         }
     }
 
-    // Check if email exists in Firestore (both users and coaches collections)
-// Check if email exists in Firestore (both users and coaches collections)
+    // ✅ ADD THIS NEW METHOD - Save role only
+    private void saveRoleOnly(String role) {
+        SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
+        prefs.edit().putString("role", role).apply();
+    }
+
+    // ✅ ADD THIS NEW METHOD - Redirect to profile setup
+    private void redirectToProfileSetup() {
+        Toast.makeText(LoginActivity.this, "Let's complete your profile!", Toast.LENGTH_SHORT).show();
+
+        UserProfile userProfile = new UserProfile();
+        userProfile.setFitnessGoal("general fitness");
+        userProfile.setFitnessLevel("beginner");
+        userProfile.setGender(null);
+        userProfile.setAge(0);
+        userProfile.setWeight(0);
+        userProfile.setHeight(0);
+
+        Intent intent = new Intent(LoginActivity.this, GenderSelection.class);
+        intent.putExtra("userProfile", userProfile);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
+        finish();
+    }
+
     private void checkEmailAndShowError(String email, EditText emailField, EditText passwordField) {
         Log.d(TAG, "=== STARTING EMAIL CHECK ===");
         Log.d(TAG, "Searching for email: " + email);
 
-        // First check in users collection
         mDatabase.collection("users")
                 .whereEqualTo("email", email)
                 .get()
@@ -312,7 +384,6 @@ public class LoginActivity extends AppCompatActivity {
                         Log.d(TAG, "Number of documents found in users: " + userTask.getResult().size());
 
                         if (userTask.getResult() != null && !userTask.getResult().isEmpty()) {
-                            // Email exists in users collection, so password must be wrong
                             Log.d(TAG, "✓ Email FOUND in users collection - showing wrong password");
                             passwordField.setError("Incorrect password");
                             passwordField.requestFocus();
@@ -320,7 +391,6 @@ public class LoginActivity extends AppCompatActivity {
                                     "Wrong password. Please try again.",
                                     Toast.LENGTH_LONG).show();
                         } else {
-                            // Not in users, check coaches collection
                             Log.d(TAG, "Email NOT in users, checking coaches collection...");
                             mDatabase.collection("coaches")
                                     .whereEqualTo("email", email)
@@ -330,7 +400,6 @@ public class LoginActivity extends AppCompatActivity {
                                         Log.d(TAG, "Number of documents found in coaches: " + coachTask.getResult().size());
 
                                         if (coachTask.isSuccessful() && coachTask.getResult() != null && !coachTask.getResult().isEmpty()) {
-                                            // Email exists in coaches collection, so password must be wrong
                                             Log.d(TAG, "✓ Email FOUND in coaches collection - showing wrong password");
                                             passwordField.setError("Incorrect password");
                                             passwordField.requestFocus();
@@ -338,7 +407,6 @@ public class LoginActivity extends AppCompatActivity {
                                                     "Wrong password. Please try again.",
                                                     Toast.LENGTH_LONG).show();
                                         } else {
-                                            // Email doesn't exist in either collection
                                             Log.d(TAG, "✗ Email NOT FOUND in either collection - showing email not found");
                                             emailField.setError("No account found with this email");
                                             emailField.requestFocus();
@@ -353,6 +421,7 @@ public class LoginActivity extends AppCompatActivity {
                     }
                 });
     }
+
     private void showSuccessDialogAndNavigate(String message, Class<?> targetActivity) {
         new AlertDialog.Builder(LoginActivity.this)
                 .setTitle("Success")
@@ -381,15 +450,12 @@ public class LoginActivity extends AppCompatActivity {
         finish();
     }
 
-
     private void showLoading(boolean isLoading, boolean isCoach) {
         if (isLoading) {
-            // Show loading spinner, hide button text, disable button
             progressBar.setVisibility(View.VISIBLE);
             loginButton.setText("");
             loginButton.setEnabled(false);
         } else {
-            // Hide loading spinner, show button text, enable button
             progressBar.setVisibility(View.GONE);
             String buttonText = isCoach ? "Login as Coach" : "Login as User";
             loginButton.setText(buttonText);

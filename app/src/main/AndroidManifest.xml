@@ -19,6 +19,7 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
+
         <activity
             android:name=".Activity_adjusting_workout"
             android:exported="false" />

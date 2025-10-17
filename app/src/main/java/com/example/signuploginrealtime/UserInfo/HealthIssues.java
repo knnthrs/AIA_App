@@ -155,6 +155,7 @@ public class HealthIssues extends AppCompatActivity {
 
 
         // Add all profile data
+        userProfileData.put("userId", uid);
         userProfileData.put("gender", userProfile.getGender());
         userProfileData.put("age", userProfile.getAge());
         userProfileData.put("height", userProfile.getHeight());

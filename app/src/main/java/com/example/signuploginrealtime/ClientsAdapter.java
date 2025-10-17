@@ -53,23 +53,31 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         holder.clientEmail.setText(client.getEmail());
         holder.clientStatus.setText(client.getStatus());
 
-        // Set status color
-        int statusColor;
-        switch (client.getStatus()) {
-            case "Active":
-                statusColor = android.graphics.Color.parseColor("#4CAF50"); // Green
-                break;
-            case "Inactive":
-                statusColor = android.graphics.Color.parseColor("#F44336"); // Red
-                break;
-            case "New":
-                statusColor = android.graphics.Color.parseColor("#FF9800"); // Orange
-                break;
-            default:
-                statusColor = android.graphics.Color.parseColor("#9E9E9E"); // Gray
-                break;
+        // Set avatar with first letter of name
+        if (client.getName() != null && !client.getName().isEmpty()) {
+            holder.clientAvatar.setText(String.valueOf(client.getName().charAt(0)).toUpperCase());
         }
-        holder.clientStatus.setTextColor(statusColor);
+
+        // Set status background based on client status
+        String status = client.getStatus();
+        if (status != null) {
+            switch (status) {
+                case "Active":
+                    holder.clientStatus.setBackgroundResource(R.drawable.status_active);
+                    break;
+                case "Inactive":
+                    holder.clientStatus.setBackgroundResource(R.drawable.status_inactive);
+                    break;
+                case "New":
+                    holder.clientStatus.setBackgroundResource(R.drawable.status_new);
+                    break;
+                default:
+                    holder.clientStatus.setBackgroundResource(R.drawable.status_unknown);
+                    break;
+            }
+        } else {
+            holder.clientStatus.setBackgroundResource(R.drawable.status_unknown);
+        }
 
         // Regular click - Navigate to Client_workouts_details
         holder.clientCard.setOnClickListener(v -> {
@@ -99,7 +107,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
 
     public static class ClientViewHolder extends RecyclerView.ViewHolder {
         CardView clientCard;
-        TextView clientName, clientEmail, clientStatus;
+        TextView clientName, clientEmail, clientStatus, clientAvatar;
 
         public ClientViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -107,6 +115,8 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientName = itemView.findViewById(R.id.client_name);
             clientEmail = itemView.findViewById(R.id.client_email);
             clientStatus = itemView.findViewById(R.id.client_status);
+            clientAvatar = itemView.findViewById(R.id.client_avatar);
         }
     }
+
 }

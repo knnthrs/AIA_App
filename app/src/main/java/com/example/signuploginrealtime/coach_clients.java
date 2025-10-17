@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
@@ -28,11 +29,15 @@ import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -281,7 +286,6 @@ public class coach_clients extends AppCompatActivity {
             return;
         }
 
-        // First, find the coach's custom ID by querying with their email
         firestore.collection("coaches")
                 .whereEqualTo("email", currentUser.getEmail())
                 .get()
@@ -292,82 +296,71 @@ public class coach_clients extends AppCompatActivity {
                         return;
                     }
 
-                    // Get the coach's custom document ID (e.g., "coach1")
-                    currentCoachId = coachQuerySnapshot.getDocuments().get(0).getId();  // ✅ Store in field
+                    currentCoachId = coachQuerySnapshot.getDocuments().get(0).getId();
                     android.util.Log.d("CoachLoad", "Found coach ID: " + currentCoachId);
 
-                    // Now query users collection where coachId equals the coach's custom ID
                     firestore.collection("users")
                             .whereEqualTo("coachId", currentCoachId)
-                            .get()
-                            .addOnSuccessListener(queryDocumentSnapshots -> {
-                                clientsList.clear();
-
-                                if (queryDocumentSnapshots.isEmpty()) {
+                            .addSnapshotListener((queryDocumentSnapshots, e) -> {
+                                if (e != null) {
+                                    Log.e("ClientLoad", "Error listening for client updates", e);
                                     showLoading(false);
-                                    updateUI();
-                                    android.util.Log.d("CoachLoad", "No clients found for coach: " + currentCoachId);
                                     return;
                                 }
 
-                                android.util.Log.d("CoachLoad", "Found " + queryDocumentSnapshots.size() + " clients");
+                                clientsList.clear();
 
-                                for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                                if (queryDocumentSnapshots == null || queryDocumentSnapshots.isEmpty()) {
+                                    showLoading(false);
+                                    updateUI();
+                                    Log.d("CoachLoad", "No clients found for coach: " + currentCoachId);
+                                    return;
+                                }
+
+                                Log.d("CoachLoad", "Found " + queryDocumentSnapshots.size() + " clients (live)");
+
+                                int totalClients = queryDocumentSnapshots.size();
+                                int[] processedCount = {0};
+
+                                for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                                     try {
-                                        // Extract user data from Firestore document
                                         String name = document.getString("fullname");
                                         String email = document.getString("email");
                                         String fitnessGoal = document.getString("fitnessGoal");
                                         String fitnessLevel = document.getString("fitnessLevel");
                                         String gender = document.getString("gender");
-                                        String membershipStatus = document.getString("membershipStatus");
 
-                                        // Get numeric fields
                                         Long currentStreak = document.getLong("currentStreak");
                                         Long workoutsCompleted = document.getLong("workoutsCompleted");
                                         Long height = document.getLong("height");
                                         Long weight = document.getLong("weight");
                                         Long age = document.getLong("age");
 
-                                        // Determine status based on membership and activity
-                                        String status = determineUserStatus(currentStreak, workoutsCompleted, membershipStatus);
-
-                                        // Format weight and height
                                         String weightStr = weight != null ? weight + " kg" : "N/A";
                                         String heightStr = height != null ? height + " cm" : "N/A";
 
-                                        // Handle null values with defaults
                                         name = name != null ? name : "Unknown User";
                                         email = email != null ? email : "";
                                         fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
                                         fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
-                                        status = status != null ? status : "Unknown";
 
-                                        // ✅ Create Client object
-                                        Client client = new Client(name, email, status, weightStr, heightStr, fitnessGoal, fitnessLevel);
-
-                                        // ⬇️ THIS is the line you need to add
-                                        client.setUid(document.getId());   // Store Firestore doc ID
-
+                                        Client client = new Client(name, email, "Checking...", weightStr, heightStr, fitnessGoal, fitnessLevel);
+                                        client.setUid(document.getId());
                                         clientsList.add(client);
 
-                                    } catch (Exception e) {
-                                        // Log error for debugging
-                                        android.util.Log.e("ClientLoad", "Error parsing client data: " + e.getMessage(), e);
+                                        // listen to this client’s membership
+                                        checkClientMembershipStatus(client, currentStreak, workoutsCompleted, document.getId(), processedCount, totalClients);
+
+                                    } catch (Exception ex) {
+                                        Log.e("ClientLoad", "Error parsing client: " + ex.getMessage(), ex);
+                                        processedCount[0]++;
+                                        if (processedCount[0] == totalClients) finalizeClientLoading();
                                     }
                                 }
-
-                                // Apply current filter and update UI
-                                applyFilter(filterSpinner.getSelectedItemPosition());
-                                showLoading(false);
-
-                                Toast.makeText(this, "Loaded " + clientsList.size() + " clients", Toast.LENGTH_SHORT).show();
-                            })
-                            .addOnFailureListener(e -> {
-                                showLoading(false);
-                                android.util.Log.e("ClientLoad", "Error loading clients: " + e.getMessage(), e);
-                                Toast.makeText(this, "Failed to load clients: " + e.getMessage(), Toast.LENGTH_LONG).show();
                             });
+
+
+
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
@@ -376,11 +369,57 @@ public class coach_clients extends AppCompatActivity {
                 });
     }
 
-    // Helper method to determine user status based on activity and membership
-    private String determineUserStatus(Long currentStreak, Long workoutsCompleted, String membershipStatus) {
+    // ✅ NEW METHOD: Check membership status from memberships collection
+    private void checkClientMembershipStatus(Client client, Long currentStreak, Long workoutsCompleted,
+                                             String userId, int[] processedCount, int totalClients) {
+        firestore.collection("memberships")
+                .whereEqualTo("userId", userId)
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e("Firestore", "Error listening for membership updates", error);
+                        processedCount[0]++;
+                        if (processedCount[0] == totalClients) {
+                            finalizeClientLoading();
+                        }
+                        return;
+                    }
+
+                    boolean hasActiveMembership = false;
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        for (QueryDocumentSnapshot document : querySnapshot) {
+                            String statusField = document.getString("membershipStatus");
+                            if (statusField != null && statusField.equalsIgnoreCase("active")) {
+                                Timestamp expirationTimestamp = document.getTimestamp("membershipExpirationDate");
+                                if (expirationTimestamp != null && expirationTimestamp.toDate().after(new Date())) {
+                                    hasActiveMembership = true;
+                                }
+                            }
+                        }
+                    }
+
+                    String status = determineUserStatusWithMembership(
+                            currentStreak,
+                            workoutsCompleted,
+                            hasActiveMembership
+                    );
+
+                    client.setStatus(status);
+                    clientsAdapter.notifyDataSetChanged(); // refresh UI immediately
+
+                    // ✅ Stop loading once all clients processed
+                    processedCount[0]++;
+                    if (processedCount[0] == totalClients) {
+                        finalizeClientLoading();
+                    }
+                });
+    }
+
+
+    // ✅ NEW METHOD: Updated status determination with membership check
+    private String determineUserStatusWithMembership(Long currentStreak, Long workoutsCompleted, boolean hasActiveMembership) {
         try {
-            // Check membership status first
-            if (membershipStatus != null && !"active".equals(membershipStatus)) {
+            // No active membership = Inactive
+            if (!hasActiveMembership) {
                 return "Inactive";
             }
 
@@ -388,11 +427,9 @@ public class coach_clients extends AppCompatActivity {
             if (currentStreak == null) currentStreak = 0L;
             if (workoutsCompleted == null) workoutsCompleted = 0L;
 
-            // Determine status based on activity
+            // Determine status based on activity (only if they have active membership)
             if (workoutsCompleted == 0 && currentStreak == 0) {
                 return "New";
-            } else if (currentStreak >= 3 || workoutsCompleted >= 5) {
-                return "Active";
             } else if (currentStreak >= 1 || workoutsCompleted >= 1) {
                 return "Active";
             } else {
@@ -404,6 +441,14 @@ public class coach_clients extends AppCompatActivity {
             return "Unknown";
         }
     }
+
+    // ✅ NEW METHOD: Called when all clients are processed
+    private void finalizeClientLoading() {
+        applyFilter(filterSpinner.getSelectedItemPosition());
+        showLoading(false);
+        Toast.makeText(this, "Loaded " + clientsList.size() + " clients", Toast.LENGTH_SHORT).show();
+    }
+
 
     private void showLoading(boolean show) {
         if (show) {
@@ -511,11 +556,12 @@ public class coach_clients extends AppCompatActivity {
     }
 
     // Client data model
+// Client data model
     public static class Client {
         private String uid;
         private String name;
         private String email;
-        private String status;
+        private String status;  // Keep this private
         private String weight;
         private String height;
         private String goal;
@@ -535,15 +581,8 @@ public class coach_clients extends AppCompatActivity {
             this.activityLevel = activityLevel;
         }
 
-        public String getUid() {
-            return uid;
-        }
-
-        public void setUid(String uid) {
-            this.uid = uid;
-        }
-
         // Getters
+        public String getUid() { return uid; }
         public String getName() { return name; }
         public String getEmail() { return email; }
         public String getStatus() { return status; }
@@ -551,5 +590,16 @@ public class coach_clients extends AppCompatActivity {
         public String getHeight() { return height; }
         public String getGoal() { return goal; }
         public String getActivityLevel() { return activityLevel; }
+
+        // ✅ ADD THIS SETTER
+        public void setUid(String uid) {
+            this.uid = uid;
+        }
+
+        // ✅ ADD THIS SETTER - CRITICAL!
+        public void setStatus(String status) {
+            this.status = status;
+        }
     }
+
 }

@@ -82,7 +82,6 @@
                 android:textStyle="bold"
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="4dp"
-                android:background="@drawable/status_background"
                 android:textColor="@color/white" />
 
             <TextView

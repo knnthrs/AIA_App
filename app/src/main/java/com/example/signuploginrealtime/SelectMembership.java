@@ -678,24 +678,26 @@ public class SelectMembership extends AppCompatActivity {
                 boolean paymentSuccess = data.getBooleanExtra("paymentSuccess", false);
 
                 if (paymentSuccess) {
-                    saveMembership();
-                } else {
+                    String paymentMethod = data.getStringExtra("paymentMethod");
+                    saveMembership(paymentMethod);
+                }
+                else {
                     Toast.makeText(this, "Payment was not completed", Toast.LENGTH_SHORT).show();
                 }
             }
         }
     }
 
-    private void saveMembership() {
+    private void saveMembership(String paymentMethod) {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);
         }
         confirmButtonCard.setEnabled(false);
 
-        createNewMembership();
+        createNewMembership(paymentMethod);
     }
 
-    private void createNewMembership() {
+    private void createNewMembership(String paymentMethod) {
         db.collection("users")
                 .document(currentUserId)
                 .get()
@@ -709,15 +711,15 @@ public class SelectMembership extends AppCompatActivity {
                         }
                     }
 
-                    saveMembershipWithUserName(fullName);
+                    saveMembershipWithUserName(fullName, paymentMethod); // ✅ pass paymentMethod
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error fetching user name", e);
-                    saveMembershipWithUserName("Unknown User");
+                    saveMembershipWithUserName("Unknown User", paymentMethod); // ✅ also pass here
                 });
     }
 
-    private void saveMembershipWithUserName(String fullName) {
+    private void saveMembershipWithUserName(String fullName,String paymentMethod) {
         Calendar calendar = Calendar.getInstance();
 
         if (selectedMonths > 0) {
@@ -745,7 +747,9 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("sessionsRemaining", selectedSessions);
         membershipData.put("price", selectedPrice);
         membershipData.put("paymentStatus", "paid");
+        membershipData.put("paymentMethod", paymentMethod);// or "GCash", "Card", etc.
         membershipData.put("createdAt", startTimestamp);
+
 
         Log.d(TAG, "Saving membership with userId: " + currentUserId);
 

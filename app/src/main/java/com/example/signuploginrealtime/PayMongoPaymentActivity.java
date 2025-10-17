@@ -113,6 +113,7 @@ public class PayMongoPaymentActivity extends AppCompatActivity {
                 .setPositiveButton("Continue", (dialog, which) -> {
                     Intent resultIntent = new Intent();
                     resultIntent.putExtra("paymentSuccess", true);
+                    resultIntent.putExtra("paymentMethod", "PayMongo"); // ✅ added
                     setResult(RESULT_OK, resultIntent);
                     finish();
                 })

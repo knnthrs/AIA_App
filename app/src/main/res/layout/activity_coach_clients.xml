@@ -306,17 +306,6 @@
             android:paddingTop="16dp">
 
             <LinearLayout
-                android:id="@+id/menu_clients"
-                style="@style/SidebarMenuItem">
-                <ImageView
-                    style="@style/SidebarMenuIcon"
-                    android:src="@android:drawable/ic_menu_agenda" />
-                <TextView
-                    style="@style/SidebarMenuText"
-                    android:text="My Clients" />
-            </LinearLayout>
-
-            <LinearLayout
                 android:id="@+id/menu_archive"
                 style="@style/SidebarMenuItem">
                 <ImageView

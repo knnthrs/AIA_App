@@ -17,6 +17,7 @@ import com.example.signuploginrealtime.models.UserProfile;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QuerySnapshot;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -134,60 +135,22 @@ public class SignupActivity extends AppCompatActivity {
                 return;
             }
 
-            showLoading();
+            // Check if phone number already exists
+            showLoading("Checking phone number...");
+            String normalizedPhone = normalizePhoneNumber(phone);
 
-            mAuth.createUserWithEmailAndPassword(email, password)
-                    .addOnCompleteListener(task -> {
-                        hideLoading();
+            checkPhoneNumberExists(normalizedPhone, exists -> {
+                hideLoading();
 
-                        if (task.isSuccessful()) {
-                            FirebaseUser firebaseUser = mAuth.getCurrentUser();
-                            if (firebaseUser != null) {
-                                showLoading("Saving user data...");
-
-                                String userId = firebaseUser.getUid();
-                                String normalizedPhone = normalizePhoneNumber(phone);
-
-                                Map<String, Object> userData = new HashMap<>();
-                                userData.put("fullname", fullname);
-                                userData.put("email", email);
-                                userData.put("phone", normalizedPhone);
-                                userData.put("userType", "user");
-                                userData.put("emailVerified", false); // Track verification status
-
-                                db.collection("users").document(userId).set(userData)
-                                        .addOnCompleteListener(dbTask -> {
-                                            hideLoading();
-                                            if (dbTask.isSuccessful()) {
-                                                Map<String, Object> initialStats = new HashMap<>();
-                                                initialStats.put("totalWorkouts", 0);
-                                                initialStats.put("totalMinutes", 0);
-                                                initialStats.put("totalCalories", 0);
-
-                                                db.collection("users")
-                                                        .document(userId)
-                                                        .collection("stats")
-                                                        .document("overall")
-                                                        .set(initialStats);
-
-                                                SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
-                                                prefs.edit().putString("role", "user").apply();
-
-                                                // Send email verification
-                                                sendEmailVerification(firebaseUser);
-                                            } else {
-                                                firebaseUser.delete().addOnCompleteListener(deleteTask -> {
-                                                    Toast.makeText(SignupActivity.this,
-                                                            "Failed to save user data to Firestore. Please try again.",
-                                                            Toast.LENGTH_LONG).show();
-                                                });
-                                            }
-                                        });
-                            }
-                        } else {
-                            Toast.makeText(SignupActivity.this, "Sign up failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
-                        }
-                    });
+                if (exists) {
+                    Toast.makeText(SignupActivity.this,
+                            "This phone number is already registered. Please use a different number or login.",
+                            Toast.LENGTH_LONG).show();
+                } else {
+                    // Phone number is unique, proceed with registration
+                    proceedWithSignup(fullname, email, password, normalizedPhone);
+                }
+            });
         });
 
         loginRedirectText.setOnClickListener(v -> {
@@ -195,6 +158,85 @@ public class SignupActivity extends AppCompatActivity {
             startActivity(intent);
         });
 
+    }
+
+    private void checkPhoneNumberExists(String phone, PhoneCheckCallback callback) {
+        db.collection("users")
+                .whereEqualTo("phone", phone)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        QuerySnapshot querySnapshot = task.getResult();
+                        callback.onResult(querySnapshot != null && !querySnapshot.isEmpty());
+                    } else {
+                        // If check fails, show error and don't proceed
+                        Toast.makeText(SignupActivity.this,
+                                "Error checking phone number. Please try again.",
+                                Toast.LENGTH_SHORT).show();
+                        callback.onResult(true); // Treat as exists to prevent signup on error
+                    }
+                });
+    }
+
+    private void proceedWithSignup(String fullname, String email, String password, String normalizedPhone) {
+        showLoading("Creating account...");
+
+        mAuth.createUserWithEmailAndPassword(email, password)
+                .addOnCompleteListener(task -> {
+                    hideLoading();
+
+                    if (task.isSuccessful()) {
+                        FirebaseUser firebaseUser = mAuth.getCurrentUser();
+                        if (firebaseUser != null) {
+                            showLoading("Saving user data...");
+
+                            String userId = firebaseUser.getUid();
+
+                            Map<String, Object> userData = new HashMap<>();
+                            userData.put("fullname", fullname);
+                            userData.put("email", email);
+                            userData.put("phone", normalizedPhone);
+                            userData.put("userType", "user");
+                            userData.put("emailVerified", false); // Track verification status
+
+                            db.collection("users").document(userId).set(userData)
+                                    .addOnCompleteListener(dbTask -> {
+                                        hideLoading();
+                                        if (dbTask.isSuccessful()) {
+                                            Map<String, Object> initialStats = new HashMap<>();
+                                            initialStats.put("totalWorkouts", 0);
+                                            initialStats.put("totalMinutes", 0);
+                                            initialStats.put("totalCalories", 0);
+
+                                            db.collection("users")
+                                                    .document(userId)
+                                                    .collection("stats")
+                                                    .document("overall")
+                                                    .set(initialStats);
+
+                                            SharedPreferences prefs = getSharedPreferences("MyPrefs", MODE_PRIVATE);
+                                            prefs.edit().putString("role", "user").apply();
+
+                                            // Send email verification
+                                            sendEmailVerification(firebaseUser);
+                                        } else {
+                                            firebaseUser.delete().addOnCompleteListener(deleteTask -> {
+                                                Toast.makeText(SignupActivity.this,
+                                                        "Failed to save user data to Firestore. Please try again.",
+                                                        Toast.LENGTH_LONG).show();
+                                            });
+                                        }
+                                    });
+                        }
+                    } else {
+                        Toast.makeText(SignupActivity.this, "Sign up failed: " + task.getException().getMessage(), Toast.LENGTH_SHORT).show();
+                    }
+                });
+    }
+
+    // Callback interface for phone check
+    interface PhoneCheckCallback {
+        void onResult(boolean exists);
     }
 
     private void sendEmailVerification(FirebaseUser user) {

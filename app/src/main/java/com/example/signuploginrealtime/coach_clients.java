@@ -72,6 +72,8 @@ public class coach_clients extends AppCompatActivity {
     private FirebaseFirestore firestore;
     private FirebaseUser currentUser;
     private String currentCoachId;
+    private Map<String, com.google.firebase.firestore.ListenerRegistration> membershipListeners = new HashMap<>();
+    private com.google.firebase.firestore.ListenerRegistration usersListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -112,7 +114,6 @@ public class coach_clients extends AppCompatActivity {
         emptyStateLayout = findViewById(R.id.empty_state_layout);
 
         // Sidebar components
-        menuClients = findViewById(R.id.menu_clients);
         menuArchive = findViewById(R.id.menu_archive);
         menuLogout = findViewById(R.id.menu_logout);
         sidebarCoachName = findViewById(R.id.sidebar_coach_name);
@@ -200,10 +201,6 @@ public class coach_clients extends AppCompatActivity {
     }
 
     private void setupSidebarListeners() {
-        findViewById(R.id.menu_clients).setOnClickListener(v -> {
-            Toast.makeText(this, "My Clients clicked", Toast.LENGTH_SHORT).show();
-            drawerLayout.closeDrawer(GravityCompat.END);
-        });
 
         findViewById(R.id.menu_archive).setOnClickListener(v -> {
             Intent intent = new Intent(coach_clients.this, CoachArchiveActivity.class);
@@ -297,15 +294,32 @@ public class coach_clients extends AppCompatActivity {
                     }
 
                     currentCoachId = coachQuerySnapshot.getDocuments().get(0).getId();
-                    android.util.Log.d("CoachLoad", "Found coach ID: " + currentCoachId);
+                    Log.d("CoachLoad", "Found coach ID: " + currentCoachId);
 
-                    firestore.collection("users")
+                    // ✅ Remove old users listener if it exists
+                    if (usersListener != null) {
+                        usersListener.remove();
+                        usersListener = null;
+                    }
+
+                    // ✅ Real-time listener for users collection
+                    usersListener = firestore.collection("users")
                             .whereEqualTo("coachId", currentCoachId)
+                            .whereEqualTo("isArchived", false)
                             .addSnapshotListener((queryDocumentSnapshots, e) -> {
                                 if (e != null) {
                                     Log.e("ClientLoad", "Error listening for client updates", e);
                                     showLoading(false);
                                     return;
+                                }
+
+                                // ✅ Clean up old listeners before clearing the list
+                                for (Client client : clientsList) {
+                                    String userId = client.getUid();
+                                    if (userId != null && membershipListeners.containsKey(userId)) {
+                                        membershipListeners.get(userId).remove();
+                                        membershipListeners.remove(userId);
+                                    }
                                 }
 
                                 clientsList.clear();
@@ -319,22 +333,17 @@ public class coach_clients extends AppCompatActivity {
 
                                 Log.d("CoachLoad", "Found " + queryDocumentSnapshots.size() + " clients (live)");
 
-                                int totalClients = queryDocumentSnapshots.size();
-                                int[] processedCount = {0};
-
                                 for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                                     try {
                                         String name = document.getString("fullname");
                                         String email = document.getString("email");
                                         String fitnessGoal = document.getString("fitnessGoal");
                                         String fitnessLevel = document.getString("fitnessLevel");
-                                        String gender = document.getString("gender");
 
                                         Long currentStreak = document.getLong("currentStreak");
                                         Long workoutsCompleted = document.getLong("workoutsCompleted");
                                         Long height = document.getLong("height");
                                         Long weight = document.getLong("weight");
-                                        Long age = document.getLong("age");
 
                                         String weightStr = weight != null ? weight + " kg" : "N/A";
                                         String heightStr = height != null ? height + " cm" : "N/A";
@@ -348,39 +357,42 @@ public class coach_clients extends AppCompatActivity {
                                         client.setUid(document.getId());
                                         clientsList.add(client);
 
-                                        // listen to this client’s membership
-                                        checkClientMembershipStatus(client, currentStreak, workoutsCompleted, document.getId(), processedCount, totalClients);
+                                        // ✅ Set up real-time membership listener for this client
+                                        setupMembershipListener(client, currentStreak, workoutsCompleted);
 
                                     } catch (Exception ex) {
                                         Log.e("ClientLoad", "Error parsing client: " + ex.getMessage(), ex);
-                                        processedCount[0]++;
-                                        if (processedCount[0] == totalClients) finalizeClientLoading();
                                     }
                                 }
+
+                                // ✅ Update UI after loading all clients
+                                applyFilter(filterSpinner.getSelectedItemPosition());
+                                showLoading(false);
                             });
-
-
-
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
-                    android.util.Log.e("CoachLoad", "Error finding coach profile: " + e.getMessage(), e);
+                    Log.e("CoachLoad", "Error finding coach profile: " + e.getMessage(), e);
                     Toast.makeText(this, "Failed to find coach profile: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 
-    // ✅ NEW METHOD: Check membership status from memberships collection
-    private void checkClientMembershipStatus(Client client, Long currentStreak, Long workoutsCompleted,
-                                             String userId, int[] processedCount, int totalClients) {
-        firestore.collection("memberships")
+
+
+    private void setupMembershipListener(Client client, Long currentStreak, Long workoutsCompleted) {
+        String userId = client.getUid();
+
+        // Remove old listener if exists
+        if (membershipListeners.containsKey(userId)) {
+            membershipListeners.get(userId).remove();
+        }
+
+        // ✅ Set up new real-time listener
+        com.google.firebase.firestore.ListenerRegistration registration = firestore.collection("memberships")
                 .whereEqualTo("userId", userId)
                 .addSnapshotListener((querySnapshot, error) -> {
                     if (error != null) {
-                        Log.e("Firestore", "Error listening for membership updates", error);
-                        processedCount[0]++;
-                        if (processedCount[0] == totalClients) {
-                            finalizeClientLoading();
-                        }
+                        Log.e("Membership", "Error listening for membership updates", error);
                         return;
                     }
 
@@ -392,9 +404,16 @@ public class coach_clients extends AppCompatActivity {
                                 Timestamp expirationTimestamp = document.getTimestamp("membershipExpirationDate");
                                 if (expirationTimestamp != null && expirationTimestamp.toDate().after(new Date())) {
                                     hasActiveMembership = true;
+                                    break;
                                 }
                             }
                         }
+                    }
+
+                    // ✅ Auto-archive if no active membership
+                    if (!hasActiveMembership) {
+                        autoArchiveClient(client);
+                        return; // Don't update status, client will be removed by snapshot listener
                     }
 
                     String status = determineUserStatusWithMembership(
@@ -403,51 +422,50 @@ public class coach_clients extends AppCompatActivity {
                             hasActiveMembership
                     );
 
+                    // ✅ Update client status in real-time
                     client.setStatus(status);
-                    clientsAdapter.notifyDataSetChanged(); // refresh UI immediately
 
-                    // ✅ Stop loading once all clients processed
-                    processedCount[0]++;
-                    if (processedCount[0] == totalClients) {
-                        finalizeClientLoading();
+                    // ✅ Find client in filtered list and update
+                    int index = filteredClientsList.indexOf(client);
+                    if (index >= 0) {
+                        clientsAdapter.notifyItemChanged(index);
                     }
+
+                    updateUI();
                 });
+
+        // Store the listener so we can remove it later
+        membershipListeners.put(userId, registration);
     }
+
 
 
     // ✅ NEW METHOD: Updated status determination with membership check
     private String determineUserStatusWithMembership(Long currentStreak, Long workoutsCompleted, boolean hasActiveMembership) {
         try {
-            // No active membership = Inactive
-            if (!hasActiveMembership) {
-                return "Inactive";
-            }
+            // This method should only be called for users WITH active membership
+            // Users without membership are auto-archived
 
             // Default values if null
             if (currentStreak == null) currentStreak = 0L;
             if (workoutsCompleted == null) workoutsCompleted = 0L;
 
-            // Determine status based on activity (only if they have active membership)
+            // Determine status based on activity
             if (workoutsCompleted == 0 && currentStreak == 0) {
                 return "New";
             } else if (currentStreak >= 1 || workoutsCompleted >= 1) {
                 return "Active";
             } else {
-                return "Inactive";
+                return "New"; // Has membership but hasn't started
             }
 
         } catch (Exception e) {
-            android.util.Log.e("StatusDetermination", "Error determining user status: " + e.getMessage(), e);
-            return "Unknown";
+            Log.e("StatusDetermination", "Error determining user status: " + e.getMessage(), e);
+            return "New";
         }
     }
 
-    // ✅ NEW METHOD: Called when all clients are processed
-    private void finalizeClientLoading() {
-        applyFilter(filterSpinner.getSelectedItemPosition());
-        showLoading(false);
-        Toast.makeText(this, "Loaded " + clientsList.size() + " clients", Toast.LENGTH_SHORT).show();
-    }
+
 
 
     private void showLoading(boolean show) {
@@ -529,22 +547,67 @@ public class coach_clients extends AppCompatActivity {
         archiveData.put("isArchived", true);
         archiveData.put("archivedBy", currentCoachId);
         archiveData.put("archivedAt", com.google.firebase.Timestamp.now());
+        archiveData.put("coachId", null); // ✅ Remove coach assignment
 
         firestore.collection("users")
                 .document(client.getUid())
                 .update(archiveData)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, client.getName() + " has been archived", Toast.LENGTH_SHORT).show();
-                    clientsList.remove(client);
-                    filteredClientsList.remove(client);
-                    clientsAdapter.notifyDataSetChanged();
-                    updateUI();
+                    Toast.makeText(this, client.getName() + " has been archived and unassigned", Toast.LENGTH_SHORT).show();
+                    // Snapshot listener will handle the removal automatically
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to archive client: " + e.getMessage(), Toast.LENGTH_LONG).show();
-                    android.util.Log.e("ArchiveClient", "Error: " + e.getMessage(), e);
+                    Log.e("ArchiveClient", "Error: " + e.getMessage(), e);
                 });
     }
+
+    private void autoArchiveClient(Client client) {
+        if (client.getUid() == null || client.getUid().isEmpty()) {
+            return;
+        }
+
+        Log.d("AutoArchive", "Auto-archiving client due to no active membership: " + client.getName());
+
+        Map<String, Object> archiveData = new HashMap<>();
+        archiveData.put("isArchived", true);
+        archiveData.put("archivedBy", "system"); // System archived (no membership)
+        archiveData.put("archivedAt", com.google.firebase.Timestamp.now());
+        archiveData.put("coachId", null); // ✅ Remove coach assignment
+        archiveData.put("archiveReason", "No active membership");
+
+        firestore.collection("users")
+                .document(client.getUid())
+                .update(archiveData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("AutoArchive", "Client auto-archived successfully: " + client.getName());
+                    // Snapshot listener will handle the removal automatically
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("AutoArchive", "Failed to auto-archive client: " + e.getMessage(), e);
+                });
+    }
+
+
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        // ✅ Clean up users listener
+        if (usersListener != null) {
+            usersListener.remove();
+            usersListener = null;
+        }
+
+        // ✅ Clean up all membership listeners
+        for (com.google.firebase.firestore.ListenerRegistration listener : membershipListeners.values()) {
+            listener.remove();
+        }
+        membershipListeners.clear();
+    }
+
+
     @Override
     public void onBackPressed() {
         new AlertDialog.Builder(this)
@@ -556,7 +619,6 @@ public class coach_clients extends AppCompatActivity {
     }
 
     // Client data model
-// Client data model
     public static class Client {
         private String uid;
         private String name;

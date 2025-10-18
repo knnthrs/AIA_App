@@ -42,6 +42,7 @@ import android.graphics.BitmapFactory;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import com.bumptech.glide.Glide;
+import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import java.io.ByteArrayOutputStream;
@@ -93,6 +94,11 @@ public class Profile extends AppCompatActivity {
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
 
+    // Callback interface for phone check
+    interface PhoneCheckCallback {
+        void onResult(boolean exists);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
 
@@ -126,6 +132,9 @@ public class Profile extends AppCompatActivity {
         uploadProgressDialog.setTitle("Uploading Image");
         uploadProgressDialog.setMessage("Please wait...");
         uploadProgressDialog.setCancelable(false);
+
+
+
 
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
@@ -801,9 +810,10 @@ public class Profile extends AppCompatActivity {
         // Remove spaces, dashes, and parentheses
         String cleanPhone = phone.replaceAll("[\\s\\-\\(\\)]", "");
 
-        // Check if it matches Philippine format: starts with 0 and has exactly 11 digits
-        return cleanPhone.matches("^0\\d{10}$");
+        // Check if it matches Philippine format using the constant
+        return PHONE_PATTERN.matcher(cleanPhone).matches();  // ✅ Uses the constant
     }
+
 
     private void updateEmailWithAuth(String newEmail, String password) {
         FirebaseUser user = mAuth.getCurrentUser();
@@ -896,18 +906,80 @@ public class Profile extends AppCompatActivity {
 
 
     private void updatePhone(String newPhone) {
-        if (userDocRef != null) {
-            userDocRef.update("phone", newPhone)
-                    .addOnSuccessListener(aVoid -> {
-                        tvPhone.setText(newPhone);
-                        markProfileAsChanged();
-                        Toast.makeText(this, "Phone number updated successfully", Toast.LENGTH_SHORT).show();
-                    })
-                    .addOnFailureListener(e -> {
-                        Toast.makeText(this, "Failed to update phone: " + e.getMessage(),
-                                Toast.LENGTH_SHORT).show();
-                    });
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        // Normalize phone number (remove spaces and dashes)
+        String normalizedPhone = newPhone.replaceAll("[\\s-]", "");
+
+        // Check if this is the same as current phone
+        String currentPhone = tvPhone.getText().toString().replaceAll("[\\s-]", "");
+        if (normalizedPhone.equals(currentPhone)) {
+            Toast.makeText(this, "This is already your current phone number", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Show progress
+        Toast.makeText(this, "Checking phone number...", Toast.LENGTH_SHORT).show();
+
+        // Check if phone number already exists
+        checkPhoneNumberExists(normalizedPhone, currentUser.getUid(), exists -> {
+            if (exists) {
+                Toast.makeText(Profile.this,
+                        "This phone number is already registered to another account. Please use a different number.",
+                        Toast.LENGTH_LONG).show();
+            } else {
+                // Phone number is unique, proceed with update
+                if (userDocRef != null) {
+                    userDocRef.update("phone", normalizedPhone)
+                            .addOnSuccessListener(aVoid -> {
+                                tvPhone.setText(normalizedPhone);
+                                markProfileAsChanged();
+                                Toast.makeText(Profile.this,
+                                        "Phone number updated successfully",
+                                        Toast.LENGTH_SHORT).show();
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(Profile.this,
+                                        "Failed to update phone: " + e.getMessage(),
+                                        Toast.LENGTH_SHORT).show();
+                            });
+                }
+            }
+        });
+    }
+
+    private void checkPhoneNumberExists(String phone, String currentUserId, PhoneCheckCallback callback) {
+        firestore.collection("users")  // ✅ Use firestore instead
+                .whereEqualTo("phone", phone)
+                .get()
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        QuerySnapshot querySnapshot = task.getResult();
+                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                            // Check if the phone belongs to current user
+                            boolean belongsToOtherUser = false;
+                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                if (!doc.getId().equals(currentUserId)) {
+                                    belongsToOtherUser = true;
+                                    break;
+                                }
+                            }
+                            callback.onResult(belongsToOtherUser);
+                        } else {
+                            callback.onResult(false);
+                        }
+                    } else {
+                        // If check fails, show error and don't proceed
+                        Toast.makeText(Profile.this,
+                                "Error checking phone number. Please try again.",
+                                Toast.LENGTH_SHORT).show();
+                        callback.onResult(true); // Treat as exists to prevent update on error
+                    }
+                });
     }
 
     private void setupDatePicker() {
@@ -1193,9 +1265,7 @@ public class Profile extends AppCompatActivity {
         uploadProgressDialog.setMessage("Preparing upload...");
         uploadProgressDialog.show();
 
-        // FIXED: Removed 'overwrite' and 'invalidate' options (not allowed with unsigned upload)
-        // FIXED: Removed 'public_id' to allow auto-generated unique filenames
-        // FIXED: Added context to dispatch() method
+
         MediaManager.get().upload(imageUri)
                 .unsigned("profile_uploads")
                 .option("folder", "profile_pictures")
@@ -1279,61 +1349,6 @@ public class Profile extends AppCompatActivity {
         }
     }
 
-    private void uploadImageToFirebase(Uri imageUri) {
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null) return;
-
-        uploadProgressDialog.show();
-
-        try {
-            InputStream inputStream = getContentResolver().openInputStream(imageUri);
-            Bitmap bitmap = BitmapFactory.decodeStream(inputStream);
-
-            Bitmap resizedBitmap = resizeBitmap(bitmap, 800, 800);
-
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            resizedBitmap.compress(Bitmap.CompressFormat.JPEG, 70, baos);
-            byte[] imageData = baos.toByteArray();
-
-            String fileName = "profile_" + currentUser.getUid() + ".jpg";
-
-            FirebaseStorage storage = FirebaseStorage.getInstance();
-            StorageReference fileRef = storage.getReference("profile_pictures").child(fileName);
-
-            fileRef.putBytes(imageData)
-                    .addOnSuccessListener(taskSnapshot -> {
-                        fileRef.getDownloadUrl().addOnSuccessListener(downloadUri -> {
-                            saveProfilePictureUrl(downloadUri.toString());
-                            uploadProgressDialog.dismiss();
-                            Toast.makeText(this, "Profile picture updated!", Toast.LENGTH_SHORT).show();
-                        });
-                    })
-                    .addOnFailureListener(e -> {
-                        uploadProgressDialog.dismiss();
-                        Toast.makeText(this, "Upload failed: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                    });
-
-        } catch (Exception e) {
-            uploadProgressDialog.dismiss();
-            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private Bitmap resizeBitmap(Bitmap bitmap, int maxWidth, int maxHeight) {
-        int width = bitmap.getWidth();
-        int height = bitmap.getHeight();
-        float ratio = (float) width / (float) height;
-
-        if (ratio > 1) {
-            width = maxWidth;
-            height = (int) (maxWidth / ratio);
-        } else {
-            height = maxHeight;
-            width = (int) (maxHeight * ratio);
-        }
-
-        return Bitmap.createScaledBitmap(bitmap, width, height, true);
-    }
 
     private void saveProfilePictureUrl(String imageUrl) {
         if (userDocRef != null) {

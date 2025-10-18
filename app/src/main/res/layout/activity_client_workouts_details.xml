@@ -36,7 +36,7 @@
             android:layout_weight="1"
             android:layout_marginStart="16dp"
             android:text="Client Workout Details"
-            android:textColor="@color/white"
+            android:textColor="@color/black"
             android:textSize="20sp"
             android:textStyle="bold" />
 
@@ -193,7 +193,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Current Workouts"
-        android:textColor="@color/white"
+        android:textColor="@color/black"
         android:textSize="20sp"
         android:textStyle="bold"
         android:layout_marginStart="16dp"

@@ -21,6 +21,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
+            android:layout_marginTop="30dp"
             android:padding="16dp"
             android:gravity="center_vertical">
 
@@ -31,10 +32,11 @@
                 android:orientation="vertical">
 
                 <TextView
+                    android:id="@+id/welcome_coach_text"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Welcome Coach!"
-                    android:textColor="@color/white"
+                    android:textColor="@color/black"
                     android:textSize="24sp"
                     android:textStyle="bold"/>
 
@@ -43,7 +45,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="Managing 0 clients"
-                    android:textColor="@color/white"
+                    android:textColor="@color/gray"
                     android:textSize="14sp"
                     android:alpha="0.8"
                     android:layout_marginTop="4dp"/>
@@ -52,9 +54,8 @@
 
             <ImageView
                 android:id="@+id/coach_profile_icon"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="@drawable/grey_boarder"
+                android:layout_width="50dp"
+                android:layout_height="50dp"
                 android:padding="8dp"
                 android:src="@drawable/ic_profile"
                 android:clickable="true"
@@ -274,7 +275,7 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:layout_marginBottom="8dp"
-                android:background="@drawable/grey_boarder"
+                android:layout_marginTop="20dp"
                 android:padding="8dp"
                 android:src="@drawable/ic_profile"
                 app:tint="@color/black" />

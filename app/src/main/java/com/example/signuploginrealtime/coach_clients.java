@@ -528,10 +528,25 @@ public class coach_clients extends AppCompatActivity {
                     .get()
                     .addOnSuccessListener(querySnapshot -> {
                         if (!querySnapshot.isEmpty()) {
-                            String name = querySnapshot.getDocuments().get(0).getString("name");
+                            String fullName = querySnapshot.getDocuments().get(0).getString("fullname");
                             String email = querySnapshot.getDocuments().get(0).getString("email");
-                            sidebarCoachName.setText(name != null ? name : "Coach");
+
+                            // Set full name in sidebar
+                            sidebarCoachName.setText(fullName != null ? fullName : "Coach");
                             sidebarCoachEmail.setText(email != null ? email : "");
+
+                            // Extract first name for welcome message
+                            String firstName = "Coach";
+                            if (fullName != null && !fullName.isEmpty()) {
+                                String[] nameParts = fullName.trim().split("\\s+");
+                                firstName = nameParts[0];
+                            }
+
+                            // Update welcome text
+                            TextView welcomeText = findViewById(R.id.welcome_coach_text);
+                            if (welcomeText != null) {
+                                welcomeText.setText("Welcome Coach " + firstName + "!");
+                            }
                         }
                     })
                     .addOnFailureListener(e -> {
@@ -539,6 +554,8 @@ public class coach_clients extends AppCompatActivity {
                     });
         }
     }
+
+
     private void logoutCoach() {
         FirebaseAuth.getInstance().signOut();
 

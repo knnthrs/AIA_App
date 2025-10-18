@@ -76,8 +76,8 @@
 
                     <ImageView
                         android:id="@+id/decrease_sets_button"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:layout_width="25dp"
+                        android:layout_height="25dp"
                         android:src="@drawable/ic_remove"
                         android:background="@drawable/grey_boarder"
                         android:padding="8dp"
@@ -100,8 +100,8 @@
 
                     <ImageView
                         android:id="@+id/increase_sets_button"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:layout_width="25dp"
+                        android:layout_height="25dp"
                         android:src="@drawable/ic_add"
                         android:background="@drawable/grey_boarder"
                         android:padding="8dp"
@@ -136,8 +136,8 @@
 
                     <ImageView
                         android:id="@+id/decrease_reps_button"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:layout_width="25dp"
+                        android:layout_height="25dp"
                         android:src="@drawable/ic_remove"
                         android:background="@drawable/grey_boarder"
                         android:padding="8dp"
@@ -160,8 +160,8 @@
 
                     <ImageView
                         android:id="@+id/increase_reps_button"
-                        android:layout_width="36dp"
-                        android:layout_height="36dp"
+                        android:layout_width="25dp"
+                        android:layout_height="25dp"
                         android:src="@drawable/ic_add"
                         android:background="@drawable/grey_boarder"
                         android:padding="8dp"

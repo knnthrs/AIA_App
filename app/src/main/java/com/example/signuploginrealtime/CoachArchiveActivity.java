@@ -125,7 +125,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
                     // 3. Clients where admin removed the coach (coachId is null but archivedBy points to this coach)
                     // ✅ Real-time listener for archived clients that belong to this coach
                     archiveListener = firestore.collection("users")
-                            .whereEqualTo("archivedBy", currentCoachId)
                             .whereEqualTo("isArchived", true)
                             .addSnapshotListener((queryDocumentSnapshots, e) -> {
                                 if (e != null) {
@@ -134,52 +133,94 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                     return;
                                 }
 
-                                archivedClientsList.clear();
-
-                                if (queryDocumentSnapshots == null || queryDocumentSnapshots.isEmpty()) {
+                                if (queryDocumentSnapshots == null) {
                                     showLoading(false);
                                     updateUI();
                                     return;
                                 }
 
-                                // ✅ Process archived clients (already filtered by query)
-                                for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                                    try {
-                                        String archivedBy = document.getString("archivedBy"); {
+                                // ✅ Use document changes to handle add/modify/remove in real-time
+                                for (com.google.firebase.firestore.DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                                    com.google.firebase.firestore.QueryDocumentSnapshot document = dc.getDocument();
+                                    String userId = document.getId();
 
-                                            String name = document.getString("fullname");
-                                            String email = document.getString("email");
-                                            String fitnessGoal = document.getString("fitnessGoal");
-                                            String fitnessLevel = document.getString("fitnessLevel");
-                                            String archiveReason = document.getString("archiveReason");
+                                    switch (dc.getType()) {
+                                        case ADDED:
+                                        case MODIFIED:
+                                            try {
+                                                String archivedBy = document.getString("archivedBy");
+                                                String assignedCoachId = document.getString("coachId");
+                                                Boolean isArchived = document.getBoolean("isArchived");
 
-                                            Long height = document.getLong("height");
-                                            Long weight = document.getLong("weight");
+                                                // ✅ Check if client was unarchived (restored)
+                                                if (isArchived != null && !isArchived) {
+                                                    Log.d("ArchiveRestore", "Client was restored, removing from archive: " + userId);
+                                                    removeArchivedClientFromList(userId);
+                                                    break;
+                                                }
 
-                                            String weightStr = weight != null ? weight + " kg" : "N/A";
-                                            String heightStr = height != null ? height + " cm" : "N/A";
+                                                // ✅ Check if client was reassigned to this coach
+                                                if (currentCoachId.equals(assignedCoachId)) {
+                                                    Log.d("ArchiveReassign", "Client was reassigned to this coach, removing from archive: " + userId);
+                                                    removeArchivedClientFromList(userId);
+                                                    break;
+                                                }
 
-                                            name = name != null ? name : "Unknown User";
-                                            email = email != null ? email : "";
-                                            fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
-                                            fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
+                                                // ✅ Only show if archived by this coach AND not reassigned
+                                                if (currentCoachId.equals(archivedBy) &&
+                                                        (assignedCoachId == null || !assignedCoachId.equals(currentCoachId)) &&
+                                                        isArchived != null && isArchived) {
 
-                                            // ✅ Show archive reason as status
-                                            String statusText = "Archived";
-                                            if (archiveReason != null) {
-                                                statusText = "Archived: " + archiveReason;
+                                                    // Check if client already exists
+                                                    coach_clients.Client existingClient = findArchivedClientById(userId);
+
+                                                    if (existingClient == null) {
+                                                        // Add new archived client
+                                                        String name = document.getString("fullname");
+                                                        String email = document.getString("email");
+                                                        String fitnessGoal = document.getString("fitnessGoal");
+                                                        String fitnessLevel = document.getString("fitnessLevel");
+                                                        String archiveReason = document.getString("archiveReason");
+
+                                                        Long height = document.getLong("height");
+                                                        Long weight = document.getLong("weight");
+
+                                                        String weightStr = weight != null ? weight + " kg" : "N/A";
+                                                        String heightStr = height != null ? height + " cm" : "N/A";
+
+                                                        name = name != null ? name : "Unknown User";
+                                                        email = email != null ? email : "";
+                                                        fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
+                                                        fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
+
+                                                        String statusText = "Archived";
+                                                        if (archiveReason != null) {
+                                                            statusText = "Archived: " + archiveReason;
+                                                        }
+
+                                                        coach_clients.Client client = new coach_clients.Client(
+                                                                name, email, statusText, weightStr, heightStr, fitnessGoal, fitnessLevel
+                                                        );
+                                                        client.setUid(userId);
+
+                                                        archivedClientsList.add(client);
+                                                        Log.d("ArchiveAdd", "Added archived client: " + name);
+                                                    }
+                                                } else {
+                                                    // Client no longer meets criteria, remove from list
+                                                    removeArchivedClientFromList(userId);
+                                                }
+
+                                            } catch (Exception ex) {
+                                                Log.e("ArchiveLoad", "Error parsing archived client: " + ex.getMessage(), ex);
                                             }
+                                            break;
 
-                                            coach_clients.Client client = new coach_clients.Client(
-                                                    name, email, statusText, weightStr, heightStr, fitnessGoal, fitnessLevel
-                                            );
-                                            client.setUid(document.getId());
-
-                                            archivedClientsList.add(client);
-                                        }
-
-                                    } catch (Exception ex) {
-                                        Log.e("ArchiveLoad", "Error parsing archived client: " + ex.getMessage(), ex);
+                                        case REMOVED:
+                                            // ✅ Handle removal in real-time (client was unarchived or deleted)
+                                            Log.d("ArchiveRemove", "Client removed from archive: " + userId);
+                                            removeArchivedClientFromList(userId);
+                                            break;
                                     }
                                 }
 
@@ -187,11 +228,31 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                 showLoading(false);
                                 updateUI();
                             });
+
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
                     Toast.makeText(this, "Failed to find coach profile", Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private coach_clients.Client findArchivedClientById(String userId) {
+        for (coach_clients.Client client : archivedClientsList) {
+            if (client.getUid() != null && client.getUid().equals(userId)) {
+                return client;
+            }
+        }
+        return null;
+    }
+
+    private void removeArchivedClientFromList(String userId) {
+        coach_clients.Client toRemove = findArchivedClientById(userId);
+        if (toRemove != null) {
+            archivedClientsList.remove(toRemove);
+            Log.d("RemoveArchived", "Removed client from archive list: " + userId);
+            adapter.notifyDataSetChanged();
+            updateUI();
+        }
     }
 
     private void showRestoreDialog(coach_clients.Client client) {
@@ -203,7 +264,12 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .show();
     }
 
+
+
     private void restoreClient(coach_clients.Client client) {
+        // ✅ IMMEDIATELY remove from UI first
+        removeArchivedClientFromList(client.getUid());
+
         // ✅ Restore client: reassign coach + unarchive
         Map<String, Object> restoreData = new HashMap<>();
         restoreData.put("isArchived", false);
@@ -217,13 +283,16 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .update(restoreData)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, client.getName() + " restored successfully", Toast.LENGTH_SHORT).show();
-                    // ✅ Listener will handle removal automatically
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to restore client: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e("RestoreClient", "Error: " + e.getMessage(), e);
+
+                    // ✅ If restore failed, reload the list
+                    loadArchivedClients();
                 });
     }
+
 
     private void showDeleteDialog(coach_clients.Client client) {
         new AlertDialog.Builder(this)
@@ -235,6 +304,9 @@ public class CoachArchiveActivity extends AppCompatActivity {
     }
 
     private void deleteClient(coach_clients.Client client) {
+        // ✅ IMMEDIATELY remove from UI first
+        removeArchivedClientFromList(client.getUid());
+
         // ✅ Soft delete - mark as deleted but keep data
         Map<String, Object> deleteData = new HashMap<>();
         deleteData.put("isDeleted", true);
@@ -246,11 +318,13 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .update(deleteData)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(this, client.getName() + " deleted permanently", Toast.LENGTH_SHORT).show();
-                    // ✅ Listener will handle removal automatically
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to delete client: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e("DeleteClient", "Error: " + e.getMessage(), e);
+
+                    // ✅ If delete failed, reload the list
+                    loadArchivedClients();
                 });
     }
 

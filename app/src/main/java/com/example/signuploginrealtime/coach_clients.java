@@ -305,7 +305,6 @@ public class coach_clients extends AppCompatActivity {
                     // ✅ Real-time listener for users collection
                     usersListener = firestore.collection("users")
                             .whereEqualTo("coachId", currentCoachId)
-                            .whereEqualTo("isArchived", false)
                             .addSnapshotListener((queryDocumentSnapshots, e) -> {
                                 if (e != null) {
                                     Log.e("ClientLoad", "Error listening for client updates", e);
@@ -313,62 +312,92 @@ public class coach_clients extends AppCompatActivity {
                                     return;
                                 }
 
-                                // ✅ Clean up old listeners before clearing the list
-                                for (Client client : clientsList) {
-                                    String userId = client.getUid();
-                                    if (userId != null && membershipListeners.containsKey(userId)) {
-                                        membershipListeners.get(userId).remove();
-                                        membershipListeners.remove(userId);
-                                    }
-                                }
-
-                                clientsList.clear();
-
-                                if (queryDocumentSnapshots == null || queryDocumentSnapshots.isEmpty()) {
+                                if (queryDocumentSnapshots == null) {
                                     showLoading(false);
                                     updateUI();
-                                    Log.d("CoachLoad", "No clients found for coach: " + currentCoachId);
                                     return;
                                 }
 
-                                Log.d("CoachLoad", "Found " + queryDocumentSnapshots.size() + " clients (live)");
+                                // ✅ Use document changes to handle add/modify/remove in real-time
+                                for (com.google.firebase.firestore.DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
+                                    QueryDocumentSnapshot document = dc.getDocument();
+                                    String userId = document.getId();
 
-                                for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                                    try {
-                                        String name = document.getString("fullname");
-                                        String email = document.getString("email");
-                                        String fitnessGoal = document.getString("fitnessGoal");
-                                        String fitnessLevel = document.getString("fitnessLevel");
+                                    switch (dc.getType()) {
+                                        case ADDED:
+                                        case MODIFIED:
+                                            // ✅ Process new or modified client
+                                            try {
+                                                // Auto-unarchive if admin reassigned this coach
+                                                Boolean isArchived = document.getBoolean("isArchived");
+                                                if (isArchived != null && isArchived) {
+                                                    autoUnarchiveClient(userId);
+                                                    break;
+                                                }
 
-                                        Long currentStreak = document.getLong("currentStreak");
-                                        Long workoutsCompleted = document.getLong("workoutsCompleted");
-                                        Long height = document.getLong("height");
-                                        Long weight = document.getLong("weight");
+                                                // Check if coachId still matches
+                                                String assignedCoachId = document.getString("coachId");
+                                                if (assignedCoachId == null || !assignedCoachId.equals(currentCoachId)) {
+                                                    Log.d("CoachRemoved", "Client no longer assigned: " + userId);
+                                                    // Remove from list if it exists
+                                                    removeClientFromList(userId);
+                                                    break;
+                                                }
 
-                                        String weightStr = weight != null ? weight + " kg" : "N/A";
-                                        String heightStr = height != null ? height + " cm" : "N/A";
+                                                // ✅ Check if client already exists in list
+                                                Client existingClient = findClientById(userId);
 
-                                        name = name != null ? name : "Unknown User";
-                                        email = email != null ? email : "";
-                                        fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
-                                        fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
+                                                if (existingClient != null) {
+                                                    // Update existing client
+                                                    Log.d("ClientUpdate", "Updating existing client: " + userId);
+                                                } else {
+                                                    // Add new client
+                                                    String name = document.getString("fullname");
+                                                    String email = document.getString("email");
+                                                    String fitnessGoal = document.getString("fitnessGoal");
+                                                    String fitnessLevel = document.getString("fitnessLevel");
 
-                                        Client client = new Client(name, email, "Checking...", weightStr, heightStr, fitnessGoal, fitnessLevel);
-                                        client.setUid(document.getId());
-                                        clientsList.add(client);
+                                                    Long currentStreak = document.getLong("currentStreak");
+                                                    Long workoutsCompleted = document.getLong("workoutsCompleted");
+                                                    Long height = document.getLong("height");
+                                                    Long weight = document.getLong("weight");
 
-                                        // ✅ Set up real-time membership listener for this client
-                                        setupMembershipListener(client, currentStreak, workoutsCompleted);
+                                                    String weightStr = weight != null ? weight + " kg" : "N/A";
+                                                    String heightStr = height != null ? height + " cm" : "N/A";
 
-                                    } catch (Exception ex) {
-                                        Log.e("ClientLoad", "Error parsing client: " + ex.getMessage(), ex);
+                                                    name = name != null ? name : "Unknown User";
+                                                    email = email != null ? email : "";
+                                                    fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
+                                                    fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
+
+                                                    Client client = new Client(name, email, "Checking...", weightStr, heightStr, fitnessGoal, fitnessLevel);
+                                                    client.setUid(userId);
+                                                    clientsList.add(client);
+
+                                                    Log.d("ClientAdd", "Added new client: " + name);
+
+                                                    // Set up membership listener
+                                                    setupMembershipListener(client, currentStreak, workoutsCompleted);
+                                                }
+
+                                            } catch (Exception ex) {
+                                                Log.e("ClientLoad", "Error processing client: " + ex.getMessage(), ex);
+                                            }
+                                            break;
+
+                                        case REMOVED:
+                                            // ✅ Handle removal in real-time
+                                            Log.d("ClientRemove", "Client removed from query: " + userId);
+                                            removeClientFromList(userId);
+                                            break;
                                     }
                                 }
 
-                                // ✅ Update UI after loading all clients
+                                // ✅ Update UI after processing all changes
                                 applyFilter(filterSpinner.getSelectedItemPosition());
                                 showLoading(false);
                             });
+
                 })
                 .addOnFailureListener(e -> {
                     showLoading(false);
@@ -586,6 +615,55 @@ public class coach_clients extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Log.e("AutoArchive", "Failed to auto-archive client: " + e.getMessage(), e);
                 });
+    }
+
+    private void autoUnarchiveClient(String userId) {
+        Log.d("AutoUnarchive", "Auto-unarchiving client due to admin reassignment: " + userId);
+
+        Map<String, Object> unarchiveData = new HashMap<>();
+        unarchiveData.put("isArchived", false);
+        unarchiveData.put("archivedBy", null);
+        unarchiveData.put("archivedAt", null);
+        unarchiveData.put("archiveReason", null);
+
+        firestore.collection("users")
+                .document(userId)
+                .update(unarchiveData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("AutoUnarchive", "Client auto-unarchived successfully");
+                    Toast.makeText(this, "Client restored from archive", Toast.LENGTH_SHORT).show();
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("AutoUnarchive", "Failed to auto-unarchive client: " + e.getMessage(), e);
+                });
+    }
+
+    private Client findClientById(String userId) {
+        for (Client client : clientsList) {
+            if (client.getUid() != null && client.getUid().equals(userId)) {
+                return client;
+            }
+        }
+        return null;
+    }
+
+    private void removeClientFromList(String userId) {
+        // Remove from clientsList
+        Client toRemove = findClientById(userId);
+        if (toRemove != null) {
+            clientsList.remove(toRemove);
+            Log.d("RemoveClient", "Removed client from list: " + userId);
+
+            // Clean up membership listener
+            if (membershipListeners.containsKey(userId)) {
+                membershipListeners.get(userId).remove();
+                membershipListeners.remove(userId);
+                Log.d("RemoveClient", "Cleaned up membership listener for: " + userId);
+            }
+
+            // Reapply filter to update UI
+            applyFilter(filterSpinner.getSelectedItemPosition());
+        }
     }
 
 

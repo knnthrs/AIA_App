@@ -60,7 +60,8 @@
 
         private View notificationBadge;
         private ListenerRegistration unreadNotifListener;
-    
+        private ListenerRegistration workoutListener;
+        private ListenerRegistration membershipListener;
     
         TextView greetingText;
         TextView membershipStatus;
@@ -79,7 +80,7 @@
         DocumentReference userDocRefFS;
         ListenerRegistration userDataListenerRegistrationFS;
 
-        private boolean isMembershipLoaded = false;
+
     
     
         @Override
@@ -134,6 +135,7 @@
             setupClickListeners();
             loadUserDataFromFirestore();
             updateStreakDisplay();
+            setupWorkoutListener();
 
             new android.os.Handler().postDelayed(this::checkAndHandleMembershipExpiration, 800);
 
@@ -342,91 +344,66 @@
     
         // Load the next workout from Firestore
         // Updated loadNextWorkoutFromFirestore method in MainActivity.java
-        private void loadNextWorkoutFromFirestore() {
+        private void setupWorkoutListener() {
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) {
                 Log.e(TAG, "Current user is null");
                 return;
             }
-    
-            Log.d(TAG, "=== LOADING WORKOUT DEBUG START ===");
-            Log.d(TAG, "User ID: " + currentUser.getUid());
-    
-            dbFirestore.collection("users")
+
+            // Remove previous listener if any
+            if (workoutListener != null) {
+                workoutListener.remove();
+            }
+
+            // Set up real-time listener
+            workoutListener = dbFirestore.collection("users")
                     .document(currentUser.getUid())
                     .collection("currentWorkout")
                     .document("week_1")
-                    .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        Log.d(TAG, "Firestore query successful");
-                        Log.d(TAG, "Document exists: " + documentSnapshot.exists());
-    
-                        if (documentSnapshot.exists()) {
-                            // Temporarily ignore completed status - show all workouts
-                            Log.d(TAG, "Document fields: " + documentSnapshot.getData());
-    
-                            // Get the exercises array
+                    .addSnapshotListener((documentSnapshot, e) -> {
+                        if (e != null) {
+                            Log.e(TAG, "Error loading workouts", e);
+                            showNoWorkouts();
+                            return;
+                        }
+
+                        if (documentSnapshot != null && documentSnapshot.exists()) {
                             List<Map<String, Object>> exercisesList =
                                     (List<Map<String, Object>>) documentSnapshot.get("exercises");
-    
-                            Log.d(TAG, "Exercises list is null: " + (exercisesList == null));
-                            if (exercisesList != null) {
-                                Log.d(TAG, "Found " + exercisesList.size() + " exercises");
-    
-                                if (!exercisesList.isEmpty()) {
-                                    List<String> exerciseNames = new ArrayList<>();
-                                    List<String> exerciseGifs = new ArrayList<>();
-    
-                                    for (int i = 0; i < exercisesList.size(); i++) {
-                                        Map<String, Object> exerciseMap = exercisesList.get(i);
-                                        Log.d(TAG, "Processing exercise " + i);
-    
-                                        // Get the exerciseInfo map
-                                        Map<String, Object> exerciseInfo =
-                                                (Map<String, Object>) exerciseMap.get("exerciseInfo");
-    
-                                        if (exerciseInfo != null) {
-                                            String name = (String) exerciseInfo.get("name");
-                                            String gifUrl = (String) exerciseInfo.get("gifUrl");
-    
-                                            Log.d(TAG, "Exercise " + i + " - Name: " + name + ", GIF: " + gifUrl);
-    
-                                            exerciseNames.add(name != null ? name : "Unknown Exercise");
-                                            exerciseGifs.add(gifUrl != null ? gifUrl : "");
-                                        } else {
-                                            Log.e(TAG, "Exercise " + i + " - exerciseInfo is null!");
-                                        }
+
+                            if (exercisesList != null && !exercisesList.isEmpty()) {
+                                List<String> exerciseNames = new ArrayList<>();
+                                List<String> exerciseGifs = new ArrayList<>();
+
+                                for (Map<String, Object> exerciseMap : exercisesList) {
+                                    Map<String, Object> exerciseInfo =
+                                            (Map<String, Object>) exerciseMap.get("exerciseInfo");
+
+                                    if (exerciseInfo != null) {
+                                        String name = (String) exerciseInfo.get("name");
+                                        String gifUrl = (String) exerciseInfo.get("gifUrl");
+                                        exerciseNames.add(name != null ? name : "Unknown Exercise");
+                                        exerciseGifs.add(gifUrl != null ? gifUrl : "");
                                     }
-    
-                                    Log.d(TAG, "Parsed " + exerciseNames.size() + " exercise names");
-                                    Log.d(TAG, "Exercise names: " + exerciseNames);
-    
-                                    if (!exerciseNames.isEmpty()) {
-                                        Log.d(TAG, "Calling displayYourWorkouts...");
-                                        displayYourWorkouts(exerciseNames, exerciseGifs);
-                                    } else {
-                                        Log.d(TAG, "No exercise names found, showing no workouts");
-                                        showNoWorkouts();
-                                    }
+                                }
+
+                                if (!exerciseNames.isEmpty()) {
+                                    displayYourWorkouts(exerciseNames, exerciseGifs);
                                 } else {
-                                    Log.d(TAG, "Exercises list is empty");
                                     showNoWorkouts();
                                 }
                             } else {
-                                Log.e(TAG, "Exercises field is null or not a list");
                                 showNoWorkouts();
                             }
                         } else {
-                            Log.d(TAG, "No workout document found");
                             showNoWorkouts();
                         }
-                        Log.d(TAG, "=== LOADING WORKOUT DEBUG END ===");
-                    })
-                    .addOnFailureListener(e -> {
-                        Log.e(TAG, "Error loading workouts", e);
-                        showNoWorkouts();
                     });
-        }    // Updated displayYourWorkouts to handle names and GIFs
+        }
+
+
+        // Updated displayYourWorkouts to handle names and GIFs
         private void displayYourWorkouts(List<String> exercises, @Nullable List<String> gifs) {
             Log.d(TAG, "=== displayYourWorkouts DEBUG START ===");
             Log.d(TAG, "Method called with " + exercises.size() + " exercises");
@@ -567,7 +544,7 @@
                             firestoreSnapshot.contains("fitnessGoal")) {
                         Log.d(TAG, "User data complete in Firestore. Updating UI.");
                         updateGreeting(firestoreSnapshot);
-                        updateMembershipDisplay(firestoreSnapshot);
+                        setupMembershipListener();
                         updateGoalsProgressDisplay(firestoreSnapshot); // Add this line
     
                         SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
@@ -598,35 +575,38 @@
                     ? "Hi, " + name
                     : "Hi, User");
         }
-    
 
-        @SuppressLint("SetTextI18n")
-        private void updateMembershipDisplay(DocumentSnapshot firestoreSnapshot) {
+
+        private void setupMembershipListener() {
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) return;
 
-            // Show loading state instead of default values
-            if (!isMembershipLoaded) {
-                membershipStatus.setText("Loading...");
-                membershipStatus.setTextColor(getColor(R.color.gray));
-                planType.setText("Checking membership...");
-                expiryDate.setText("—");
+            // Remove previous listener if any
+            if (membershipListener != null) {
+                membershipListener.remove();
             }
 
-            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            // Show loading state
+            membershipStatus.setText("Loading...");
+            membershipStatus.setTextColor(getColor(R.color.gray));
+            planType.setText("Checking membership...");
+            expiryDate.setText("—");
 
-            // Use userId as document ID instead of query
-            db.collection("memberships")
+            // Set up real-time listener
+            membershipListener = dbFirestore.collection("memberships")
                     .document(user.getUid())
-                    .get()
-                    .addOnSuccessListener(documentSnapshot -> {
-                        isMembershipLoaded = true;
+                    .addSnapshotListener((documentSnapshot, e) -> {
+                        if (e != null) {
+                            Log.e(TAG, "Failed to listen to membership", e);
+                            setDefaultMembershipValues();
+                            return;
+                        }
 
-                        if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
-                            DocumentSnapshot membership = documentSnapshot;
+                        if (documentSnapshot != null && documentSnapshot.exists() &&
+                                "active".equals(documentSnapshot.getString("membershipStatus"))) {
 
-                            String plan = membership.getString("membershipPlanLabel");
-                            Timestamp expirationTimestamp = membership.getTimestamp("membershipExpirationDate");
+                            String plan = documentSnapshot.getString("membershipPlanLabel");
+                            Timestamp expirationTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
 
                             if (plan != null) planType.setText(plan);
 
@@ -677,13 +657,9 @@
                             Log.d(TAG, "No active membership found");
                             setDefaultMembershipValues();
                         }
-                    })
-                    .addOnFailureListener(e -> {
-                        isMembershipLoaded = true;
-                        Log.e(TAG, "Failed to load membership info", e);
-                        setDefaultMembershipValues();
                     });
         }
+
 
         private String extractPlanName(String planLabel) {
             if (planLabel != null) {
@@ -729,10 +705,8 @@
         protected void onResume() {
             super.onResume();
             if (mAuth.getCurrentUser() != null) {
-                isMembershipLoaded = false;
                 updateStreakDisplay();
                 loadUserDataFromFirestore();
-                loadNextWorkoutFromFirestore();
                 checkAndHandleMembershipExpiration();
                 checkAndSendWorkoutReminder();
                 setupUnreadNotificationListener();
@@ -781,6 +755,12 @@
             }
             if (unreadNotifListener != null) {
                 unreadNotifListener.remove();
+            }
+            if (workoutListener != null) {
+                workoutListener.remove();
+            }
+            if (membershipListener != null) {  // ← ADD THIS
+                membershipListener.remove();
             }
         }
         private void showAccountDeletedDialog() {

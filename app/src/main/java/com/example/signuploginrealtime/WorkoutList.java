@@ -172,15 +172,21 @@ public class WorkoutList extends AppCompatActivity {
     }
 
     private int adaptRestTime(int baseRest, String fitnessLevel) {
-        if (fitnessLevel == null) fitnessLevel = "beginner";
-        switch (fitnessLevel.toLowerCase()) {
-            case "intermediate":
-                return (int) (baseRest * 0.9);
-            case "advanced":
-                return (int) (baseRest * 0.75);
-            default: // beginner or other
-                return baseRest;
+        if (fitnessLevel == null) return baseRest;
+
+        String level = fitnessLevel.toLowerCase().trim();
+
+        if (level.contains("sedentary")) {
+            return baseRest; // Full rest time
+        } else if (level.contains("lightly active") || level.contains("light")) {
+            return (int) (baseRest * 0.9);
+        } else if (level.contains("moderately active") || level.contains("moderate")) {
+            return (int) (baseRest * 0.8);
+        } else if (level.contains("very active") || level.contains("active")) {
+            return (int) (baseRest * 0.7);
         }
+
+        return baseRest; // Default
     }
 
     private void fetchAllExercises() {
@@ -471,11 +477,10 @@ public class WorkoutList extends AppCompatActivity {
             modelProfile.setAge(firebaseProfile.getAge());
             modelProfile.setGender(firebaseProfile.getGender());
             modelProfile.setFitnessGoal(firebaseProfile.getFitnessGoal());
-            modelProfile.setFitnessLevel(firebaseProfile.getFitnessLevel());
+            modelProfile.setFitnessLevel(firebaseProfile.getFitnessLevel()); // ✅ Pass original value directly
             modelProfile.setHealthIssues(firebaseProfile.getHealthIssues());
             modelProfile.setHeight(firebaseProfile.getHeight());
             modelProfile.setWeight(firebaseProfile.getWeight());
-
             modelProfile.setDislikedExercises(firebaseProfile.getDislikedExercises());
             modelProfile.setWorkoutDaysPerWeek(firebaseProfile.getWorkoutDaysPerWeek());
         }
@@ -664,4 +669,6 @@ public class WorkoutList extends AppCompatActivity {
         super.finish();
         overridePendingTransition(0, 0);
     }
+
+
 }

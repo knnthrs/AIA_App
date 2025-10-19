@@ -65,8 +65,8 @@ public class Profile extends AppCompatActivity {
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
 
     // Fitness profile fields
-    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency;
-    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency;
+    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight;
+    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight;
 
     // Firestore references
     private FirebaseFirestore firestore;
@@ -93,6 +93,7 @@ public class Profile extends AppCompatActivity {
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
+
 
     // Callback interface for phone check
     interface PhoneCheckCallback {
@@ -126,6 +127,12 @@ public class Profile extends AppCompatActivity {
         layoutFitnessGoal = findViewById(R.id.layout_fitness_goal);
         layoutWorkoutFrequency = findViewById(R.id.layout_workout_frequency);
         profilePicture = findViewById(R.id.iv_profile_picture);
+        tvAge = findViewById(R.id.tv_age);
+        tvWeight = findViewById(R.id.tv_weight);
+        tvHeight = findViewById(R.id.tv_height);
+        layoutAge = findViewById(R.id.layout_age);
+        layoutWeight = findViewById(R.id.layout_weight);
+        layoutHeight = findViewById(R.id.layout_height);
 
 
         uploadProgressDialog = new ProgressDialog(this);
@@ -238,6 +245,10 @@ public class Profile extends AppCompatActivity {
 
         // Workout Frequency click listener
         layoutWorkoutFrequency.setOnClickListener(v -> showWorkoutFrequencyDialog());
+
+        layoutAge.setOnClickListener(v -> showAgeDialog());
+        layoutWeight.setOnClickListener(v -> showWeightDialog());
+        layoutHeight.setOnClickListener(v -> showHeightDialog());
     }
 
     private void showFitnessLevelDialog() {
@@ -421,9 +432,32 @@ public class Profile extends AppCompatActivity {
                     } else {
                         tvWorkoutFrequency.setText("Not set");
                     }
+
+                    Long age = snapshot.getLong("age");
+                    if (age != null) {
+                        tvAge.setText(age + " years old");
+                    } else {
+                        tvAge.setText("Not set");
+                    }
+
+                    Double weight = snapshot.getDouble("weight");
+                    if (weight != null) {
+                        tvWeight.setText(weight + " kg");
+                    } else {
+                        tvWeight.setText("Not set");
+                    }
+
+                    Double height = snapshot.getDouble("height");
+                    if (height != null) {
+                        tvHeight.setText(height + " cm");
+                    } else {
+                        tvHeight.setText("Not set");
+                    }
                 }
+
             });
         }
+
     }
 
     private String formatFitnessLevel(String level) {
@@ -1494,5 +1528,194 @@ public class Profile extends AppCompatActivity {
         }
 
         return requirements.toString();
+    }
+
+    private void showAgeDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Enter Your Age");
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER);
+        input.setHint("Age (13-100)");
+        container.addView(input);
+
+        builder.setView(container);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String ageStr = input.getText().toString().trim();
+            if (!ageStr.isEmpty()) {
+                int age = Integer.parseInt(ageStr);
+                if (age >= 13 && age <= 100) {
+                    showConfirmationDialog(
+                            "Confirm Age",
+                            "Set age to: " + age + " years old?",
+                            () -> updateAge(age)
+                    );
+                } else {
+                    Toast.makeText(this, "Age must be between 13-100", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
+
+    private void showWeightDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Enter Your Weight");
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setHint("Weight in kg (30-300)");
+        container.addView(input);
+
+        builder.setView(container);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String weightStr = input.getText().toString().trim();
+            if (!weightStr.isEmpty()) {
+                double weight = Double.parseDouble(weightStr);
+                if (weight >= 30 && weight <= 300) {
+                    showConfirmationDialog(
+                            "Confirm Weight",
+                            "Set weight to: " + weight + " kg?",
+                            () -> updateWeight(weight)
+                    );
+                } else {
+                    Toast.makeText(this, "Weight must be between 30-300 kg", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
+
+    private void showHeightDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Enter Your Height");
+
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_FLAG_DECIMAL);
+        input.setHint("Height in cm (100-250)");
+        container.addView(input);
+
+        builder.setView(container);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            String heightStr = input.getText().toString().trim();
+            if (!heightStr.isEmpty()) {
+                double height = Double.parseDouble(heightStr);
+                if (height >= 100 && height <= 250) {
+                    showConfirmationDialog(
+                            "Confirm Height",
+                            "Set height to: " + height + " cm?",
+                            () -> updateHeight(height)
+                    );
+                } else {
+                    Toast.makeText(this, "Height must be between 100-250 cm", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
+
+    private void updateAge(int age) {
+        if (userDocRef != null) {
+            userDocRef.update("age", age)
+                    .addOnSuccessListener(aVoid -> {
+                        tvAge.setText(age + " years old");
+                        markProfileAsChanged();
+                        Toast.makeText(this, "Age updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updateWeight(double weight) {
+        if (userDocRef != null) {
+            userDocRef.update("weight", weight)
+                    .addOnSuccessListener(aVoid -> {
+                        tvWeight.setText(weight + " kg");
+                        markProfileAsChanged();
+                        Toast.makeText(this, "Weight updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updateHeight(double height) {
+        if (userDocRef != null) {
+            userDocRef.update("height", height)
+                    .addOnSuccessListener(aVoid -> {
+                        tvHeight.setText(height + " cm");
+                        markProfileAsChanged();
+                        Toast.makeText(this, "Height updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
     }
 }

@@ -11,13 +11,174 @@ import java.util.List;
 
 public class AdvancedWorkoutDecisionMaker {
 
+    private static List<ExerciseInfo> filterExercisesByFitnessLevel(
+            List<ExerciseInfo> exercises,
+            UserProfile userProfile) {
+
+        List<ExerciseInfo> suitable = new ArrayList<>();
+        String level = userProfile.getFitnessLevel().toLowerCase();
+
+        for (ExerciseInfo exercise : exercises) {
+            if (exercise == null || exercise.getName() == null) continue;
+
+            String nameLower = exercise.getName().toLowerCase();
+            List<String> equipments = exercise.getEquipments();
+
+            boolean isSafe = true;
+
+            // SEDENTARY: Very restrictive
+            if (level.equals("sedentary")) {
+                // Block all plyometric/explosive movements
+                if (nameLower.contains("jump") || nameLower.contains("hop") ||
+                        nameLower.contains("burpee") || nameLower.contains("plyometric") ||
+                        nameLower.contains("explosive") || nameLower.contains("box") ||
+                        nameLower.contains("sprint") || nameLower.contains("mountain climber") ||
+                        nameLower.contains("high knee") || nameLower.contains("tuck")) {
+                    isSafe = false;
+                }
+
+                // Block advanced bodyweight
+                if (nameLower.contains("pull up") || nameLower.contains("chin up") ||
+                        nameLower.contains("muscle up") || nameLower.contains("handstand") ||
+                        nameLower.contains("pistol") || nameLower.contains("dragon flag")) {
+                    isSafe = false;
+                }
+
+                // Block barbell exercises
+                if (equipments != null && equipments.contains("barbell")) {
+                    isSafe = false;
+                }
+
+                // Block loaded squats/lunges
+                if ((nameLower.contains("squat") || nameLower.contains("lunge")) &&
+                        equipments != null && !equipments.contains("body weight")) {
+                    isSafe = false;
+                }
+            }
+
+            // LIGHTLY ACTIVE: Moderate restrictions
+            else if (level.equals("lightly active")) {
+                if (nameLower.contains("burpee") || nameLower.contains("box jump") ||
+                        nameLower.contains("plyometric") || nameLower.contains("explosive") ||
+                        nameLower.contains("muscle up") || nameLower.contains("handstand") ||
+                        nameLower.contains("pistol squat")) {
+                    isSafe = false;
+                }
+
+                // Block olympic lifts
+                if (nameLower.contains("clean") || nameLower.contains("snatch") ||
+                        nameLower.contains("jerk")) {
+                    isSafe = false;
+                }
+            }
+
+            // HEALTH ISSUE FILTERING
+            if (userProfile.getHealthIssues() != null) {
+                for (String issue : userProfile.getHealthIssues()) {
+                    issue = issue.toLowerCase();
+
+                    if (issue.contains("knee")) {
+                        if (nameLower.contains("squat") || nameLower.contains("lunge") ||
+                                nameLower.contains("jump") || nameLower.contains("leg press")) {
+                            isSafe = false;
+                        }
+                    }
+
+                    if (issue.contains("back") || issue.contains("spine")) {
+                        if (nameLower.contains("deadlift") || nameLower.contains("good morning") ||
+                                nameLower.contains("bent over") || nameLower.contains("hyperextension")) {
+                            isSafe = false;
+                        }
+                    }
+
+                    if (issue.contains("shoulder")) {
+                        if (nameLower.contains("overhead press") || nameLower.contains("snatch") ||
+                                nameLower.contains("handstand")) {
+                            isSafe = false;
+                        }
+                    }
+
+                    if (issue.contains("wrist")) {
+                        if (nameLower.contains("push up") || nameLower.contains("plank") ||
+                                nameLower.contains("handstand")) {
+                            isSafe = false;
+                        }
+                    }
+                }
+            }
+
+            if (isSafe) {
+                suitable.add(exercise);
+            }
+        }
+
+        return suitable.isEmpty() ? exercises : suitable;
+    }
+
     public static Workout generatePersonalizedWorkout(List<ExerciseInfo> availableExercises,
                                                       UserProfile userProfile) {
 
-        List<WorkoutExercise> exercises = new ArrayList<>();
-        Collections.shuffle(availableExercises);
+        // Filter exercises first based on fitness level
+        List<ExerciseInfo> suitableExercises = filterExercisesByFitnessLevel(
+                availableExercises,
+                userProfile
+        );
 
-        for (ExerciseInfo exInfo : availableExercises) {
+// Prioritize equipment for sedentary users
+        if (userProfile.getFitnessLevel().toLowerCase().equals("sedentary") &&
+                suitableExercises.size() > 10) {
+
+            List<ExerciseInfo> prioritized = new ArrayList<>();
+
+            // Priority 1: Bodyweight
+            for (ExerciseInfo e : suitableExercises) {
+                if (e.getEquipments() != null &&
+                        e.getEquipments().contains("body weight")) {
+                    prioritized.add(e);
+                }
+            }
+
+            // Priority 2: Bands
+            for (ExerciseInfo e : suitableExercises) {
+                if (e.getEquipments() != null &&
+                        e.getEquipments().contains("band") &&
+                        !prioritized.contains(e)) {
+                    prioritized.add(e);
+                }
+            }
+
+            // Priority 3: Cables
+            for (ExerciseInfo e : suitableExercises) {
+                if (e.getEquipments() != null &&
+                        e.getEquipments().contains("cable") &&
+                        !prioritized.contains(e)) {
+                    prioritized.add(e);
+                }
+            }
+
+            // Priority 4: Dumbbells
+            for (ExerciseInfo e : suitableExercises) {
+                if (e.getEquipments() != null &&
+                        e.getEquipments().contains("dumbbell") &&
+                        !prioritized.contains(e)) {
+                    prioritized.add(e);
+                }
+            }
+
+            // Add remaining exercises
+            for (ExerciseInfo e : suitableExercises) {
+                if (!prioritized.contains(e)) {
+                    prioritized.add(e);
+                }
+            }
+
+            suitableExercises = prioritized;
+        }
+
+        List<WorkoutExercise> exercises = new ArrayList<>();
+        Collections.shuffle(suitableExercises);
+
+        for (ExerciseInfo exInfo : suitableExercises) {
             if (exInfo == null || exInfo.getName() == null) continue;
 
             // Skip disliked exercises

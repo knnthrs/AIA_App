@@ -25,6 +25,7 @@ import com.google.firebase.firestore.DocumentReference;
 import com.google.firebase.firestore.FirebaseFirestore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Locale;
 
 import com.google.firebase.database.DatabaseReference;
@@ -35,6 +36,7 @@ import com.google.firebase.database.DatabaseError;
 import androidx.annotation.NonNull;
 import com.example.signuploginrealtime.models.ExerciseInfo;
 import java.util.List;
+import java.util.Map;
 
 public class WorkoutSessionActivity extends AppCompatActivity {
 
@@ -78,7 +80,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private boolean isTTSReady = false;
 
     private TextView btnEquipmentMode, btnNoEquipmentMode;
+    private Button btnSwitchWorkout;
     private boolean isNoEquipmentMode = false;
+    private boolean hasBodyweightAlternative = false;
     private boolean isReplacingExercise = false;
 
     private ArrayList<String> originalExerciseNames;
@@ -87,6 +91,8 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
     private ArrayList<Integer> completedSetsPerExercise; // Track completed sets for each exercise
     private ArrayList<Integer> totalSetsPerExercise; // Total sets needed for each exercise
+    private long lastModeSwitch = 0;
+    private static final long MODE_SWITCH_COOLDOWN = 500; // 500ms cooldown
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -291,6 +297,21 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         updateButtonStates();
         loadExerciseImage(index);
 
+        // ✅ NEW: Auto-detect exercise type and set toggle position
+        String currentExerciseName = exerciseNames.get(index);
+        boolean exerciseRequiresEquipment = requiresEquipment(currentExerciseName);
+
+        // Set initial toggle position based on exercise type
+        isNoEquipmentMode = !exerciseRequiresEquipment;
+        updateModeUI(isNoEquipmentMode);
+
+        Log.d(TAG, "Exercise: " + currentExerciseName +
+                " | Requires Equipment: " + exerciseRequiresEquipment +
+                " | Mode: " + (isNoEquipmentMode ? "No Equipment" : "Equipment"));
+
+        // Check if alternatives exist
+        checkBodyweightAlternativeAvailability();
+
         if (isTTSReady) {
             startReadyCountdown();
         } else {
@@ -304,6 +325,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             }, 1000);
         }
     }
+
+
+
     private String getCleanExerciseName(String fullName) {
         String cleaned = fullName;
         cleaned = cleaned.replaceAll("(?i)\\s*(each\\s+side\\s*)?x\\s*\\d+.*$", "");
@@ -797,9 +821,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private void initializeEquipmentModeCard() {
         btnEquipmentMode = findViewById(R.id.btn_equipment_mode);
         btnNoEquipmentMode = findViewById(R.id.btn_no_equipment_mode);
+        btnSwitchWorkout = findViewById(R.id.btn_switch_workout);
 
         // Start fresh each workout - default to Equipment mode
         updateModeUI(false);
+
+        // Check if current exercise has bodyweight alternative
+        checkBodyweightAlternativeAvailability();
 
         // Equipment Mode Click - REMOVED TOAST
         btnEquipmentMode.setOnClickListener(v -> {
@@ -815,6 +843,11 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 return; // Already in no equipment mode
             }
             switchToNoEquipmentMode();
+        });
+
+        // Switch Workout Button Click
+        btnSwitchWorkout.setOnClickListener(v -> {
+            switchToAnyAlternativeWorkout();
         });
     }
 
@@ -844,59 +877,352 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             btnNoEquipmentMode.setBackgroundResource(R.drawable.unselected_equipment_bg);
         }
     }
-    // 5. Switch to Equipment Mode
-    private void switchToEquipmentMode() {
-        // Restore original exercise if it was replaced
-        if (originalExerciseNames != null && currentIndex < originalExerciseNames.size()) {
-            exerciseNames.set(currentIndex, originalExerciseNames.get(currentIndex));
-            exerciseDetails.set(currentIndex, originalExerciseDetails.get(currentIndex));
-            exerciseImageUrls.set(currentIndex, originalExerciseImageUrls.get(currentIndex));
+
+// Check if bodyweight alternative exists for current exercise
+private void checkBodyweightAlternativeAvailability() {
+    String currentExerciseName = exerciseNames.get(currentIndex);
+    Log.d(TAG, "=== Checking alternatives for: " + currentExerciseName + " ===");
+
+    // Always check Firebase for alternatives (both bodyweight AND equipment)
+    DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+
+    dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        @Override
+        public void onDataChange(@NonNull DataSnapshot snapshot) {
+            Log.d(TAG, "Firebase data loaded. Total exercises in DB: " + snapshot.getChildrenCount());
+
+            List<String> currentTargetMuscles = null;
+
+            // Find current exercise to get its target muscles
+            for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                    ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+                    if (exercise != null && exercise.getName().equalsIgnoreCase(currentExerciseName)) {
+                        currentTargetMuscles = exercise.getTargetMuscles();
+                        Log.d(TAG, "✓ Found current exercise in Firebase");
+                        Log.d(TAG, "  Target muscles: " + currentTargetMuscles);
+                        break;
+                    }
+                }
+            }
+
+            if (currentTargetMuscles == null || currentTargetMuscles.isEmpty()) {
+                Log.w(TAG, "✗ No target muscles found - showing Switch Workout button");
+                hasBodyweightAlternative = false;
+                runOnUiThread(() -> showSwitchWorkoutButton());
+                return;
+            }
+
+            // Check for BOTH bodyweight AND equipment alternatives
+            boolean foundBodyweightAlt = false;
+            boolean foundEquipmentAlt = false;
+            int bodyweightCount = 0;
+            int equipmentCount = 0;
+
+            for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                    ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+
+                    if (exercise != null && !exercise.getName().equalsIgnoreCase(currentExerciseName)) {
+                        if (hasSameTargetMuscles(exercise.getTargetMuscles(), currentTargetMuscles)) {
+                            if (isBodyweightExercise(exercise)) {
+                                bodyweightCount++;
+                                foundBodyweightAlt = true;
+                            } else {
+                                equipmentCount++;
+                                foundEquipmentAlt = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Log.d(TAG, "=== Search complete ===");
+            Log.d(TAG, "Bodyweight alternatives: " + bodyweightCount);
+            Log.d(TAG, "Equipment alternatives: " + equipmentCount);
+
+            // Show toggle if EITHER type has alternatives
+            boolean hasAnyAlternatives = foundBodyweightAlt || foundEquipmentAlt;
+            hasBodyweightAlternative = hasAnyAlternatives;
+
+            runOnUiThread(() -> {
+                if (hasAnyAlternatives) {
+                    Log.d(TAG, "→ Showing Equipment/No Equipment toggle");
+                    showEquipmentToggleButtons();
+                } else {
+                    Log.d(TAG, "→ Showing Switch Workout button");
+                    showSwitchWorkoutButton();
+                }
+            });
         }
 
-        isNoEquipmentMode = false;
-        updateModeUI(false);
+        @Override
+        public void onCancelled(@NonNull DatabaseError error) {
+            Log.e(TAG, "✗ Database error checking alternatives", error.toException());
+            hasBodyweightAlternative = false;
+            runOnUiThread(() -> showSwitchWorkoutButton());
+        }
+    });
+}
 
-        // Refresh the display with original exercise
-        stopAllTTS();
-        cancelAllTimers();
-        showExercise(currentIndex);
+private void showEquipmentToggleButtons() {
+    btnEquipmentMode.setVisibility(View.VISIBLE);
+    btnNoEquipmentMode.setVisibility(View.VISIBLE);
+    btnSwitchWorkout.setVisibility(View.GONE);
+}
 
+private void showSwitchWorkoutButton() {
+    btnEquipmentMode.setVisibility(View.GONE);
+    btnNoEquipmentMode.setVisibility(View.GONE);
+    btnSwitchWorkout.setVisibility(View.VISIBLE);
+}
+
+// Switch to any alternative workout (not limited to bodyweight)
+private void switchToAnyAlternativeWorkout() {
+    // Debounce: prevent rapid switching
+    if (System.currentTimeMillis() - lastModeSwitch < MODE_SWITCH_COOLDOWN) {
+        return;
     }
+    lastModeSwitch = System.currentTimeMillis();
+
+    String currentExerciseName = exerciseNames.get(currentIndex);
+
+    // RESET all states first
+    stopAllTTS();
+    cancelAllTimers();
+    isTimerRunning = false;
+    isReadyCountdown = false;
+    isCounterPaused = false;
+    currentRepCount = 0;
+
+    // Fetch any alternative with same target muscles
+    fetchAnyAlternativeExercise();
+}
+
+// Fetch ANY alternative exercise (not just bodyweight) from Firebase
+private void fetchAnyAlternativeExercise() {
+    DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+    String currentExerciseName = exerciseNames.get(currentIndex);
+
+    dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+        @Override
+        public void onDataChange(@NonNull DataSnapshot snapshot) {
+            List<String> currentTargetMuscles = null;
+
+            // Find current exercise to get its target muscles
+            for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                    ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+                    if (exercise != null && exercise.getName().equalsIgnoreCase(currentExerciseName)) {
+                        currentTargetMuscles = exercise.getTargetMuscles();
+                        Log.d(TAG, "Found current exercise. Target muscles: " + currentTargetMuscles);
+                        break;
+                    }
+                }
+            }
+
+            if (currentTargetMuscles == null || currentTargetMuscles.isEmpty()) {
+                Log.w(TAG, "Cannot find muscle data for current exercise");
+                runOnUiThread(() -> {
+                    Toast.makeText(WorkoutSessionActivity.this,
+                            "Cannot find alternative exercises",
+                            Toast.LENGTH_SHORT).show();
+                });
+                return;
+            }
+
+            // Find ANY alternatives with SAME target muscles
+            List<ExerciseInfo> alternatives = new ArrayList<>();
+
+            for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                    ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+
+                    if (exercise != null
+                            && !exercise.getName().equalsIgnoreCase(currentExerciseName)
+                            && hasSameTargetMuscles(exercise.getTargetMuscles(), currentTargetMuscles)) {
+                        alternatives.add(exercise);
+                        Log.d(TAG, "Found alternative: " + exercise.getName()
+                                + " (targets: " + exercise.getTargetMuscles() + ")");
+                    }
+                }
+            }
+
+            if (!alternatives.isEmpty()) {
+                // Pick a random alternative
+                ExerciseInfo replacement = alternatives.get(
+                        (int) (Math.random() * alternatives.size())
+                );
+
+                Log.d(TAG, "Selected replacement: " + replacement.getName());
+
+                runOnUiThread(() -> {
+                    replaceExerciseAtIndex(currentIndex, replacement);
+                    // Re-check if new exercise has bodyweight alternatives
+                    checkBodyweightAlternativeAvailability();
+                });
+            } else {
+                Log.w(TAG, "No alternatives found for muscles: " + currentTargetMuscles);
+                runOnUiThread(() -> {
+                    Toast.makeText(WorkoutSessionActivity.this,
+                            "No alternative exercises available",
+                            Toast.LENGTH_LONG).show();
+                });
+            }
+        }
+
+        @Override
+        public void onCancelled(@NonNull DatabaseError error) {
+            Log.e(TAG, "Database error", error.toException());
+            runOnUiThread(() -> {
+                Toast.makeText(WorkoutSessionActivity.this,
+                        "Failed to fetch alternatives",
+                        Toast.LENGTH_SHORT).show();
+            });
+        }
+    });
+}
+
+    // 5. Switch to Equipment Mode
+    private void switchToEquipmentMode() {
+        // Debounce: prevent rapid switching
+        if (System.currentTimeMillis() - lastModeSwitch < MODE_SWITCH_COOLDOWN) {
+            return;
+        }
+        lastModeSwitch = System.currentTimeMillis();
+
+        if (!isNoEquipmentMode) {
+            return; // Already in equipment mode
+        }
+
+        String currentExerciseName = exerciseNames.get(currentIndex);
+
+        // Check if current exercise is already equipment-based
+        if (requiresEquipment(currentExerciseName)) {
+            // Restore original exercise if it was replaced
+            if (originalExerciseNames != null && currentIndex < originalExerciseNames.size()) {
+                exerciseNames.set(currentIndex, originalExerciseNames.get(currentIndex));
+                exerciseDetails.set(currentIndex, originalExerciseDetails.get(currentIndex));
+                exerciseImageUrls.set(currentIndex, originalExerciseImageUrls.get(currentIndex));
+            }
+
+            isNoEquipmentMode = false;
+            updateModeUI(false);
+
+            // RESET all states
+            stopAllTTS();
+            cancelAllTimers();
+            isTimerRunning = false;
+            isReadyCountdown = false;
+            isCounterPaused = false;
+            currentRepCount = 0;
+
+            // Update display without auto-starting
+            updateExerciseDisplay();
+        } else {
+            // ✅ NEW: Current exercise is bodyweight, fetch equipment-based alternative
+            stopAllTTS();
+            cancelAllTimers();
+            isTimerRunning = false;
+            isReadyCountdown = false;
+            isCounterPaused = false;
+            currentRepCount = 0;
+
+            isNoEquipmentMode = false;
+            updateModeUI(false);
+
+            // Fetch equipment-based alternative
+            fetchEquipmentBasedAlternative();
+        }
+    }
+
+
 
     // 6. Switch to No Equipment Mode
     private void switchToNoEquipmentMode() {
-        if (isReplacingExercise) {
-            return; // Already finding alternative
+        // Debounce: prevent rapid switching
+        if (System.currentTimeMillis() - lastModeSwitch < MODE_SWITCH_COOLDOWN) {
+            return;
+        }
+        lastModeSwitch = System.currentTimeMillis();
+
+        if (isNoEquipmentMode) {
+            return; // Already in no equipment mode
         }
 
         String currentExerciseName = exerciseNames.get(currentIndex);
 
         // Check if current exercise requires equipment
         if (requiresEquipment(currentExerciseName)) {
-            // Pause the workout silently
+            // RESET all states first
             stopAllTTS();
             cancelAllTimers();
+            isTimerRunning = false;
+            isReadyCountdown = false;
+            isCounterPaused = false;
+            currentRepCount = 0;
 
             isNoEquipmentMode = true;
             updateModeUI(true);
+
+            // Fetch alternative with slight delay
             replaceCurrentExerciseWithAlternative();
         } else {
             // Current exercise is already bodyweight-friendly
             isNoEquipmentMode = true;
             updateModeUI(true);
-            // REMOVED: Toast
         }
     }
+
 
     // 7. Check if exercise requires equipment
     private boolean requiresEquipment(String exerciseName) {
         String nameLower = exerciseName.toLowerCase();
 
         String[] equipmentKeywords = {
-                "barbell", "machine", "cable", "smith", "leg press",
-                "lat pulldown", "chest press", "leg extension",
-                "leg curl", "hack squat", "preacher", "t-bar",
-                "seated", "cable", "pulldown", "dumbbell"
+                // Weights & Bars
+                "barbell", "dumbbell", "kettlebell", "ez bar", "ez-bar", "ezbar",
+                "trap bar", "hex bar", "medicine ball", "weight plate", "plate",
+                "olympic bar", "curl bar",
+
+                // Machines
+                "machine", "smith", "smith machine", "leg press", "chest press",
+                "shoulder press", "hack squat", "leg extension", "leg curl",
+                "calf raise machine", "pec deck", "fly machine", "lat pulldown",
+                "cable", "pulley", "seated row", "chest fly", "cable crossover",
+                "tricep pushdown", "bicep curl machine", "preacher", "preacher curl",
+
+                // Equipment/Tools
+                "lever", "band", "resistance band", "exercise band", "elastic band",
+                "bosu", "bosu ball", "stability ball", "swiss ball", "exercise ball",
+                "foam roller", "ab roller", "ab wheel", "trx", "suspension",
+                "slam ball", "wall ball", "battle rope", "rope", "skierg", "ski erg",
+                "rowing machine", "rower", "assault bike", "stationary bike",
+                "treadmill", "elliptical",
+
+                // Benches & Racks
+                "bench", "incline bench", "decline bench", "flat bench",
+                "rack", "power rack", "squat rack", "cage",
+                "dip station", "dip bars", "pull-up bar", "chin-up bar",
+                "roman chair", "hyperextension bench", "glute ham developer",
+                "preacher bench", "scott bench",
+
+                // Specialized Equipment
+                "t-bar", "t-bar row", "landmine", "sled", "prowler",
+                "tire", "sandbag", "weighted vest", "ankle weights",
+                "wrist weights", "loading pin", "dip belt",
+
+                // Cardio Equipment
+                "bike", "cycling", "spin", "ergometer", "erg",
+                "stepper", "stair climber", "versaclimber",
+
+                // Olympic/Powerlifting
+                "platform", "lifting platform", "bumper plate",
+
+                // Other indicators
+                "weighted", "loaded", "press machine", "curl machine",
+                "extension machine", "row machine", "pulldown",
+                "assisted", "counterbalance"
         };
 
         for (String keyword : equipmentKeywords) {
@@ -907,6 +1233,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         return false;
     }
+
 
     // Replace current exercise with no-equipment alternative
     private void replaceCurrentExerciseWithAlternative() {
@@ -970,18 +1297,59 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 }
 
                 if (!alternatives.isEmpty()) {
+                    // Pick a random bodyweight alternative
                     ExerciseInfo replacement = alternatives.get(
                             (int) (Math.random() * alternatives.size())
                     );
 
-                    Log.d(TAG, "Selected replacement: " + replacement.getName());
+                    Log.d(TAG, "Selected bodyweight replacement: " + replacement.getName());
                     replaceExerciseAtIndex(currentIndex, replacement);
-                    // REMOVED: Toast
                 } else {
-                    Log.w(TAG, "No bodyweight alternatives for muscles: " + currentTargetMuscles);
-                    // REMOVED: Toast
-                    isNoEquipmentMode = false;
-                    updateModeUI(false);
+                    // ✅ NEW: Try to find ANY exercise with same target muscles (not just bodyweight)
+                    Log.w(TAG, "No bodyweight alternatives found. Searching for any exercise with same muscles...");
+
+                    List<ExerciseInfo> anyAlternatives = new ArrayList<>();
+
+                    for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                        if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                            ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+
+                            if (exercise != null
+                                    && !exercise.getName().equalsIgnoreCase(currentExerciseName)
+                                    && hasSameTargetMuscles(exercise.getTargetMuscles(), currentTargetMuscles)) {
+                                anyAlternatives.add(exercise);
+                            }
+                        }
+                    }
+
+                    if (!anyAlternatives.isEmpty()) {
+                        // Found alternatives (may include equipment-based exercises)
+                        ExerciseInfo replacement = anyAlternatives.get(
+                                (int) (Math.random() * anyAlternatives.size())
+                        );
+
+                        Log.d(TAG, "Selected alternative exercise (may use equipment): " + replacement.getName());
+
+                        runOnUiThread(() -> {
+                            Toast.makeText(WorkoutSessionActivity.this,
+                                    "No bodyweight option found. Switched to: " + replacement.getName(),
+                                    Toast.LENGTH_LONG).show();
+                        });
+
+                        replaceExerciseAtIndex(currentIndex, replacement);
+                    } else {
+                        // Truly no alternatives at all
+                        Log.w(TAG, "No alternatives found for muscles: " + currentTargetMuscles);
+
+                        runOnUiThread(() -> {
+                            Toast.makeText(WorkoutSessionActivity.this,
+                                    "No alternative exercises available. Please skip this exercise.",
+                                    Toast.LENGTH_LONG).show();
+                        });
+
+                        isNoEquipmentMode = false;
+                        updateModeUI(false);
+                    }
                 }
 
                 isReplacingExercise = false;
@@ -999,31 +1367,58 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     }    // 11. Check if exercise is bodyweight/no equipment
     private boolean isBodyweightExercise(ExerciseInfo exercise) {
         if (exercise.getEquipments() == null || exercise.getEquipments().isEmpty()) {
-            return true;
+            return true; // No equipment listed = bodyweight
         }
 
+        // Check all equipment entries
         for (String equip : exercise.getEquipments()) {
             String equipLower = equip.toLowerCase().trim();
 
-            // Only accept bodyweight
-            if (!equipLower.contains("body weight") && !equipLower.contains("bodyweight")
-                    && !equipLower.equals("none") && !equipLower.isEmpty()) {
-                return false;
+            // These are considered "bodyweight-friendly"
+            if (equipLower.contains("body weight") ||
+                    equipLower.contains("bodyweight") ||
+                    equipLower.contains("body-weight") ||
+                    equipLower.equals("none") ||
+                    equipLower.equals("null") ||
+                    equipLower.isEmpty()) {
+                continue; // This equipment is OK
             }
+
+            // These are acceptable minimal equipment (still bodyweight-based)
+            if (equipLower.equals("mat") ||
+                    equipLower.equals("floor") ||
+                    equipLower.equals("wall") ||
+                    equipLower.equals("chair") ||
+                    equipLower.equals("towel") ||
+                    equipLower.equals("pillow")) {
+                continue; // This equipment is OK
+            }
+
+            // If we find any other equipment, it's NOT bodyweight
+            return false;
         }
 
+        // All equipment entries were bodyweight-friendly
         return true;
     }
 
 
-    // Replace exercise at index
+
 // Replace exercise at index
     private void replaceExerciseAtIndex(int index, ExerciseInfo replacement) {
         if (index < 0 || index >= exerciseNames.size()) return;
 
+        // CRITICAL: Stop all timers and TTS to prevent mixing
+        stopAllTTS();
+        cancelAllTimers();
+        isTimerRunning = false;
+        isReadyCountdown = false;
+        isCounterPaused = false;
+        currentRepCount = 0;
+
         // KEEP the original number of sets for this exercise
         int originalSets = totalSetsPerExercise.get(index);
-
+        // ✅ UPDATE THE EXERCISE NAME
         exerciseNames.set(index, replacement.getName());
 
         StringBuilder details = new StringBuilder();
@@ -1072,6 +1467,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         updateProgressBar();
         updateButtonStates();
         loadExerciseImage(index);
+
+        // Check if bodyweight alternative exists for new exercise
+        checkBodyweightAlternativeAvailability();
 
         // Reset states and wait for user to resume
         isTimerRunning = false;
@@ -1138,6 +1536,7 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         return 1; // Default to 1 set
     }
+
 
 
     private void initializeSetsTracking() {
@@ -1261,6 +1660,112 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
 
         return formatted.toString().trim();
+    }
+
+    private void fetchEquipmentBasedAlternative() {
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+        String currentExerciseName = exerciseNames.get(currentIndex);
+
+        dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<String> currentTargetMuscles = null;
+
+                // Find current exercise to get its target muscles
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+                        if (exercise != null && exercise.getName().equalsIgnoreCase(currentExerciseName)) {
+                            currentTargetMuscles = exercise.getTargetMuscles();
+                            Log.d(TAG, "Found current exercise. Target muscles: " + currentTargetMuscles);
+                            break;
+                        }
+                    }
+                }
+
+                if (currentTargetMuscles == null || currentTargetMuscles.isEmpty()) {
+                    Log.w(TAG, "Cannot find muscle data for current exercise");
+                    isNoEquipmentMode = true;
+                    updateModeUI(true);
+                    return;
+                }
+
+                // Find EQUIPMENT-BASED alternatives with SAME target muscles
+                List<ExerciseInfo> equipmentAlternatives = new ArrayList<>();
+
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo exercise = exerciseSnap.getValue(ExerciseInfo.class);
+
+                        if (exercise != null
+                                && !exercise.getName().equalsIgnoreCase(currentExerciseName)
+                                && !isBodyweightExercise(exercise) // ✅ Must require equipment
+                                && hasSameTargetMuscles(exercise.getTargetMuscles(), currentTargetMuscles)) {
+                            equipmentAlternatives.add(exercise);
+                            Log.d(TAG, "Found equipment alternative: " + exercise.getName());
+                        }
+                    }
+                }
+
+                if (!equipmentAlternatives.isEmpty()) {
+                    // Pick a random equipment-based alternative
+                    ExerciseInfo replacement = equipmentAlternatives.get(
+                            (int) (Math.random() * equipmentAlternatives.size())
+                    );
+
+                    Log.d(TAG, "Selected equipment replacement: " + replacement.getName());
+                    runOnUiThread(() -> replaceExerciseAtIndex(currentIndex, replacement));
+                } else {
+                    // No equipment alternatives found
+                    Log.w(TAG, "No equipment alternatives found for muscles: " + currentTargetMuscles);
+
+                    runOnUiThread(() -> {
+                        Toast.makeText(WorkoutSessionActivity.this,
+                                "No equipment-based alternatives available",
+                                Toast.LENGTH_LONG).show();
+
+                        // Revert to No Equipment mode
+                        isNoEquipmentMode = true;
+                        updateModeUI(true);
+                    });
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Database error", error.toException());
+                runOnUiThread(() -> {
+                    isNoEquipmentMode = true;
+                    updateModeUI(true);
+                });
+            }
+        });
+    }
+
+    private void updateExerciseDisplay() {
+        String cleanExerciseName = getCleanExerciseName(exerciseNames.get(currentIndex));
+        tvExerciseName.setText(cleanExerciseName);
+
+        int currentSet = completedSetsPerExercise.get(currentIndex) + 1;
+        int totalSets = totalSetsPerExercise.get(currentIndex);
+        String setsRepsInfo = extractSetsRepsInfo(exerciseNames.get(currentIndex), exerciseDetails.get(currentIndex));
+
+        String displayText;
+        if (totalSets > 1) {
+            displayText = "Set " + currentSet + " of " + totalSets + " | " + setsRepsInfo;
+        } else {
+            displayText = setsRepsInfo;
+        }
+        tvExerciseDetails.setText(displayText);
+
+        updateProgressBar();
+        updateButtonStates();
+        loadExerciseImage(currentIndex);
+
+        // Wait for user to start
+        btnPause.setText("START");
+        tvExerciseTimer.setText("Ready");
+        tvExerciseTimer.setVisibility(View.VISIBLE);
     }
 
 }

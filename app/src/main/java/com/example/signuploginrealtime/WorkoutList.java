@@ -85,7 +85,6 @@ public class WorkoutList extends AppCompatActivity {
             workoutPrefs = getSharedPreferences("workout_prefs_default", MODE_PRIVATE);
         }
 
-
         userProfile = (UserProfile) getIntent().getSerializableExtra("userProfile");
 
         if (userProfile == null) {
@@ -99,7 +98,9 @@ public class WorkoutList extends AppCompatActivity {
         }
 
         startWorkoutButton.setEnabled(false);
-        fetchAllExercises();
+
+        // ✅ CHECK FOR EXISTING WORKOUT FIRST (fast path)
+        checkExistingWorkout();
 
         startWorkoutButton.setOnClickListener(v -> {
             if (currentWorkoutExercises == null || currentWorkoutExercises.isEmpty()) {
@@ -117,19 +118,15 @@ public class WorkoutList extends AppCompatActivity {
                 ExerciseInfo info = we.getExerciseInfo();
                 String currentExerciseName = (info != null && info.getName() != null) ? info.getName() : "Unknown Exercise";
 
-                // ✅ Keep exercise name clean - sets/reps will be extracted from details
                 exerciseNames.add(currentExerciseName);
 
-                // ✅ Create detailed instructions with proper formatting for parsing
                 StringBuilder detailsBuilder = new StringBuilder();
 
-                // Add sets/reps information in the expected format
                 if (we.getSets() > 0 && we.getReps() > 0) {
                     detailsBuilder.append("Sets: ").append(we.getSets()).append("\n");
                     detailsBuilder.append("Reps: ").append(we.getReps()).append("\n\n");
                 }
 
-                // Add original instructions
                 if (info != null && info.getInstructions() != null && !info.getInstructions().isEmpty()) {
                     detailsBuilder.append("Instructions:\n");
                     detailsBuilder.append(String.join("\n", info.getInstructions()));
@@ -142,13 +139,10 @@ public class WorkoutList extends AppCompatActivity {
                 int baseRest = we.getRestSeconds() > 0 ? we.getRestSeconds() : 20;
                 exerciseRests.add(adaptRestTime(baseRest, userProfile.getFitnessLevel()));
 
-                // ✅ Set appropriate time based on exercise type
                 if (we.getSets() > 0 && we.getReps() > 0) {
-                    // For rep-based exercises, calculate estimated time
-                    int estimatedTime = we.getSets() * we.getReps() * 3; // 3 seconds per rep
-                    exerciseTimes.add(Math.max(estimatedTime, 60)); // Minimum 1 minute
+                    int estimatedTime = we.getSets() * we.getReps() * 3;
+                    exerciseTimes.add(Math.max(estimatedTime, 60));
                 } else {
-                    // For time-based exercises
                     exerciseTimes.add(30);
                 }
 
@@ -170,6 +164,7 @@ public class WorkoutList extends AppCompatActivity {
             overridePendingTransition(0, 0);
         });
     }
+
 
     private int adaptRestTime(int baseRest, String fitnessLevel) {
         if (fitnessLevel == null) return baseRest;
@@ -591,22 +586,67 @@ public class WorkoutList extends AppCompatActivity {
             exerciseName = currentWorkoutExercises.get(position).getExerciseInfo().getName();
         }
 
-        // Show confirmation dialog
+        // ✅ CHECK IF THIS IS THE LAST EXERCISE
+        if (currentWorkoutExercises.size() == 1) {
+            // Show special dialog for last exercise deletion
+            new AlertDialog.Builder(this)
+                    .setTitle("⚠️ Delete All Exercises?")
+                    .setMessage(
+                            "You're about to remove the last exercise in your workout.\n\n" +
+                                    "🔄 The app will automatically generate a NEW personalized workout for you based on your fitness profile.\n\n" +
+                                    "Are you sure you want to continue?"
+                    )
+                    .setPositiveButton("Yes, Generate New Workout", (dialog, which) -> {
+                        // ✅ Clear the current workout
+                        currentWorkoutExercises.clear();
+
+                        // ✅ Show loading indicator
+                        loadingIndicator.setVisibility(View.VISIBLE);
+                        exercisesContainer.removeAllViews();
+
+                        // ✅ Disable start button immediately
+                        startWorkoutButton.setEnabled(false);
+
+                        // ✅ Delete the old workout from Firestore FIRST
+                        if (currentUser != null) {
+                            String uid = currentUser.getUid();
+                            DocumentReference workoutRef = firestore.collection("users")
+                                    .document(uid)
+                                    .collection("currentWorkout")
+                                    .document("week_" + userProfile.getCurrentWeek());
+
+                            workoutRef.delete()
+                                    .addOnSuccessListener(aVoid -> {
+                                        Log.d(TAG, "Old workout deleted from Firestore");
+                                        // ✅ Now regenerate with fresh exercises
+                                        Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
+                                        fetchAllExercises();
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "Error deleting old workout", e);
+                                        // ✅ Still try to regenerate even if deletion fails
+                                        Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
+                                        fetchAllExercises();
+                                    });
+                        } else {
+                            // ✅ User not logged in, just regenerate
+                            Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
+                            fetchAllExercises();
+                        }
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .show();
+            return;
+        }
+
+        // ✅ NORMAL DELETION (when there are multiple exercises)
         new AlertDialog.Builder(this)
                 .setTitle("Delete Exercise")
-                .setMessage("Are you sure you want to remove '" + exerciseName + "' from your workout?")
+                .setMessage("Remove '" + exerciseName + "' from your workout?")
                 .setPositiveButton("Delete", (dialog, which) -> {
                     // Remove from list
-                    WorkoutExercise removedExercise = currentWorkoutExercises.remove(position);
-
-                    // Check if workout is now empty
-                    if (currentWorkoutExercises.isEmpty()) {
-                        Toast.makeText(this, "All exercises removed. Generating new workout...",
-                                Toast.LENGTH_SHORT).show();
-                        startWorkoutButton.setEnabled(false);
-                        fetchAllExercises();
-                        return;
-                    }
+                    currentWorkoutExercises.remove(position);
 
                     // Update UI
                     showExercises(currentWorkoutExercises);
@@ -619,9 +659,7 @@ public class WorkoutList extends AppCompatActivity {
                 .show();
     }
 
-    /**
-     * Saves the current workout to Firestore
-     */
+
     private void saveWorkoutToFirestore() {
         if (currentUser == null) {
             Log.w(TAG, "Cannot save workout: user not logged in");
@@ -662,6 +700,94 @@ public class WorkoutList extends AppCompatActivity {
         public List<WorkoutExercise> toWorkoutExercises() {
             return exercises != null ? exercises : new ArrayList<>();
         }
+    }
+
+    private void checkExistingWorkout() {
+        if (currentUser == null) {
+            Log.w(TAG, "User not logged in, fetching exercises for generation");
+            fetchAllExercises();
+            return;
+        }
+
+        loadingIndicator.setVisibility(View.VISIBLE);
+
+        String uid = currentUser.getUid();
+        DocumentReference userDocRef = firestore.collection("users").document(uid);
+
+        userDocRef.get().addOnSuccessListener(userSnapshot -> {
+            if (!userSnapshot.exists()) {
+                Log.w(TAG, "User profile not found, generating new workout");
+                fetchAllExercises();
+                return;
+            }
+
+            updateUserProfileFromFirestore(userSnapshot);
+
+            Long profileLastModified = userSnapshot.getLong("profileLastModified");
+
+            DocumentReference workoutRef = firestore.collection("users")
+                    .document(uid)
+                    .collection("currentWorkout")
+                    .document("week_" + userProfile.getCurrentWeek());
+
+            workoutRef.get().addOnSuccessListener(workoutSnapshot -> {
+                boolean needsRegeneration = false;
+
+                if (!workoutSnapshot.exists()) {
+                    Log.d(TAG, "No workout exists, need to generate");
+                    needsRegeneration = true;
+                } else if (Boolean.TRUE.equals(workoutSnapshot.getBoolean("completed"))) {
+                    Log.d(TAG, "Workout completed, need to regenerate");
+                    needsRegeneration = true;
+                } else {
+                    // ✅ CHECK IF WORKOUT HAS NO EXERCISES
+                    List<WorkoutExercise> existingExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
+                    if (existingExercises == null || existingExercises.isEmpty()) {
+                        Log.d(TAG, "Workout exists but empty, need to regenerate");
+                        needsRegeneration = true;
+                    } else {
+                        Long workoutCreatedAt = workoutSnapshot.getLong("createdAt");
+
+                        // Check if profile changed
+                        if (profileLastModified != null && workoutCreatedAt != null
+                                && profileLastModified > workoutCreatedAt) {
+                            Log.d(TAG, "Profile changed, need to regenerate");
+                            needsRegeneration = true;
+                        } else {
+                            // Check if difficulty was adjusted
+                            Long lastAdjustmentTime = workoutPrefs.getLong("last_adjustment_timestamp", 0);
+                            if (lastAdjustmentTime > 0 && workoutCreatedAt != null
+                                    && lastAdjustmentTime > workoutCreatedAt) {
+                                Log.d(TAG, "Difficulty adjusted, need to regenerate");
+                                needsRegeneration = true;
+                            } else {
+                                // ✅ WORKOUT IS VALID - LOAD IT IMMEDIATELY (FAST PATH!)
+                                Log.d(TAG, "✅ Loading existing valid workout - NO FETCH NEEDED");
+                                currentWorkoutExercises = existingExercises;
+                                loadingIndicator.setVisibility(View.GONE);
+                                showExercises(currentWorkoutExercises);
+                                startWorkoutButton.setEnabled(true);
+                                return;
+                            }
+                        }
+                    }
+                }
+
+                // ✅ Only fetch exercises if we actually need to regenerate
+                if (needsRegeneration) {
+                    Log.d(TAG, "Fetching exercises for workout generation");
+                    fetchAllExercises();
+                }
+
+            }).addOnFailureListener(e -> {
+                Log.e(TAG, "Error checking workout", e);
+                fetchAllExercises();
+            });
+
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error fetching user profile", e);
+            fetchAllExercises();
+        });
     }
 
     @Override

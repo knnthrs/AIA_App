@@ -830,6 +830,15 @@
                                 db.collection("memberships").document(user.getUid())
                                         .update("membershipStatus", "expired")
                                         .addOnSuccessListener(aVoid -> {
+                                            // Also update users collection
+                                            db.collection("users").document(user.getUid())
+                                                    .update(
+                                                            "membershipStatus", "expired",
+                                                            "membershipActive", false
+                                                    )
+                                                    .addOnSuccessListener(v -> Log.d(TAG, "User membership status updated"))
+                                                    .addOnFailureListener(e -> Log.e(TAG, "Failed to update user status", e));
+
                                             showExpirationPopup("Your membership has expired.");
                                             saveNotificationToFirestore("expired", 0);
                                             loadUserDataFromFirestore();

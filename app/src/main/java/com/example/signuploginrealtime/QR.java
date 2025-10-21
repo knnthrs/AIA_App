@@ -1,5 +1,6 @@
 package com.example.signuploginrealtime;
 
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.os.Bundle;
 import android.view.View;
@@ -34,6 +35,9 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import android.util.Log;
+import java.util.HashMap;
+import java.util.Map;
 
 public class QR extends AppCompatActivity {
 
@@ -60,6 +64,9 @@ public class QR extends AppCompatActivity {
     private DocumentReference userDocRef;
     private ListenerRegistration userDataListener;
     private ListenerRegistration attendanceListener;
+    private LinearLayout noMembershipContainer;  // ← ADD THIS
+    private android.widget.Button btnGetMembership;  // ← ADD THIS
+    private ListenerRegistration membershipListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,10 +80,15 @@ public class QR extends AppCompatActivity {
             return insets;
         });
 
+        // ✅ Initialize Firestore FIRST
+        firestore = FirebaseFirestore.getInstance();
+
         initializeViews();
         setupClickListeners();
         setupRecyclerView();
+        ensureDefaultMembershipRecord(); // ← Now firestore is initialized
         loadUserData();
+        loadMembershipData();
         loadAttendanceHistory();
     }
 
@@ -95,8 +107,14 @@ public class QR extends AppCompatActivity {
         noRecordsText = findViewById(R.id.no_records_text);
         totalVisitsText = findViewById(R.id.total_visits_text);
         thisMonthText = findViewById(R.id.this_month_text);
-
         attendanceRecords = new ArrayList<>();
+        noMembershipContainer = findViewById(R.id.no_membership_container);
+        btnGetMembership = findViewById(R.id.btn_get_membership);
+
+        btnGetMembership.setOnClickListener(v -> {
+            Intent intent = new Intent(QR.this, SelectMembership.class);
+            startActivity(intent);
+        });
     }
 
     private void setupClickListeners() {
@@ -182,12 +200,102 @@ public class QR extends AppCompatActivity {
                     });
         }
     }
+
+    private void ensureDefaultMembershipRecord() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) return;
+
+        firestore.collection("memberships")
+                .document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) {
+                        // No membership record exists - create default inactive one
+                        Map<String, Object> defaultMembership = new HashMap<>();
+                        defaultMembership.put("userId", currentUser.getUid());
+                        defaultMembership.put("membershipStatus", "inactive");
+                        defaultMembership.put("createdAt", com.google.firebase.Timestamp.now());
+
+                        firestore.collection("memberships")
+                                .document(currentUser.getUid())
+                                .set(defaultMembership)
+                                .addOnSuccessListener(v -> {
+                                    Log.d("QR", "Default membership record created");
+
+                                    // ✅ ALSO update users collection
+                                    firestore.collection("users")
+                                            .document(currentUser.getUid())
+                                            .update("membershipStatus", "inactive")
+                                            .addOnSuccessListener(u -> {
+                                                Log.d("QR", "User membershipStatus set to inactive");
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                Log.e("QR", "Failed to update user membershipStatus", e);
+                                            });
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("QR", "Failed to create default membership", e);
+                                });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("QR", "Failed to check membership record", e);
+                });
+    }
+
+
+
     private boolean isThisMonth(long timestamp) {
         SimpleDateFormat monthFormat = new SimpleDateFormat("MM-yyyy", Locale.getDefault());
         String recordMonth = monthFormat.format(new Date(timestamp));
         String currentMonth = monthFormat.format(new Date());
         return recordMonth.equals(currentMonth);
     }
+
+
+    private void loadMembershipData() {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) return;
+
+        // Remove previous listener if any
+        if (membershipListener != null) {
+            membershipListener.remove();
+        }
+
+        // Listen to memberships collection in real-time
+        membershipListener = firestore.collection("memberships")
+                .document(currentUser.getUid())
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null) {
+                        membershipStatusText = "NO PLAN SELECTED";
+                        isActive = false;
+                        updateUserInfoRealtime();
+                        ensurePermanentQRCode();
+                        return;
+                    }
+
+                    if (snapshot != null && snapshot.exists() && "active".equals(snapshot.getString("membershipStatus"))) {
+                        // Has active membership
+                        String planLabel = snapshot.getString("membershipPlanLabel");
+
+                        if (planLabel != null && !planLabel.isEmpty()) {
+                            membershipStatusText = formatMembershipDisplay(planLabel);
+                            isActive = true;
+                        } else {
+                            membershipStatusText = "ACTIVE MEMBER";
+                            isActive = true;
+                        }
+                    } else {
+                        // No active membership
+                        membershipStatusText = "NO PLAN SELECTED";
+                        isActive = false;
+                    }
+
+                    updateUserInfoRealtime();
+                    ensurePermanentQRCode();
+                });
+    }
+
 
     private void loadUserData() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -328,27 +436,73 @@ public class QR extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) return;
 
-        if (userDocRef != null) {
-            userDocRef.get().addOnCompleteListener(task -> {
-                if (task.isSuccessful()) {
-                    DocumentSnapshot snapshot = task.getResult();
-                    String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
-                    if (savedQr != null && !savedQr.isEmpty()) {
-                        generateQRCode(savedQr);
-                    } else {
-                        // Only include username and UID, skip membership type
-                        String qrData = String.format("%s_%s",
-                                userName.replaceAll("[\\s\\W]", ""),
-                                currentUser.getUid());
-                        userDocRef.update("qrCode", qrData);
-                        generateQRCode(qrData);
+        // ✅ First, check if user has active membership
+        firestore.collection("memberships")
+                .document(currentUser.getUid())
+                .get()
+                .addOnSuccessListener(membershipDoc -> {
+                    boolean hasActiveMembership = false;
+
+                    if (membershipDoc.exists()) {
+                        String status = membershipDoc.getString("membershipStatus");
+                        hasActiveMembership = "active".equals(status);
                     }
-                } else {
-                    Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
+
+                    if (!hasActiveMembership) {
+                        // ❌ No active membership - show message and hide QR
+                        showNoMembershipMessage();
+                        return;
+                    }
+
+                    // ✅ Has active membership - generate QR code
+                    if (userDocRef != null) {
+                        userDocRef.get().addOnCompleteListener(task -> {
+                            if (task.isSuccessful()) {
+                                DocumentSnapshot snapshot = task.getResult();
+                                String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
+                                if (savedQr != null && !savedQr.isEmpty()) {
+                                    generateQRCode(savedQr);
+                                    showQRCode();  // ← Show AFTER generating
+                                } else {
+                                    String qrData = String.format("%s_%s",
+                                            userName.replaceAll("[\\s\\W]", ""),
+                                            currentUser.getUid());
+                                    userDocRef.update("qrCode", qrData)
+                                            .addOnSuccessListener(v -> {
+                                                generateQRCode(qrData);
+                                                showQRCode();  // ← Show AFTER generating
+                                            })
+                                            .addOnFailureListener(e -> {
+                                                generateQRCode(qrData);
+                                                showQRCode();
+                                            });
+                                }
+                            } else {
+                                Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
+                            }
+                        });
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Toast.makeText(this, "Failed to check membership status", Toast.LENGTH_SHORT).show();
+                    showNoMembershipMessage();
+                });
     }
+
+
+
+    private void showNoMembershipMessage() {
+        CardView qrCodeCard = findViewById(R.id.qr_code_card);
+        qrCodeCard.setVisibility(View.GONE);
+        noMembershipContainer.setVisibility(View.VISIBLE);
+    }
+
+    private void showQRCode() {
+        CardView qrCodeCard = findViewById(R.id.qr_code_card);
+        qrCodeCard.setVisibility(View.VISIBLE);
+        noMembershipContainer.setVisibility(View.GONE);
+    }
+
     private void generateQRCode(String text) {
         QRCodeWriter writer = new QRCodeWriter();
         try {
@@ -377,6 +531,9 @@ public class QR extends AppCompatActivity {
         if (attendanceListener != null) {
             attendanceListener.remove();
         }
+        if (membershipListener != null) {  // ← ADD THIS
+            membershipListener.remove();
+        }
     }
 
     @Override
@@ -387,6 +544,9 @@ public class QR extends AppCompatActivity {
         }
         if (attendanceListener != null) {
             attendanceListener.remove();
+        }
+        if (membershipListener != null) {  // ← ADD THIS
+            membershipListener.remove();
         }
     }
 
@@ -439,20 +599,24 @@ public class QR extends AppCompatActivity {
             });
         }
 
+        loadMembershipData();
+
         // Reload attendance history
         loadAttendanceHistory();
     }
 
     // Helper Firestore user profile class
     private static class UserProfileFirestore {
-        public String fullname, email, phone, dateOfBirth, membershipStatus;
+        public String fullname, email, phone, dateOfBirth;
+        // REMOVED: membershipStatus field completely
 
         public UserProfileFirestore(String fullname, String email) {
             this.fullname = fullname;
             this.email = email;
             this.phone = "";
             this.dateOfBirth = "";
-            this.membershipStatus = "Active Member";
+            // REMOVED: this.membershipStatus = "Active Member";
         }
     }
+
 }

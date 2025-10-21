@@ -719,7 +719,49 @@ public class SelectMembership extends AppCompatActivity {
                 });
     }
 
-    private void saveMembershipWithUserName(String fullName,String paymentMethod) {
+    private void saveMembershipWithUserName(String fullName, String paymentMethod) {
+        // Check if there's an existing membership to archive
+        db.collection("memberships")
+                .document(currentUserId)
+                .get()
+                .addOnSuccessListener(existingDoc -> {
+                    if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
+                        // Move existing membership to History collection
+                        Map<String, Object> historyData = existingDoc.getData();
+                        if (historyData != null) {
+                            historyData.put("replacedAt", Timestamp.now());
+                            historyData.put("replacedReason", "Replaced by new membership");
+                            historyData.put("newMembershipPlan", selectedPlanLabel);
+
+                            // Save to History collection with auto-generated ID
+                            db.collection("history")
+                                    .add(historyData)
+                                    .addOnSuccessListener(docRef -> {
+                                        Log.d(TAG, "Old membership archived to History: " + docRef.getId());
+                                        // Now proceed to save the new membership
+                                        saveNewMembershipData(fullName, paymentMethod);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "Failed to archive old membership", e);
+                                        // Still proceed with new membership even if archiving fails
+                                        saveNewMembershipData(fullName, paymentMethod);
+                                    });
+                        } else {
+                            saveNewMembershipData(fullName, paymentMethod);
+                        }
+                    } else {
+                        // No existing membership, just save the new one
+                        saveNewMembershipData(fullName, paymentMethod);
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking existing membership", e);
+                    saveNewMembershipData(fullName, paymentMethod);
+                });
+    }
+
+
+    private void saveNewMembershipData(String fullName, String paymentMethod) {
         Calendar calendar = Calendar.getInstance();
 
         if (selectedMonths > 0) {
@@ -747,9 +789,8 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("sessionsRemaining", selectedSessions);
         membershipData.put("price", selectedPrice);
         membershipData.put("paymentStatus", "paid");
-        membershipData.put("paymentMethod", paymentMethod);// or "GCash", "Card", etc.
+        membershipData.put("paymentMethod", paymentMethod);
         membershipData.put("createdAt", startTimestamp);
-
 
         Log.d(TAG, "Saving membership with userId: " + currentUserId);
 
@@ -757,19 +798,39 @@ public class SelectMembership extends AppCompatActivity {
                 .document(currentUserId)
                 .set(membershipData)
                 .addOnSuccessListener(aVoid -> {
-                    if (loadingProgress != null) {
-                        loadingProgress.setVisibility(View.GONE);
-                    }
+                    Map<String, Object> userUpdate = new HashMap<>();
+                    userUpdate.put("membershipPlanLabel", selectedPlanLabel);
+                    userUpdate.put("membershipPlanCode", selectedPackageId);
+                    userUpdate.put("membershipActive", true);
+                    userUpdate.put("membershipStatus", "active");
 
-                    Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
+                    db.collection("users")
+                            .document(currentUserId)
+                            .update(userUpdate)
+                            .addOnSuccessListener(v -> {
+                                if (loadingProgress != null) {
+                                    loadingProgress.setVisibility(View.GONE);
+                                }
 
-                    Intent resultIntent = new Intent();
-                    resultIntent.putExtra("selectedPackageId", selectedPackageId);
-                    resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
-                    resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
-                    resultIntent.putExtra("membershipId", currentUserId);
-                    setResult(RESULT_OK, resultIntent);
-                    finish();
+                                Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
+
+                                Intent resultIntent = new Intent();
+                                resultIntent.putExtra("selectedPackageId", selectedPackageId);
+                                resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
+                                resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
+                                resultIntent.putExtra("membershipId", currentUserId);
+                                setResult(RESULT_OK, resultIntent);
+                                finish();
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "Failed to update user doc, but membership is active", e);
+                                if (loadingProgress != null) {
+                                    loadingProgress.setVisibility(View.GONE);
+                                }
+                                Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
+                                setResult(RESULT_OK);
+                                finish();
+                            });
                 })
                 .addOnFailureListener(e -> {
                     if (loadingProgress != null) {
@@ -779,4 +840,5 @@ public class SelectMembership extends AppCompatActivity {
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
+
 }

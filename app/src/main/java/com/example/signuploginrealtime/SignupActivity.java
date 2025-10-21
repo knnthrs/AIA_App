@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.View;
 import android.widget.*;
 
@@ -135,23 +136,24 @@ public class SignupActivity extends AppCompatActivity {
                 return;
             }
 
-            // Check if phone number already exists
-            showLoading("Checking phone number...");
-            String normalizedPhone = normalizePhoneNumber(phone);
+                    // Check if phone number already exists first
+                    showLoading("Checking phone number...");
+                    String normalizedPhone = normalizePhoneNumber(phone);
 
-            checkPhoneNumberExists(normalizedPhone, exists -> {
-                hideLoading();
+                    checkPhoneNumberExists(normalizedPhone, exists -> {
+                        hideLoading();
 
-                if (exists) {
-                    Toast.makeText(SignupActivity.this,
-                            "This phone number is already registered. Please use a different number or login.",
-                            Toast.LENGTH_LONG).show();
-                } else {
-                    // Phone number is unique, proceed with registration
-                    proceedWithSignup(fullname, email, password, normalizedPhone);
-                }
-            });
-        });
+                        if (exists) {
+                            Toast.makeText(SignupActivity.this,
+                                    "This phone number is already registered. Please use a different number or login.",
+                                    Toast.LENGTH_LONG).show();
+                        } else {
+                            // Phone number is unique, proceed with signup
+                            proceedWithSignup(fullname, email, password, normalizedPhone);
+                        }
+                    });
+        }
+        );
 
         loginRedirectText.setOnClickListener(v -> {
             Intent intent = new Intent(SignupActivity.this, LoginActivity.class);
@@ -161,19 +163,29 @@ public class SignupActivity extends AppCompatActivity {
     }
 
     private void checkPhoneNumberExists(String phone, PhoneCheckCallback callback) {
+        Log.d("SignupDebug", "Checking phone: " + phone); // Add this
+
         db.collection("users")
                 .whereEqualTo("phone", phone)
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         QuerySnapshot querySnapshot = task.getResult();
-                        callback.onResult(querySnapshot != null && !querySnapshot.isEmpty());
+                        boolean exists = querySnapshot != null && !querySnapshot.isEmpty();
+
+                        // Add this logging
+                        Log.d("SignupDebug", "Phone exists: " + exists);
+                        if (exists && querySnapshot != null) {
+                            Log.d("SignupDebug", "Found " + querySnapshot.size() + " matching documents");
+                        }
+
+                        callback.onResult(exists);
                     } else {
-                        // If check fails, show error and don't proceed
+                        Log.e("SignupDebug", "Error checking phone", task.getException()); // Add this
                         Toast.makeText(SignupActivity.this,
                                 "Error checking phone number. Please try again.",
                                 Toast.LENGTH_SHORT).show();
-                        callback.onResult(true); // Treat as exists to prevent signup on error
+                        // Don't call callback on error
                     }
                 });
     }
@@ -198,6 +210,7 @@ public class SignupActivity extends AppCompatActivity {
                             userData.put("phone", normalizedPhone);
                             userData.put("userType", "user");
                             userData.put("emailVerified", false); // Track verification status
+                            userData.put("phoneVerified", false); // Phone not verified (no OTP)
 
                             db.collection("users").document(userId).set(userData)
                                     .addOnCompleteListener(dbTask -> {
@@ -245,14 +258,28 @@ public class SignupActivity extends AppCompatActivity {
                     if (task.isSuccessful()) {
                         showEmailVerificationDialog();
                     } else {
-                        Toast.makeText(SignupActivity.this,
-                                "Failed to send verification email. Please try again later.",
-                                Toast.LENGTH_LONG).show();
-                        // Still allow them to proceed, but they'll need to verify later
-                        showSuccessDialog();
+                        // Show error and let user try again
+                        new AlertDialog.Builder(SignupActivity.this)
+                                .setTitle("Email Verification Error")
+                                .setMessage("Failed to send verification email. Please check your internet connection.")
+                                .setPositiveButton("Retry", (dialog, which) -> {
+                                    sendEmailVerification(user);
+                                })
+                                .setNegativeButton("Cancel", (dialog, which) -> {
+                                    // Delete the account and go back
+                                    user.delete();
+                                    mAuth.signOut();
+                                    Toast.makeText(SignupActivity.this,
+                                            "Registration cancelled. Please try again.",
+                                            Toast.LENGTH_SHORT).show();
+                                })
+                                .setCancelable(false)
+                                .show();
                     }
                 });
     }
+
+
 
     private void showEmailVerificationDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(SignupActivity.this);
@@ -470,4 +497,5 @@ public class SignupActivity extends AppCompatActivity {
             textView.setText(text);
         }
     }
+
 }

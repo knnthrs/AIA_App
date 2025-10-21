@@ -20,6 +20,7 @@
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
 
+
         <activity
             android:name=".Activity_adjusting_workout"
             android:exported="false" />
@@ -120,6 +121,7 @@
             android:exported="false" />
         <activity
             android:name=".SignupActivity"
+            android:windowSoftInputMode="adjustPan|stateHidden"
             android:exported="true" />
         <activity
             android:name=".MainActivity"

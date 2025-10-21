@@ -1167,8 +1167,10 @@ public class Profile extends AppCompatActivity {
         // Update Membership Status
         if (membershipStatus != null && !membershipStatus.isEmpty()) {
             tvStatus.setText(membershipStatus.toUpperCase());
+            updateMembershipStatusColor(membershipStatus);
         } else {
             tvStatus.setText("ACTIVE MEMBER");
+            updateMembershipStatusColor("Active Member");
             if (userDocRef != null) userDocRef.update("membershipStatus", "Active Member");
         }
 
@@ -1718,4 +1720,19 @@ public class Profile extends AppCompatActivity {
                     });
         }
     }
+
+
+    private void updateMembershipStatusColor(String status) {
+        if (status != null) {
+            if (status.equalsIgnoreCase("Active Member") || status.equalsIgnoreCase("Active")) {
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+            } else if (status.equalsIgnoreCase("Inactive") || status.equalsIgnoreCase("Inactive Member")) {
+                tvStatus.setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+            } else {
+                // Default color for other statuses
+                tvStatus.setTextColor(getResources().getColor(android.R.color.white));
+            }
+        }
+    }
+
 }

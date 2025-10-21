@@ -21,6 +21,7 @@ import androidx.annotation.NonNull;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.auth.AuthCredential;
@@ -32,6 +33,7 @@ import com.google.firebase.firestore.ListenerRegistration;
 
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -1108,22 +1110,72 @@ public class Profile extends AppCompatActivity {
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
                 String dateOfBirth = snapshot.getString("dateOfBirth");
-                String membershipStatus = snapshot.getString("membershipStatus");
                 String profilePictureUrl = snapshot.getString("profilePictureUrl");
-
 
                 String userType = snapshot.getString("userType");
                 if (userType == null || userType.isEmpty()) {
                     userDocRef.update("userType", "user");
                 }
 
-                updateProfileDisplay(name, email, phone, dateOfBirth, membershipStatus, currentUser);
+                // ✅ Load membership status separately from memberships collection
+                loadMembershipStatus(currentUser.getUid());
+
+                updateProfileDisplay(name, email, phone, dateOfBirth, null, currentUser);
                 loadProfilePicture(profilePictureUrl);
             } else {
                 createDefaultUserProfile(currentUser);
             }
         });
     }
+
+    private void loadMembershipStatus(String userId) {
+        firestore.collection("memberships")
+                .document(userId)
+                .addSnapshotListener((snapshot, error) -> {
+                    if (error != null) {
+                        Log.e("Profile", "Error loading membership", error);
+                        tvStatus.setText("INACTIVE");
+                        updateMembershipStatusColor("Inactive");
+                        return;
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        String status = snapshot.getString("membershipStatus");
+
+                        // Check expiration date
+                        Timestamp expirationTimestamp = snapshot.getTimestamp("membershipExpirationDate");
+                        boolean isExpired = false;
+
+                        if (expirationTimestamp != null) {
+                            Date expirationDate = expirationTimestamp.toDate();
+                            Date now = new Date();
+                            isExpired = now.after(expirationDate);
+                        }
+
+                        // Simple: Active or Inactive
+                        if ("active".equalsIgnoreCase(status) && !isExpired) {
+                            tvStatus.setText("ACTIVE");
+                            updateMembershipStatusColor("Active");
+                        } else {
+                            tvStatus.setText("INACTIVE");
+                            updateMembershipStatusColor("Inactive");
+
+                            // Auto-update status in database if expired
+                            if (isExpired && "active".equalsIgnoreCase(status)) {
+                                firestore.collection("memberships")
+                                        .document(userId)
+                                        .update("membershipStatus", "inactive");
+                            }
+                        }
+                    } else {
+                        // No membership document = Inactive
+                        tvStatus.setText("INACTIVE");
+                        updateMembershipStatusColor("Inactive");
+                    }
+                });
+    }
+
+
 
     private void updateProfileDisplay(String name, String email, String phone, String dateOfBirth, String membershipStatus, FirebaseUser currentUser) {
         // Update Name
@@ -1164,19 +1216,14 @@ public class Profile extends AppCompatActivity {
             }
         }
 
-        // Update Membership Status
-        if (membershipStatus != null && !membershipStatus.isEmpty()) {
-            tvStatus.setText(membershipStatus.toUpperCase());
-            updateMembershipStatusColor(membershipStatus);
-        } else {
-            tvStatus.setText("ACTIVE MEMBER");
-            updateMembershipStatusColor("Active Member");
-            if (userDocRef != null) userDocRef.update("membershipStatus", "Active Member");
-        }
+        // ✅ REMOVED: Membership Status update (now handled by loadMembershipStatus)
+        // The loadMembershipStatus() method will handle this
 
         // Load fitness profile data
         loadFitnessProfileData();
     }
+
+
 
     // Add this method in Profile.java after your update methods
     private void markProfileAsChanged() {
@@ -1210,7 +1257,8 @@ public class Profile extends AppCompatActivity {
         profileName.setText(fullname);
         profileEmail.setText(email != null ? email : "No email");
         tvPhone.setText("Phone not set");
-        tvStatus.setText("ACTIVE MEMBER");
+        tvStatus.setText("INACTIVE");
+        updateMembershipStatusColor("Inactive");
         tvDob.setText("Select your date of birth");
         tvFitnessLevel.setText("Not set");
         tvFitnessGoal.setText("Not set");

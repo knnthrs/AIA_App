@@ -80,7 +80,7 @@ public class QR extends AppCompatActivity {
             return insets;
         });
 
-        // ✅ Initialize Firestore FIRST
+        // ✅ Initialize Firestore FIRST - BEFORE any other method calls
         firestore = FirebaseFirestore.getInstance();
 
         initializeViews();
@@ -436,16 +436,33 @@ public class QR extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) return;
 
+        // ✅ Don't generate QR if userName is still loading
+        if (userName == null || userName.equals("Loading...")) {
+            Log.d("QR", "Waiting for userName to load...");
+            return;
+        }
+
         // ✅ First, check if user has active membership
         firestore.collection("memberships")
                 .document(currentUser.getUid())
                 .get()
                 .addOnSuccessListener(membershipDoc -> {
                     boolean hasActiveMembership = false;
+                    String membershipTypeForQR = "NoMembership"; // Default
 
                     if (membershipDoc.exists()) {
                         String status = membershipDoc.getString("membershipStatus");
                         hasActiveMembership = "active".equals(status);
+
+                        // Get membership type for QR
+                        if (hasActiveMembership) {
+                            String planLabel = membershipDoc.getString("membershipPlanLabel");
+                            if (planLabel != null) {
+                                membershipTypeForQR = formatMembershipTypeForQR(planLabel);
+                            } else {
+                                membershipTypeForQR = "Standard";
+                            }
+                        }
                     }
 
                     if (!hasActiveMembership) {
@@ -454,28 +471,35 @@ public class QR extends AppCompatActivity {
                         return;
                     }
 
-                    // ✅ Has active membership - generate QR code
+                    // ✅ Has active membership - generate QR code with membership type
+                    String finalMembershipType = membershipTypeForQR;
+
                     if (userDocRef != null) {
                         userDocRef.get().addOnCompleteListener(task -> {
                             if (task.isSuccessful()) {
                                 DocumentSnapshot snapshot = task.getResult();
                                 String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
-                                if (savedQr != null && !savedQr.isEmpty()) {
-                                    generateQRCode(savedQr);
-                                    showQRCode();  // ← Show AFTER generating
-                                } else {
-                                    String qrData = String.format("%s_%s",
-                                            userName.replaceAll("[\\s\\W]", ""),
-                                            currentUser.getUid());
+
+                                // ✅ NEW FORMAT: userName_membershipType_uid
+                                String qrData = String.format("%s_%s_%s",
+                                        userName.replaceAll("[\\s\\W]", ""),
+                                        finalMembershipType,
+                                        currentUser.getUid());
+
+                                if (savedQr == null || !savedQr.equals(qrData)) {
+                                    // Update QR code in database
                                     userDocRef.update("qrCode", qrData)
                                             .addOnSuccessListener(v -> {
                                                 generateQRCode(qrData);
-                                                showQRCode();  // ← Show AFTER generating
+                                                showQRCode();
                                             })
                                             .addOnFailureListener(e -> {
                                                 generateQRCode(qrData);
                                                 showQRCode();
                                             });
+                                } else {
+                                    generateQRCode(qrData);
+                                    showQRCode();
                                 }
                             } else {
                                 Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
@@ -489,6 +513,33 @@ public class QR extends AppCompatActivity {
                 });
     }
 
+
+
+
+    // ✅ Add this helper method to format membership type for QR
+    private String formatMembershipTypeForQR(String planLabel) {
+        if (planLabel == null || planLabel.isEmpty()) {
+            return "Standard";
+        }
+
+        String upper = planLabel.toUpperCase();
+
+        if (upper.contains("PT") || upper.contains("PERSONAL TRAINING")) {
+            return "PT";
+        } else if (upper.contains("DAILY")) {
+            return "Daily";
+        } else if (upper.contains("1 MONTH")) {
+            return "1Month";
+        } else if (upper.contains("3 MONTHS")) {
+            return "3Months";
+        } else if (upper.contains("6 MONTHS")) {
+            return "6Months";
+        } else if (upper.contains("12 MONTHS") || upper.contains("1 YEAR")) {
+            return "1Year";
+        } else {
+            return "Standard";
+        }
+    }
 
 
     private void showNoMembershipMessage() {
@@ -615,7 +666,6 @@ public class QR extends AppCompatActivity {
             this.email = email;
             this.phone = "";
             this.dateOfBirth = "";
-            // REMOVED: this.membershipStatus = "Active Member";
         }
     }
 

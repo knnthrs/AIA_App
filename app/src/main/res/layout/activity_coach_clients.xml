@@ -314,7 +314,7 @@
                     android:src="@drawable/ic_archive" />
                 <TextView
                     style="@style/SidebarMenuText"
-                    android:text="Archieve" />
+                    android:text="Archive" />
             </LinearLayout>
 
             <LinearLayout

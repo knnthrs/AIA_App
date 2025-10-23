@@ -714,48 +714,55 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(userDoc -> {
                     String fullName = "Unknown User";
-
                     if (userDoc.exists()) {
                         fullName = userDoc.getString("fullname");
                         if (fullName == null || fullName.isEmpty()) {
                             fullName = "Unknown User";
                         }
                     }
-
-                    saveMembershipWithUserName(fullName, paymentMethod);
+                    archiveOldMembershipIfExists(fullName, paymentMethod);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error fetching user name", e);
-                    saveMembershipWithUserName("Unknown User", paymentMethod);
+                    archiveOldMembershipIfExists("Unknown User", paymentMethod);
                 });
     }
 
-    private void saveMembershipWithUserName(String fullName, String paymentMethod) {
+
+
+    private void archiveOldMembershipIfExists(String fullName, String paymentMethod) {
         db.collection("memberships")
                 .document(currentUserId)
                 .get()
                 .addOnSuccessListener(existingDoc -> {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
-                        Map<String, Object> historyData = existingDoc.getData();
-                        if (historyData != null) {
-                            historyData.put("replacedAt", Timestamp.now());
-                            historyData.put("replacedReason", "Replaced by new membership");
-                            historyData.put("newMembershipPlan", selectedPlanLabel);
+                        // Old membership exists, archive it with "replaced" status
+                        Map<String, Object> oldMembershipData = existingDoc.getData();
+                        if (oldMembershipData != null) {
+                            oldMembershipData.put("replacedAt", Timestamp.now());
+                            oldMembershipData.put("replacedReason", "Replaced by new membership");
+                            oldMembershipData.put("newMembershipPlan", selectedPlanLabel);
+                            oldMembershipData.put("membershipStatus", "replaced"); // Change status
+                            oldMembershipData.put("recordType", "replaced_membership");
 
                             db.collection("history")
-                                    .add(historyData)
+                                    .add(oldMembershipData)
                                     .addOnSuccessListener(docRef -> {
-                                        Log.d(TAG, "Old membership archived to History: " + docRef.getId());
+                                        Log.d(TAG, "✅ OLD membership archived to history: " + docRef.getId());
+                                        // Now save the new membership
                                         saveNewMembershipData(fullName, paymentMethod);
                                     })
                                     .addOnFailureListener(e -> {
-                                        Log.e(TAG, "Failed to archive old membership", e);
+                                        Log.e(TAG, "⚠️ Failed to archive old membership", e);
+                                        // Continue anyway
                                         saveNewMembershipData(fullName, paymentMethod);
                                     });
                         } else {
                             saveNewMembershipData(fullName, paymentMethod);
                         }
                     } else {
+                        // No existing active membership
+                        Log.d(TAG, "No existing active membership, creating first membership");
                         saveNewMembershipData(fullName, paymentMethod);
                     }
                 })
@@ -796,46 +803,53 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("paymentMethod", paymentMethod);
         membershipData.put("createdAt", startTimestamp);
 
-        Log.d(TAG, "Saving membership with userId: " + currentUserId);
+        Log.d(TAG, "💾 Saving NEW membership for userId: " + currentUserId);
+        Log.d(TAG, "Plan: " + selectedPlanLabel + ", Price: ₱" + selectedPrice);
 
+        // STEP 1: Save to memberships collection (active membership)
         db.collection("memberships")
                 .document(currentUserId)
                 .set(membershipData)
                 .addOnSuccessListener(aVoid -> {
-                    Map<String, Object> userUpdate = new HashMap<>();
-                    userUpdate.put("membershipPlanLabel", selectedPlanLabel);
-                    userUpdate.put("membershipPlanCode", selectedPackageId);
-                    userUpdate.put("membershipActive", true);
-                    userUpdate.put("membershipStatus", "active");
+                    Log.d(TAG, "✅ NEW membership saved to 'memberships' collection");
 
-                    db.collection("users")
-                            .document(currentUserId)
-                            .update(userUpdate)
-                            .addOnSuccessListener(v -> {
-                                // Navigate to MainActivity
-                                Intent mainIntent = new Intent(this, MainActivity.class);
-                                mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                mainIntent.putExtra("selectedPackageId", selectedPackageId);
-                                mainIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
-                                mainIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
-                                mainIntent.putExtra("membershipId", currentUserId);
-                                mainIntent.putExtra("membershipActivated", true);
-                                startActivity(mainIntent);
-                                finish(); // ✅ Finish AFTER starting MainActivity
+                    // STEP 2: IMMEDIATELY save the SAME data to history collection
+                    Map<String, Object> historyData = new HashMap<>(membershipData);
+                    historyData.put("recordedAt", Timestamp.now());
+                    historyData.put("recordType", "new_membership");
+                    historyData.put("isReplacement", hasActiveMembership);
+
+                    if (hasActiveMembership) {
+                        historyData.put("previousMembershipPlan", currentMembershipPlan);
+                    }
+
+                    Log.d(TAG, "💾 Now saving NEW membership to history collection...");
+
+                    db.collection("history")
+                            .add(historyData)
+                            .addOnSuccessListener(historyDocRef -> {
+                                Log.d(TAG, "✅✅✅ SUCCESS! NEW membership recorded in history: " + historyDocRef.getId());
+                                Log.d(TAG, "History document ID: " + historyDocRef.getId());
+                                Log.d(TAG, "Plan saved to history: " + selectedPlanLabel);
+
+                                // Now update user document and navigate
+                                updateUserDocAndNavigate(expirationTimestamp);
                             })
-                            .addOnFailureListener(e -> {
-                                Log.e(TAG, "Failed to update user doc, but membership is active", e);
+                            .addOnFailureListener(historyError -> {
+                                Log.e(TAG, "❌❌❌ FAILED to save NEW membership to history!");
+                                Log.e(TAG, "Error: " + historyError.getMessage());
+                                historyError.printStackTrace();
 
-                                // Navigate to MainActivity even if user update fails
-                                Intent mainIntent = new Intent(this, MainActivity.class);
-                                mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
-                                mainIntent.putExtra("membershipActivated", true);
-                                startActivity(mainIntent);
-                                finish(); // ✅ Finish AFTER starting MainActivity
+                                // Continue anyway - membership is already saved to memberships collection
+                                Toast.makeText(this,
+                                        "Membership active but history recording failed",
+                                        Toast.LENGTH_SHORT).show();
+                                updateUserDocAndNavigate(expirationTimestamp);
                             });
                 })
                 .addOnFailureListener(e -> {
-                    Log.e(TAG, "Failed to save membership: " + e.getMessage());
+                    Log.e(TAG, "❌ CRITICAL: Failed to save membership to 'memberships' collection");
+                    Log.e(TAG, "Error: " + e.getMessage());
 
                     // Show UI again on error
                     findViewById(R.id.main).setVisibility(View.VISIBLE);
@@ -844,7 +858,47 @@ public class SelectMembership extends AppCompatActivity {
                     }
                     isProcessingPayment = false;
 
-                    Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this,
+                            "Failed to save membership: " + e.getMessage(),
+                            Toast.LENGTH_LONG).show();
                 });
+    }
+
+
+    // ✅ NEW HELPER METHOD - Extracted user update logic
+    private void updateUserDocAndNavigate(Timestamp expirationTimestamp) {
+        Map<String, Object> userUpdate = new HashMap<>();
+        userUpdate.put("membershipPlanLabel", selectedPlanLabel);
+        userUpdate.put("membershipPlanCode", selectedPackageId);
+        userUpdate.put("membershipActive", true);
+        userUpdate.put("membershipStatus", "active");
+
+        Log.d(TAG, "Updating user document...");
+
+        db.collection("users")
+                .document(currentUserId)
+                .update(userUpdate)
+                .addOnSuccessListener(v -> {
+                    Log.d(TAG, "✅ User document updated");
+                    navigateToMainActivity(expirationTimestamp);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "⚠️ User doc update failed, but membership is active", e);
+                    navigateToMainActivity(expirationTimestamp);
+                });
+    }
+
+    private void navigateToMainActivity(Timestamp expirationTimestamp) {
+        Intent mainIntent = new Intent(this, MainActivity.class);
+        mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+        mainIntent.putExtra("selectedPackageId", selectedPackageId);
+        mainIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
+        mainIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
+        mainIntent.putExtra("membershipId", currentUserId);
+        mainIntent.putExtra("membershipActivated", true);
+
+        Log.d(TAG, "🚀 Navigating to MainActivity");
+        startActivity(mainIntent);
+        finish();
     }
 }

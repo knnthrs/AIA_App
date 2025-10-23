@@ -944,34 +944,64 @@ public class Profile extends AppCompatActivity {
     private void updatePhone(String newPhone) {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         if (currentUser == null) {
+            Log.e("Profile", "❌ User not authenticated");
             Toast.makeText(this, "User not authenticated", Toast.LENGTH_SHORT).show();
             return;
         }
 
-        // Normalize phone number (remove spaces and dashes)
-        String normalizedPhone = newPhone.replaceAll("[\\s-]", "");
+        // Normalize phone number
+        String normalizedPhone = newPhone.replaceAll("[\\s\\-\\(\\)]", "");
 
-        // Check if this is the same as current phone
-        String currentPhone = tvPhone.getText().toString().replaceAll("[\\s-]", "");
-        if (normalizedPhone.equals(currentPhone)) {
-            Toast.makeText(this, "This is already your current phone number", Toast.LENGTH_SHORT).show();
+        // Debug logs
+        Log.d("Profile", "Original phone input: " + newPhone);
+        Log.d("Profile", "Normalized phone: " + normalizedPhone);
+        Log.d("Profile", "Pattern matches: " + PHONE_PATTERN.matcher(normalizedPhone).matches());
+
+        // Validate format
+        if (!PHONE_PATTERN.matcher(normalizedPhone).matches()) {
+            Log.e("Profile", "❌ Invalid phone format");
+            Toast.makeText(this, "Invalid phone format. Use: 09123456789", Toast.LENGTH_SHORT).show();
             return;
         }
+        Log.d("Profile", "✅ Phone format valid");
+
+        // Check if this is the same as current phone
+        String currentPhone = tvPhone.getText().toString();
+        Log.d("Profile", "Current phone display: " + currentPhone);
+
+        if (!currentPhone.equals("Phone not set")) {
+            String currentNormalized = currentPhone.replaceAll("[\\s\\-\\(\\)]", "");
+            Log.d("Profile", "Current normalized: " + currentNormalized);
+
+            if (normalizedPhone.equals(currentNormalized)) {
+                Log.e("Profile", "❌ Same as current phone");
+                Toast.makeText(this, "This is already your current phone number", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+        Log.d("Profile", "✅ Phone is different from current");
 
         // Show progress
-        Toast.makeText(this, "Checking phone number...", Toast.LENGTH_SHORT).show();
+        Log.d("Profile", "📞 Checking if phone exists...");
+        Toast.makeText(this, "Updating phone number...", Toast.LENGTH_SHORT).show();
 
-        // Check if phone number already exists
+        // Check if phone number already exists (excluding current user)
         checkPhoneNumberExists(normalizedPhone, currentUser.getUid(), exists -> {
+            Log.d("Profile", "Phone exists check result: " + exists);
+
             if (exists) {
+                Log.e("Profile", "❌ Phone already registered");
                 Toast.makeText(Profile.this,
-                        "This phone number is already registered to another account. Please use a different number.",
+                        "This phone number is already registered to another account.",
                         Toast.LENGTH_LONG).show();
             } else {
+                Log.d("Profile", "✅ Phone is unique, proceeding with update");
+
                 // Phone number is unique, proceed with update
                 if (userDocRef != null) {
                     userDocRef.update("phone", normalizedPhone)
                             .addOnSuccessListener(aVoid -> {
+                                Log.d("Profile", "✅ Phone updated successfully");
                                 tvPhone.setText(normalizedPhone);
                                 markProfileAsChanged();
                                 Toast.makeText(Profile.this,
@@ -979,44 +1009,102 @@ public class Profile extends AppCompatActivity {
                                         Toast.LENGTH_SHORT).show();
                             })
                             .addOnFailureListener(e -> {
+                                Log.e("Profile", "❌ Phone update error", e);
                                 Toast.makeText(Profile.this,
-                                        "Failed to update phone: " + e.getMessage(),
-                                        Toast.LENGTH_SHORT).show();
+                                        "Failed to update: " + e.getMessage(),
+                                        Toast.LENGTH_LONG).show();
                             });
+                } else {
+                    Log.e("Profile", "❌ userDocRef is null");
                 }
             }
         });
     }
-
     private void checkPhoneNumberExists(String phone, String currentUserId, PhoneCheckCallback callback) {
-        firestore.collection("users")  // ✅ Use firestore instead
+        Log.d("Profile", "════════════════════════════════════════");
+        Log.d("Profile", "🔍 CHECKING PHONE EXISTENCE");
+        Log.d("Profile", "Phone to check: [" + phone + "]");
+        Log.d("Profile", "Phone length: " + phone.length());
+        Log.d("Profile", "Current user ID: " + currentUserId);
+        Log.d("Profile", "════════════════════════════════════════");
+
+        firestore.collection("users")
                 .whereEqualTo("phone", phone)
                 .get()
                 .addOnCompleteListener(task -> {
                     if (task.isSuccessful()) {
                         QuerySnapshot querySnapshot = task.getResult();
-                        if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                            // Check if the phone belongs to current user
-                            boolean belongsToOtherUser = false;
-                            for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
-                                if (!doc.getId().equals(currentUserId)) {
-                                    belongsToOtherUser = true;
-                                    break;
+
+                        Log.d("Profile", "📊 Query successful!");
+                        Log.d("Profile", "Query result is null? " + (querySnapshot == null));
+
+                        if (querySnapshot != null) {
+                            Log.d("Profile", "Is empty? " + querySnapshot.isEmpty());
+                            Log.d("Profile", "Document count: " + querySnapshot.size());
+
+                            if (!querySnapshot.isEmpty()) {
+                                Log.d("Profile", "📋 Found documents with this phone:");
+
+                                int index = 0;
+                                for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                    index++;
+                                    String docId = doc.getId();
+                                    String docPhone = doc.getString("phone");
+                                    String docEmail = doc.getString("email");
+                                    String docName = doc.getString("fullname");
+
+                                    Log.d("Profile", "--- Document #" + index + " ---");
+                                    Log.d("Profile", "  User ID: " + docId);
+                                    Log.d("Profile", "  Phone: [" + docPhone + "]");
+                                    Log.d("Profile", "  Phone length: " + (docPhone != null ? docPhone.length() : "null"));
+                                    Log.d("Profile", "  Email: " + docEmail);
+                                    Log.d("Profile", "  Name: " + docName);
+                                    Log.d("Profile", "  Is current user? " + docId.equals(currentUserId));
+                                    Log.d("Profile", "  Phone matches exactly? " + phone.equals(docPhone));
                                 }
+
+                                // Check if phone belongs to another user
+                                boolean belongsToOtherUser = false;
+                                for (DocumentSnapshot doc : querySnapshot.getDocuments()) {
+                                    if (!doc.getId().equals(currentUserId)) {
+                                        belongsToOtherUser = true;
+                                        Log.e("Profile", "❌ PHONE BELONGS TO ANOTHER USER!");
+                                        break;
+                                    }
+                                }
+
+                                if (!belongsToOtherUser) {
+                                    Log.d("Profile", "✅ Phone belongs to current user only");
+                                }
+
+                                Log.d("Profile", "Final result: belongsToOtherUser = " + belongsToOtherUser);
+                                callback.onResult(belongsToOtherUser);
+                            } else {
+                                Log.d("Profile", "✅ NO DOCUMENTS FOUND - Phone is available!");
+                                callback.onResult(false);
                             }
-                            callback.onResult(belongsToOtherUser);
                         } else {
+                            Log.e("Profile", "❌ QuerySnapshot is NULL!");
                             callback.onResult(false);
                         }
                     } else {
-                        // If check fails, show error and don't proceed
+                        Exception e = task.getException();
+                        Log.e("Profile", "❌ Query FAILED!");
+                        Log.e("Profile", "Error: " + (e != null ? e.getMessage() : "Unknown error"));
+                        if (e != null) {
+                            e.printStackTrace();
+                        }
+
                         Toast.makeText(Profile.this,
                                 "Error checking phone number. Please try again.",
                                 Toast.LENGTH_SHORT).show();
-                        callback.onResult(true); // Treat as exists to prevent update on error
+                        callback.onResult(true);
                     }
+                    Log.d("Profile", "════════════════════════════════════════");
                 });
     }
+
+
 
     private void setupDatePicker() {
         layoutDob.setOnClickListener(v -> showDatePickerDialog());

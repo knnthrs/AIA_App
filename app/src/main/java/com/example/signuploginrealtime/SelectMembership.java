@@ -771,30 +771,43 @@ public class SelectMembership extends AppCompatActivity {
 
                         // ✅ Only archive if the plan is NOT "None" or empty
                         if (existingPlanLabel != null && !existingPlanLabel.isEmpty() && !existingPlanLabel.equals("None")) {
-                            // Old membership exists, archive it with "replaced" status
-                            Map<String, Object> oldMembershipData = existingDoc.getData();
-                            if (oldMembershipData != null) {
-                                oldMembershipData.put("replacedAt", Timestamp.now());
-                                oldMembershipData.put("replacedReason", "Replaced by new membership");
-                                oldMembershipData.put("newMembershipPlan", selectedPlanLabel);
-                                oldMembershipData.put("membershipStatus", "replaced");
-                                oldMembershipData.put("recordType", "replaced_membership");
+                            // Create simplified archive with only essential fields
+                            Map<String, Object> archivedMembership = new HashMap<>();
 
-                                db.collection("history")
-                                        .add(oldMembershipData)
-                                        .addOnSuccessListener(docRef -> {
-                                            Log.d(TAG, "✅ OLD membership archived to history: " + docRef.getId());
-                                            // Now save the new membership
-                                            saveNewMembershipData(fullName, paymentMethod);
-                                        })
-                                        .addOnFailureListener(e -> {
-                                            Log.e(TAG, "⚠️ Failed to archive old membership", e);
-                                            // Continue anyway
-                                            saveNewMembershipData(fullName, paymentMethod);
-                                        });
-                            } else {
-                                saveNewMembershipData(fullName, paymentMethod);
+                            // Basic info
+                            archivedMembership.put("userId", currentUserId);
+                            archivedMembership.put("fullname", fullName);
+                            archivedMembership.put("planLabel", existingPlanLabel);
+                            archivedMembership.put("membershipPlanType", existingDoc.getString("membershipPlanType"));
+                            archivedMembership.put("price", existingDoc.getDouble("price"));
+
+                            // Payment info
+                            String oldPaymentMethod = existingDoc.getString("paymentMethod");
+                            if (oldPaymentMethod == null || oldPaymentMethod.isEmpty()) {
+                                oldPaymentMethod = "PayMongo"; // default if not stored
                             }
+                            archivedMembership.put("paymentMethod", oldPaymentMethod);
+
+                            // Dates
+                            archivedMembership.put("startDate", existingDoc.getTimestamp("membershipStartDate"));
+                            archivedMembership.put("expirationDate", existingDoc.getTimestamp("membershipExpirationDate"));
+
+                            // Status and timestamp
+                            archivedMembership.put("status", "replaced");
+                            archivedMembership.put("timestamp", Timestamp.now());
+
+                            db.collection("history")
+                                    .add(archivedMembership)
+                                    .addOnSuccessListener(docRef -> {
+                                        Log.d(TAG, "✅ OLD membership archived to history: " + docRef.getId());
+                                        // Now save the new membership
+                                        saveNewMembershipData(fullName, paymentMethod);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "⚠️ Failed to archive old membership", e);
+                                        // Continue anyway
+                                        saveNewMembershipData(fullName, paymentMethod);
+                                    });
                         } else {
                             // Plan is "None" or empty - don't archive, just replace
                             Log.d(TAG, "Existing plan is 'None' or empty - skipping archive, creating new membership");
@@ -811,7 +824,6 @@ public class SelectMembership extends AppCompatActivity {
                     saveNewMembershipData(fullName, paymentMethod);
                 });
     }
-
 
 
     private void saveNewMembershipData(String fullName, String paymentMethod) {

@@ -73,6 +73,8 @@ public class WorkoutList extends AppCompatActivity {
 
         ImageButton btnBack = findViewById(R.id.btn_back);
         btnBack.setOnClickListener(v -> onBackPressed());
+        ImageButton btnRegenerate = findViewById(R.id.btn_regenerate);
+        btnRegenerate.setOnClickListener(v -> showRegenerateDialog());
         overridePendingTransition(0, 0);
 
         firestore = FirebaseFirestore.getInstance();
@@ -589,14 +591,13 @@ public class WorkoutList extends AppCompatActivity {
         // ✅ CHECK IF THIS IS THE LAST EXERCISE
         if (currentWorkoutExercises.size() == 1) {
             // Show special dialog for last exercise deletion
-            new AlertDialog.Builder(this)
-                    .setTitle("⚠️ Delete All Exercises?")
-                    .setMessage(
-                            "You're about to remove the last exercise in your workout.\n\n" +
-                                    "🔄 The app will automatically generate a NEW personalized workout for you based on your fitness profile.\n\n" +
-                                    "Are you sure you want to continue?"
-                    )
-                    .setPositiveButton("Yes, Generate New Workout", (dialog, which) -> {
+            createStyledDialog(
+                    "⚠️ Delete All Exercises?",
+                    "You're about to remove the last exercise in your workout.\n\n" +
+                            "🔄 The app will automatically generate a NEW personalized workout for you based on your fitness profile.\n\n" +
+                            "Are you sure you want to continue?",
+                    "Yes, Generate New Workout",
+                    () -> {
                         // ✅ Clear the current workout
                         currentWorkoutExercises.clear();
 
@@ -618,35 +619,38 @@ public class WorkoutList extends AppCompatActivity {
                             workoutRef.delete()
                                     .addOnSuccessListener(aVoid -> {
                                         Log.d(TAG, "Old workout deleted from Firestore");
-                                        // ✅ Now regenerate with fresh exercises
                                         Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
                                         fetchAllExercises();
                                     })
                                     .addOnFailureListener(e -> {
                                         Log.e(TAG, "Error deleting old workout", e);
-                                        // ✅ Still try to regenerate even if deletion fails
                                         Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
                                         fetchAllExercises();
                                     });
                         } else {
-                            // ✅ User not logged in, just regenerate
                             Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
                             fetchAllExercises();
                         }
-                    })
-                    .setNegativeButton("Cancel", null)
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .show();
+                    },
+                    null,
+                    null,
+                    "Cancel",
+                    android.R.drawable.ic_dialog_alert
+            ).show();
             return;
         }
 
         // ✅ NORMAL DELETION (when there are multiple exercises)
-        new AlertDialog.Builder(this)
-                .setTitle("Delete Exercise")
-                .setMessage("Remove '" + exerciseName + "' from your workout?")
-                .setPositiveButton("Delete", (dialog, which) -> {
+        final String finalExerciseName = exerciseName;
+        final int finalPosition = position;
+
+        createStyledDialog(
+                "Delete Exercise",
+                "Remove '" + finalExerciseName + "' from your workout?",
+                "Delete",
+                () -> {
                     // Remove from list
-                    currentWorkoutExercises.remove(position);
+                    currentWorkoutExercises.remove(finalPosition);
 
                     // Update UI
                     showExercises(currentWorkoutExercises);
@@ -654,9 +658,259 @@ public class WorkoutList extends AppCompatActivity {
 
                     // Save changes to Firestore
                     saveWorkoutToFirestore();
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                },
+                null,
+                null,
+                "Cancel",
+                android.R.drawable.ic_menu_delete
+        ).show();
+    }
+
+    private AlertDialog createStyledDialog(String title, String message,
+                                           String positiveText, Runnable positiveAction,
+                                           String neutralText, Runnable neutralAction,
+                                           String negativeText, int iconResId) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(title)
+                .setMessage(message);
+
+        if (iconResId != 0) {
+            builder.setIcon(iconResId);
+        }
+
+        if (positiveText != null) {
+            builder.setPositiveButton(positiveText, (dialog, which) -> {
+                if (positiveAction != null) positiveAction.run();
+            });
+        }
+
+        if (neutralText != null) {
+            builder.setNeutralButton(neutralText, (dialog, which) -> {
+                if (neutralAction != null) neutralAction.run();
+            });
+        }
+
+        if (negativeText != null) {
+            builder.setNegativeButton(negativeText, null);
+        }
+
+        AlertDialog dialog = builder.create();
+
+        // Apply rounded corners and button colors after dialog is shown
+        dialog.setOnShowListener(dialogInterface -> {
+            // Color the buttons
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(0xFF4CAF50); // Green
+            if (neutralText != null) {
+                dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setTextColor(0xFF2196F3); // Blue
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(0xFF757575); // Gray
+
+            // Apply rounded corners to dialog window
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+            }
+        });
+
+        return dialog;
+    }
+
+    private void showRegenerateDialog() {
+        if (currentWorkoutExercises == null || currentWorkoutExercises.isEmpty()) {
+            Toast.makeText(this, "Please wait for workout to load first", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        int originalWorkoutSize = getOriginalWorkoutSize();
+        boolean hasDeletedExercises = currentWorkoutExercises.size() < originalWorkoutSize;
+
+        if (hasDeletedExercises) {
+            // User deleted some exercises - offer two options
+            createStyledDialog(
+                    "Regenerate Workout",
+                    "You've customized your workout by removing some exercises.\n\n" +
+                            "Choose how you'd like to regenerate:\n\n" +
+                            "• KEEP & FILL: Keep your current exercises and add new ones to complete the workout\n\n" +
+                            "• START FRESH: Generate a completely new workout",
+                    "Keep & Fill",
+                    this::regeneratePartialWorkout,
+                    "Start Fresh",
+                    this::regenerateCompleteWorkout,
+                    "Cancel",
+                    android.R.drawable.ic_menu_rotate
+            ).show();
+        } else {
+            // No deletions - simple confirmation
+            createStyledDialog(
+                    "Generate New Workout?",
+                    "This will replace your current workout with a completely new personalized routine.\n\n" +
+                            "Your current exercises will be discarded.\n\n" +
+                            "Continue?",
+                    "Yes, Generate New",
+                    this::regenerateCompleteWorkout,
+                    null,
+                    null,
+                    "Cancel",
+                    android.R.drawable.ic_menu_rotate
+            ).show();
+        }
+    }
+
+    private int getOriginalWorkoutSize() {
+        // Check Firestore for original workout size
+        // For simplicity, we'll assume standard workout is 6 exercises
+        // You can enhance this by storing the original count in Firestore
+        return 6;
+    }
+
+    private void regeneratePartialWorkout() {
+        Toast.makeText(this, "Filling workout with new exercises...", Toast.LENGTH_SHORT).show();
+        loadingIndicator.setVisibility(View.VISIBLE);
+        startWorkoutButton.setEnabled(false);
+
+        // Calculate how many exercises we need to add
+        int targetSize = 6;
+        int currentSize = currentWorkoutExercises.size();
+        int exercisesNeeded = targetSize - currentSize;
+
+        if (exercisesNeeded <= 0) {
+            Toast.makeText(this, "Your workout is already complete!", Toast.LENGTH_SHORT).show();
+            loadingIndicator.setVisibility(View.GONE);
+            startWorkoutButton.setEnabled(true);
+            return;
+        }
+
+        // Fetch exercises and add new ones
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+        dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<ExerciseInfo> allExercises = new ArrayList<>();
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo e = exerciseSnap.getValue(ExerciseInfo.class);
+                        if (e != null) {
+                            if (e.getGifUrl() == null || e.getGifUrl().isEmpty()) {
+                                e.setGifUrl("https://via.placeholder.com/150");
+                            }
+                            allExercises.add(e);
+                        }
+                    }
+                }
+
+                if (!allExercises.isEmpty()) {
+                    addNewExercisesToWorkout(allExercises, exercisesNeeded);
+                } else {
+                    Toast.makeText(WorkoutList.this, "Could not load exercises", Toast.LENGTH_SHORT).show();
+                    loadingIndicator.setVisibility(View.GONE);
+                    startWorkoutButton.setEnabled(true);
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error loading exercises", error.toException());
+                Toast.makeText(WorkoutList.this, "Failed to load exercises", Toast.LENGTH_SHORT).show();
+                loadingIndicator.setVisibility(View.GONE);
+                startWorkoutButton.setEnabled(true);
+            }
+        });
+    }
+
+    private void addNewExercisesToWorkout(List<ExerciseInfo> availableExercises, int count) {
+        // Get IDs of existing exercises to avoid duplicates
+        List<String> existingIds = new ArrayList<>();
+        for (WorkoutExercise we : currentWorkoutExercises) {
+            if (we.getExerciseInfo() != null && we.getExerciseInfo().getExerciseId() != null) {
+                existingIds.add(we.getExerciseInfo().getExerciseId());
+            }
+        }
+
+        // Filter out exercises already in workout
+        List<ExerciseInfo> filteredExercises = new ArrayList<>();
+        for (ExerciseInfo e : availableExercises) {
+            if (e.getExerciseId() != null && !existingIds.contains(e.getExerciseId())) {
+                filteredExercises.add(e);
+            }
+        }
+
+        // Pick random exercises
+        List<ExerciseInfo> newExercises = new ArrayList<>();
+        int attempts = 0;
+        int maxAttempts = filteredExercises.size() * 3;
+
+        while (newExercises.size() < count && attempts < maxAttempts && !filteredExercises.isEmpty()) {
+            int index = (int) (Math.random() * filteredExercises.size());
+            ExerciseInfo candidate = filteredExercises.get(index);
+            if (!newExercises.contains(candidate)) {
+                newExercises.add(candidate);
+            }
+            attempts++;
+        }
+
+        // Convert to WorkoutExercises with proper sets/reps
+        com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
+        float savedMultiplier = workoutPrefs.getFloat("workout_difficulty_multiplier", 1.0f);
+        double difficultyMultiplier = WorkoutAdjustmentHelper.getDifficultyMultiplier(savedMultiplier);
+
+        for (ExerciseInfo info : newExercises) {
+            List<ExerciseInfo> singleExerciseList = new ArrayList<>();
+            singleExerciseList.add(info);
+            Workout tempWorkout = AdvancedWorkoutDecisionMaker.generatePersonalizedWorkout(
+                    singleExerciseList, modelProfile);
+
+            if (tempWorkout != null && !tempWorkout.getExercises().isEmpty()) {
+                WorkoutExercise we = tempWorkout.getExercises().get(0);
+
+                // Apply progression and difficulty
+                int baseReps = we.getReps();
+                int baseSets = we.getSets();
+
+                we.setReps((int) (baseReps * difficultyMultiplier));
+                we.setSets(baseSets);
+
+                currentWorkoutExercises.add(we);
+            }
+        }
+
+        // Update UI and save
+        loadingIndicator.setVisibility(View.GONE);
+        showExercises(currentWorkoutExercises);
+        startWorkoutButton.setEnabled(true);
+        saveWorkoutToFirestore();
+        Toast.makeText(this, "Added " + newExercises.size() + " new exercises!", Toast.LENGTH_SHORT).show();
+    }
+
+    private void regenerateCompleteWorkout() {
+        // Clear current workout
+        currentWorkoutExercises = null;
+
+        // Show loading
+        loadingIndicator.setVisibility(View.VISIBLE);
+        exercisesContainer.removeAllViews();
+        startWorkoutButton.setEnabled(false);
+
+        // Delete from Firestore
+        if (currentUser != null) {
+            String uid = currentUser.getUid();
+            DocumentReference workoutRef = firestore.collection("users")
+                    .document(uid)
+                    .collection("currentWorkout")
+                    .document("week_" + userProfile.getCurrentWeek());
+
+            workoutRef.delete()
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "Old workout deleted");
+                        Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
+                        fetchAllExercises();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Error deleting workout", e);
+                        Toast.makeText(this, "Generating new workout...", Toast.LENGTH_SHORT).show();
+                        fetchAllExercises();
+                    });
+        } else {
+            fetchAllExercises();
+        }
     }
 
 

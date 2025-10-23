@@ -120,22 +120,38 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
-                        hasActiveMembership = true;
-                        currentMembershipPlan = documentSnapshot.getString("membershipPlanLabel");
+                        String planLabel = documentSnapshot.getString("membershipPlanLabel");
 
-                        Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
-                        if (expTimestamp != null) {
-                            currentExpirationDate = expTimestamp.toDate();
+                        // ✅ Don't treat "None" as an active membership
+                        if (planLabel != null && !planLabel.equals("None")) {
+                            hasActiveMembership = true;
+                            currentMembershipPlan = planLabel;
+
+                            Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
+                            if (expTimestamp != null) {
+                                currentExpirationDate = expTimestamp.toDate();
+                            }
+
+                            // Show warning banner
+                            showActiveMembershipWarning();
+                        } else {
+                            // Plan is "None" - treat as no active membership
+                            hasActiveMembership = false;
+                            currentMembershipPlan = "";
+                            Log.d(TAG, "Membership exists but plan is 'None' - treating as inactive");
                         }
-
-                        // Show warning banner
-                        showActiveMembershipWarning();
+                    } else {
+                        hasActiveMembership = false;
+                        currentMembershipPlan = "";
                     }
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error checking membership", e);
+                    hasActiveMembership = false;
+                    currentMembershipPlan = "";
                 });
     }
+
 
     private void showActiveMembershipWarning() {
         // Find the ScrollView - it's a direct child of the CoordinatorLayout
@@ -384,6 +400,12 @@ public class SelectMembership extends AppCompatActivity {
     private void showMembershipChangeConfirmation(CardView card, String packageId, String planLabel,
                                                   String type, int months, int durationDays,
                                                   int sessions, double price) {
+        // ✅ Don't show confirmation if current plan is "None"
+        if (currentMembershipPlan == null || currentMembershipPlan.equals("None") || currentMembershipPlan.isEmpty()) {
+            selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            return;
+        }
+
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("⚠️ Change Membership?");
 
@@ -426,6 +448,7 @@ public class SelectMembership extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#D32F2F"));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#666666"));
     }
+
 
 
     private String generateTitleText(String type, int months, int durationDays, int sessions) {
@@ -736,28 +759,37 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(existingDoc -> {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
-                        // Old membership exists, archive it with "replaced" status
-                        Map<String, Object> oldMembershipData = existingDoc.getData();
-                        if (oldMembershipData != null) {
-                            oldMembershipData.put("replacedAt", Timestamp.now());
-                            oldMembershipData.put("replacedReason", "Replaced by new membership");
-                            oldMembershipData.put("newMembershipPlan", selectedPlanLabel);
-                            oldMembershipData.put("membershipStatus", "replaced"); // Change status
-                            oldMembershipData.put("recordType", "replaced_membership");
+                        String existingPlanLabel = existingDoc.getString("membershipPlanLabel");
 
-                            db.collection("history")
-                                    .add(oldMembershipData)
-                                    .addOnSuccessListener(docRef -> {
-                                        Log.d(TAG, "✅ OLD membership archived to history: " + docRef.getId());
-                                        // Now save the new membership
-                                        saveNewMembershipData(fullName, paymentMethod);
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        Log.e(TAG, "⚠️ Failed to archive old membership", e);
-                                        // Continue anyway
-                                        saveNewMembershipData(fullName, paymentMethod);
-                                    });
+                        // ✅ Only archive if the plan is NOT "None"
+                        if (existingPlanLabel != null && !existingPlanLabel.equals("None")) {
+                            // Old membership exists, archive it with "replaced" status
+                            Map<String, Object> oldMembershipData = existingDoc.getData();
+                            if (oldMembershipData != null) {
+                                oldMembershipData.put("replacedAt", Timestamp.now());
+                                oldMembershipData.put("replacedReason", "Replaced by new membership");
+                                oldMembershipData.put("newMembershipPlan", selectedPlanLabel);
+                                oldMembershipData.put("membershipStatus", "replaced"); // Change status
+                                oldMembershipData.put("recordType", "replaced_membership");
+
+                                db.collection("history")
+                                        .add(oldMembershipData)
+                                        .addOnSuccessListener(docRef -> {
+                                            Log.d(TAG, "✅ OLD membership archived to history: " + docRef.getId());
+                                            // Now save the new membership
+                                            saveNewMembershipData(fullName, paymentMethod);
+                                        })
+                                        .addOnFailureListener(e -> {
+                                            Log.e(TAG, "⚠️ Failed to archive old membership", e);
+                                            // Continue anyway
+                                            saveNewMembershipData(fullName, paymentMethod);
+                                        });
+                            } else {
+                                saveNewMembershipData(fullName, paymentMethod);
+                            }
                         } else {
+                            // Plan is "None" - don't archive, just replace
+                            Log.d(TAG, "Existing plan is 'None' - skipping archive, creating new membership");
                             saveNewMembershipData(fullName, paymentMethod);
                         }
                     } else {
@@ -771,6 +803,7 @@ public class SelectMembership extends AppCompatActivity {
                     saveNewMembershipData(fullName, paymentMethod);
                 });
     }
+
 
     private void saveNewMembershipData(String fullName, String paymentMethod) {
         Calendar calendar = Calendar.getInstance();

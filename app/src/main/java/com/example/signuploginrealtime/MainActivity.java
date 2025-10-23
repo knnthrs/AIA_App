@@ -826,23 +826,32 @@
                             Log.d(TAG, "Membership expires in " + diffInDays + " days");
 
                             if (diffInMillis < 0) {
-                                // 🔴 EXPIRED - Update status and notify ONCE
+                                // 🔴 EXPIRED - Update status and set plan to "None"
+                                Map<String, Object> updates = new HashMap<>();
+                                updates.put("membershipStatus", "expired");
+                                updates.put("membershipPlanLabel", "None");
+                                updates.put("membershipPlanCode", null);
+
                                 db.collection("memberships").document(user.getUid())
-                                        .update("membershipStatus", "expired")
+                                        .update(updates)
                                         .addOnSuccessListener(aVoid -> {
                                             // Also update users collection
+                                            Map<String, Object> userUpdates = new HashMap<>();
+                                            userUpdates.put("membershipStatus", "expired");
+                                            userUpdates.put("membershipActive", false);
+                                            userUpdates.put("membershipPlanLabel", "None");
+                                            userUpdates.put("membershipPlanCode", null);
+
                                             db.collection("users").document(user.getUid())
-                                                    .update(
-                                                            "membershipStatus", "expired",
-                                                            "membershipActive", false
-                                                    )
-                                                    .addOnSuccessListener(v -> Log.d(TAG, "User membership status updated"))
+                                                    .update(userUpdates)
+                                                    .addOnSuccessListener(v -> Log.d(TAG, "User membership status and plan updated to None"))
                                                     .addOnFailureListener(e -> Log.e(TAG, "Failed to update user status", e));
 
                                             showExpirationPopup("Your membership has expired.");
                                             saveNotificationToFirestore("expired", 0);
                                             loadUserDataFromFirestore();
-                                        });
+                                        })
+                                        .addOnFailureListener(e -> Log.e(TAG, "Failed to update membership to expired", e));
 
                             } else if (diffInDays <= 3 && diffInDays >= 0) {
                                 // 🟠 EXPIRING SOON - Notify ONCE per day
@@ -852,6 +861,9 @@
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
         }
+
+
+
         private void showExpirationPopup(String message) {
             new AlertDialog.Builder(this)
                     .setTitle("Membership Notice")

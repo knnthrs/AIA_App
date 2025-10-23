@@ -618,6 +618,16 @@
                                 long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
                                 long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
+
+                                if (plan != null && !plan.isEmpty() && !plan.equals("None")) {
+                                    planType.setText(plan);
+                                    // ... rest of the code
+                                } else {
+                                    // Plan is "None" or invalid - treat as no membership
+                                    Log.d(TAG, "Plan is 'None' or invalid - showing inactive");
+                                    setDefaultMembershipValues();
+                                }
+
                                 if (diffInMillis < 0) {
                                     // EXPIRED
                                     membershipStatus.setText("EXPIRED");

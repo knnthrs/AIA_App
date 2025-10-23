@@ -75,6 +75,7 @@ public class SelectMembership extends AppCompatActivity {
     private List<CardView> allCards = new ArrayList<>();
     private boolean isProcessingPayment = false;
 
+
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -102,7 +103,8 @@ public class SelectMembership extends AppCompatActivity {
         backButton.setOnClickListener(v -> finish());
         confirmButtonCard.setVisibility(View.GONE);
 
-        checkExistingMembership();
+        checkAndHandleExpiredMemberships();  // Check and handle expired first
+        checkExistingMembership();            // ✅ ADD THIS LINE - Check for active membership
         loadPackagesFromFirestore();
 
         confirmButtonCard.setOnClickListener(v -> {
@@ -121,9 +123,11 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
                         String planLabel = documentSnapshot.getString("membershipPlanLabel");
+                        String planType = documentSnapshot.getString("membershipPlanType");  // ✅ Also check planType
 
-                        // ✅ Don't treat "None" or null as an active membership
-                        if (planLabel != null && !planLabel.isEmpty() && !planLabel.equals("None")) {
+                        // ✅ Check both planLabel AND planType
+                        if (planLabel != null && !planLabel.isEmpty() && !planLabel.equals("None") &&
+                                planType != null && !planType.isEmpty() && !planType.equals("None")) {
                             hasActiveMembership = true;
                             currentMembershipPlan = planLabel;
 
@@ -132,7 +136,6 @@ public class SelectMembership extends AppCompatActivity {
                                 currentExpirationDate = expTimestamp.toDate();
                             }
 
-                            // Show warning banner
                             showActiveMembershipWarning();
                         } else {
                             // Plan is "None" or empty - treat as no active membership
@@ -151,7 +154,6 @@ public class SelectMembership extends AppCompatActivity {
                     currentMembershipPlan = "";
                 });
     }
-
 
 
     private void showActiveMembershipWarning() {
@@ -213,7 +215,6 @@ public class SelectMembership extends AppCompatActivity {
         // Insert banner at the top of scroll content (before Daily Package header)
         scrollContent.addView(warningBanner, 0);
     }
-
 
 
     private void loadPackagesFromFirestore() {
@@ -449,7 +450,6 @@ public class SelectMembership extends AppCompatActivity {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#D32F2F"));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#666666"));
     }
-
 
 
     private String generateTitleText(String type, int months, int durationDays, int sessions) {
@@ -725,8 +725,7 @@ public class SelectMembership extends AppCompatActivity {
                     new android.os.Handler().postDelayed(() -> {
                         saveMembership(paymentMethod);
                     }, 300);
-                }
-                else {
+                } else {
                     Toast.makeText(this, "Payment was not completed", Toast.LENGTH_SHORT).show();
                 }
             } else {
@@ -760,7 +759,6 @@ public class SelectMembership extends AppCompatActivity {
     }
 
 
-
     private void archiveOldMembershipIfExists(String fullName, String paymentMethod) {
         db.collection("memberships")
                 .document(currentUserId)
@@ -768,16 +766,18 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(existingDoc -> {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
                         String existingPlanLabel = existingDoc.getString("membershipPlanLabel");
+                        String existingPlanType = existingDoc.getString("membershipPlanType");  // ✅ ADD THIS
 
-                        // ✅ Only check if there's a real active membership (not "None" or empty)
-                        if (existingPlanLabel != null && !existingPlanLabel.isEmpty() && !existingPlanLabel.equals("None")) {
-                            Log.d(TAG, "Replacing existing membership: " + existingPlanLabel);
-                            // ❌ REMOVED: No longer creating "replaced" history entry
-                            // Just proceed to save the new membership (which will overwrite the old one)
+                        // ✅ Check BOTH planLabel AND planType
+                        if (existingPlanLabel != null && !existingPlanLabel.isEmpty() && !existingPlanLabel.equals("None") &&
+                                existingPlanType != null && !existingPlanType.isEmpty() && !existingPlanType.equals("None")) {
+
+                            Log.d(TAG, "Replacing existing membership: " + existingPlanLabel + " (" + existingPlanType + ")");
                             saveNewMembershipData(fullName, paymentMethod);
                         } else {
                             // Plan is "None" or empty - just create new membership
-                            Log.d(TAG, "No real active membership found, creating new one");
+                            Log.d(TAG, "No real active membership found (planLabel=" + existingPlanLabel +
+                                    ", planType=" + existingPlanType + "), creating new one");
                             saveNewMembershipData(fullName, paymentMethod);
                         }
                     } else {
@@ -791,8 +791,6 @@ public class SelectMembership extends AppCompatActivity {
                     saveNewMembershipData(fullName, paymentMethod);
                 });
     }
-
-
 
     private void saveNewMembershipData(String fullName, String paymentMethod) {
         Log.d(TAG, "🔵 Starting saveNewMembershipData...");
@@ -938,7 +936,8 @@ public class SelectMembership extends AppCompatActivity {
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "❌ Failed to update user document: " + e.getMessage(), e);
                                 runOnUiThread(() -> {
-                                    if (loadingProgress != null) loadingProgress.setVisibility(View.GONE);
+                                    if (loadingProgress != null)
+                                        loadingProgress.setVisibility(View.GONE);
                                     Toast.makeText(SelectMembership.this,
                                             "Error updating membership. Please contact support.",
                                             Toast.LENGTH_LONG).show();
@@ -976,7 +975,6 @@ public class SelectMembership extends AppCompatActivity {
     }
 
 
-
     // Helper to calculate expiration date based on plan duration
     private Timestamp getExpirationTimestamp(Timestamp startTimestamp) {
         Calendar calendar = Calendar.getInstance();
@@ -993,4 +991,147 @@ public class SelectMembership extends AppCompatActivity {
         return new Timestamp(expirationDate);
     }
 
+    private void checkAndHandleExpiredMemberships() {
+        db.collection("memberships")
+                .document(currentUserId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (!doc.exists()) {
+                        Log.d(TAG, "No membership document found");
+                        return;
+                    }
+
+                    String status = doc.getString("membershipStatus");
+                    Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
+
+                    // Check if membership is active and has an expiration date
+                    if ("active".equals(status) && expirationTimestamp != null) {
+                        Date expirationDate = expirationTimestamp.toDate();
+                        Date currentDate = new Date();
+
+                        // Check if expired
+                        if (currentDate.after(expirationDate)) {
+                            Log.d(TAG, "⏰ Membership has expired! Archiving and resetting...");
+                            archiveExpiredMembership(doc);
+                        } else {
+                            Log.d(TAG, "✅ Membership is still active");
+                        }
+                    }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking expiration", e);
+                });
+    }
+
+    /**
+     * Archive expired membership to history and reset to "None"
+     */
+    private void archiveExpiredMembership(com.google.firebase.firestore.DocumentSnapshot membershipDoc) {
+        String userId = membershipDoc.getString("userId");
+        String planLabel = membershipDoc.getString("membershipPlanLabel");
+        String planType = membershipDoc.getString("membershipPlanType");
+        Double price = membershipDoc.getDouble("price");
+        Timestamp startDate = membershipDoc.getTimestamp("membershipStartDate");
+        Timestamp expirationDate = membershipDoc.getTimestamp("membershipExpirationDate");
+
+        // Get fullName with default
+        String fullNameTemp = membershipDoc.getString("fullname");
+        final String fullName = (fullNameTemp == null || fullNameTemp.isEmpty()) ? "Unknown User" : fullNameTemp;
+
+        Log.d(TAG, "🔄 Archiving expired membership for: " + fullName);
+        Log.d(TAG, "📊 Plan: " + planLabel + " (" + planType + ")");
+
+        // ✅ STEP 1: Add to history with "expired" status
+        Map<String, Object> historyData = new HashMap<>();
+        historyData.put("fullname", fullName);
+        historyData.put("userId", userId);
+        historyData.put("planLabel", planLabel);
+        historyData.put("membershipPlanType", planType);
+        historyData.put("price", price);
+        historyData.put("status", "expired");  // Mark as expired
+        historyData.put("timestamp", Timestamp.now());
+        historyData.put("startDate", startDate);
+        historyData.put("expirationDate", expirationDate);
+
+        Log.d(TAG, "📝 Writing expired membership to history...");
+
+        db.collection("history")
+                .add(historyData)
+                .addOnSuccessListener(historyDocRef -> {
+                    Log.d(TAG, "✅ Expired membership archived to history: " + historyDocRef.getId());
+
+                    // ✅ STEP 2: Reset membership to "None"
+                    resetMembershipToNone(userId, fullName);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to archive expired membership", e);
+                    e.printStackTrace();
+                    // Still try to reset even if archiving fails
+                    resetMembershipToNone(userId, fullName);
+                });
+    }
+
+    /**
+     * Reset membership document to "None" status
+     */
+    private void resetMembershipToNone(String userId, String fullName) {
+        Log.d(TAG, "🔄 Resetting membership to 'None' for: " + fullName);
+
+        Map<String, Object> resetData = new HashMap<>();
+        resetData.put("fullname", fullName);
+        resetData.put("userId", userId);
+        resetData.put("membershipPlanLabel", "None");
+        resetData.put("membershipPlanType", "None");
+        resetData.put("membershipPlanCode", "none");
+        resetData.put("membershipStatus", "expired");
+        resetData.put("price", 0);
+        resetData.put("lastUpdated", Timestamp.now());
+        resetData.put("membershipStartDate", null);
+        resetData.put("membershipExpirationDate", null);
+
+        Log.d(TAG, "📝 Writing to memberships/" + userId);
+
+        db.collection("memberships")
+                .document(userId)
+                .set(resetData)
+                .addOnSuccessListener(aVoid -> {
+                    Log.d(TAG, "✅ Membership document reset to 'None'");
+
+                    // ✅ STEP 3: Update users collection
+                    Map<String, Object> userUpdate = new HashMap<>();
+                    userUpdate.put("membershipPlanLabel", "None");
+                    userUpdate.put("membershipPlanType", "None");
+                    userUpdate.put("membershipPlanCode", "none");
+                    userUpdate.put("membershipActive", false);
+                    userUpdate.put("membershipStatus", "expired");
+                    userUpdate.put("membershipExpirationDate", null);
+
+                    Log.d(TAG, "📝 Updating users/" + userId);
+
+                    db.collection("users")
+                            .document(userId)
+                            .update(userUpdate)
+                            .addOnSuccessListener(v -> {
+                                Log.d(TAG, "✅ User document updated to 'None'");
+
+                                runOnUiThread(() -> {
+                                    hasActiveMembership = false;
+                                    currentMembershipPlan = "";
+                                    Toast.makeText(SelectMembership.this,
+                                            "Your membership has expired",
+                                            Toast.LENGTH_SHORT).show();
+
+                                    checkExistingMembership();
+                                });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to update user document", e);
+                                e.printStackTrace();
+                            });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to reset membership document", e);
+                    e.printStackTrace();
+                });
+    }
 }

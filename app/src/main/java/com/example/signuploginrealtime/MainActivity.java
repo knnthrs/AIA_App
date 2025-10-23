@@ -818,6 +818,7 @@
                                 Map<String, Object> updates = new HashMap<>();
                                 updates.put("membershipStatus", "expired");
                                 updates.put("membershipPlanLabel", "None");
+                                updates.put("membershipPlanType", "None");  // ✅ ADD THIS
                                 updates.put("membershipPlanCode", null);
 
                                 db.collection("memberships").document(user.getUid())
@@ -828,6 +829,7 @@
                                             userUpdates.put("membershipStatus", "expired");
                                             userUpdates.put("membershipActive", false);
                                             userUpdates.put("membershipPlanLabel", "None");
+                                            userUpdates.put("membershipPlanType", "None");  // ✅ ADD THIS
                                             userUpdates.put("membershipPlanCode", null);
 
                                             db.collection("users").document(user.getUid())
@@ -849,7 +851,6 @@
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
         }
-
 
 
         private void showExpirationPopup(String message) {

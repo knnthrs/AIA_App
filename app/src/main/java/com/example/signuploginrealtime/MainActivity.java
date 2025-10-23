@@ -79,9 +79,6 @@
         FirebaseFirestore dbFirestore;
         DocumentReference userDocRefFS;
         ListenerRegistration userDataListenerRegistrationFS;
-
-
-    
     
         @Override
         protected void onCreate(Bundle savedInstanceState) {
@@ -148,8 +145,6 @@
     
     
         }
-    
-    
     
         private void initializeViews() {
             fab = findViewById(R.id.fab);
@@ -295,10 +290,6 @@
             // Start listening for unread notifications
             setupUnreadNotificationListener();
         }
-
-    
-    
-        // Helper method to get current week's workout progress
     // Helper method to get current week's workout progress
         private void updateGoalsProgressDisplay(DocumentSnapshot firestoreSnapshot) {
             TextView goalsProgressText = findViewById(R.id.goals_progress_text);
@@ -341,9 +332,7 @@
                 }
             }
         }
-    
-        // Load the next workout from Firestore
-        // Updated loadNextWorkoutFromFirestore method in MainActivity.java
+
         private void setupWorkoutListener() {
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) {
@@ -679,18 +668,7 @@
             }
             return "Unknown Plan";
         }
-    
-        private String calculateExpiryDate(String planCode) {
-            Calendar calendar = Calendar.getInstance();
-            if (planCode == null) planCode = "";
-            if (planCode.contains("1M") && !planCode.contains("12M")) calendar.add(Calendar.MONTH, 1);
-            else if (planCode.contains("3M")) calendar.add(Calendar.MONTH, 3);
-            else if (planCode.contains("6M")) calendar.add(Calendar.MONTH, 6);
-            else if (planCode.contains("12M")) calendar.add(Calendar.MONTH, 12);
-            SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-            return sdf.format(calendar.getTime());
-        }
-    
+
         @SuppressLint("SetTextI18n")
         private void setDefaultMembershipValues() {
             membershipStatus.setText("INACTIVE");
@@ -934,15 +912,9 @@
                             Log.d(TAG, "⚠️ Skipping duplicate " + notificationType + " notification for today (" + todayDateStr + ")");
                         }
                     });
-        }// Helper method to create notification without duplicate check
-        private long getTodayStartAsLong() {
-            Calendar cal = Calendar.getInstance();
-            cal.set(Calendar.HOUR_OF_DAY, 0);
-            cal.set(Calendar.MINUTE, 0);
-            cal.set(Calendar.SECOND, 0);
-            cal.set(Calendar.MILLISECOND, 0);
-            return cal.getTimeInMillis();
         }
+
+
 
         private void checkAndSendWorkoutReminder() {
             FirebaseUser user = mAuth.getCurrentUser();

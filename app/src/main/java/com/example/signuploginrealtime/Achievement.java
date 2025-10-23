@@ -200,4 +200,10 @@ public class Achievement extends AppCompatActivity {
             scaleY.start();
         }
     }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        overridePendingTransition(0, 0); // Remove animation when pressing back button
+    }
 }

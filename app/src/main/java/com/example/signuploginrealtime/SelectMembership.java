@@ -73,6 +73,7 @@ public class SelectMembership extends AppCompatActivity {
 
     private CardView currentlySelectedCard = null;
     private List<CardView> allCards = new ArrayList<>();
+    private boolean isProcessingPayment = false;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -679,21 +680,31 @@ public class SelectMembership extends AppCompatActivity {
 
                 if (paymentSuccess) {
                     String paymentMethod = data.getStringExtra("paymentMethod");
+
+                    // Set flag to prevent user interaction
+                    isProcessingPayment = true;
+
+                    // Hide all UI elements to show blank screen
+                    findViewById(R.id.main).setVisibility(View.GONE);
+
+                    // Show loading indicator
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.VISIBLE);
+                    }
+
+                    // Save membership in background (which will navigate to MainActivity and then finish)
                     saveMembership(paymentMethod);
                 }
                 else {
                     Toast.makeText(this, "Payment was not completed", Toast.LENGTH_SHORT).show();
                 }
+            } else {
+                Toast.makeText(this, "Payment was cancelled", Toast.LENGTH_SHORT).show();
             }
         }
     }
 
     private void saveMembership(String paymentMethod) {
-        if (loadingProgress != null) {
-            loadingProgress.setVisibility(View.VISIBLE);
-        }
-        confirmButtonCard.setEnabled(false);
-
         createNewMembership(paymentMethod);
     }
 
@@ -711,46 +722,40 @@ public class SelectMembership extends AppCompatActivity {
                         }
                     }
 
-                    saveMembershipWithUserName(fullName, paymentMethod); // ✅ pass paymentMethod
+                    saveMembershipWithUserName(fullName, paymentMethod);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Error fetching user name", e);
-                    saveMembershipWithUserName("Unknown User", paymentMethod); // ✅ also pass here
+                    saveMembershipWithUserName("Unknown User", paymentMethod);
                 });
     }
 
     private void saveMembershipWithUserName(String fullName, String paymentMethod) {
-        // Check if there's an existing membership to archive
         db.collection("memberships")
                 .document(currentUserId)
                 .get()
                 .addOnSuccessListener(existingDoc -> {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
-                        // Move existing membership to History collection
                         Map<String, Object> historyData = existingDoc.getData();
                         if (historyData != null) {
                             historyData.put("replacedAt", Timestamp.now());
                             historyData.put("replacedReason", "Replaced by new membership");
                             historyData.put("newMembershipPlan", selectedPlanLabel);
 
-                            // Save to History collection with auto-generated ID
                             db.collection("history")
                                     .add(historyData)
                                     .addOnSuccessListener(docRef -> {
                                         Log.d(TAG, "Old membership archived to History: " + docRef.getId());
-                                        // Now proceed to save the new membership
                                         saveNewMembershipData(fullName, paymentMethod);
                                     })
                                     .addOnFailureListener(e -> {
                                         Log.e(TAG, "Failed to archive old membership", e);
-                                        // Still proceed with new membership even if archiving fails
                                         saveNewMembershipData(fullName, paymentMethod);
                                     });
                         } else {
                             saveNewMembershipData(fullName, paymentMethod);
                         }
                     } else {
-                        // No existing membership, just save the new one
                         saveNewMembershipData(fullName, paymentMethod);
                     }
                 })
@@ -759,7 +764,6 @@ public class SelectMembership extends AppCompatActivity {
                     saveNewMembershipData(fullName, paymentMethod);
                 });
     }
-
 
     private void saveNewMembershipData(String fullName, String paymentMethod) {
         Calendar calendar = Calendar.getInstance();
@@ -808,37 +812,39 @@ public class SelectMembership extends AppCompatActivity {
                             .document(currentUserId)
                             .update(userUpdate)
                             .addOnSuccessListener(v -> {
-                                if (loadingProgress != null) {
-                                    loadingProgress.setVisibility(View.GONE);
-                                }
-
-                                Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
-
-                                Intent resultIntent = new Intent();
-                                resultIntent.putExtra("selectedPackageId", selectedPackageId);
-                                resultIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
-                                resultIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
-                                resultIntent.putExtra("membershipId", currentUserId);
-                                setResult(RESULT_OK, resultIntent);
-                                finish();
+                                // Navigate to MainActivity
+                                Intent mainIntent = new Intent(this, MainActivity.class);
+                                mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                mainIntent.putExtra("selectedPackageId", selectedPackageId);
+                                mainIntent.putExtra("selectedPlanLabel", selectedPlanLabel);
+                                mainIntent.putExtra("expirationDate", expirationTimestamp.toDate().getTime());
+                                mainIntent.putExtra("membershipId", currentUserId);
+                                mainIntent.putExtra("membershipActivated", true);
+                                startActivity(mainIntent);
+                                finish(); // ✅ Finish AFTER starting MainActivity
                             })
                             .addOnFailureListener(e -> {
                                 Log.e(TAG, "Failed to update user doc, but membership is active", e);
-                                if (loadingProgress != null) {
-                                    loadingProgress.setVisibility(View.GONE);
-                                }
-                                Toast.makeText(this, "Membership activated: " + selectedPlanLabel, Toast.LENGTH_SHORT).show();
-                                setResult(RESULT_OK);
-                                finish();
+
+                                // Navigate to MainActivity even if user update fails
+                                Intent mainIntent = new Intent(this, MainActivity.class);
+                                mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                mainIntent.putExtra("membershipActivated", true);
+                                startActivity(mainIntent);
+                                finish(); // ✅ Finish AFTER starting MainActivity
                             });
                 })
                 .addOnFailureListener(e -> {
+                    Log.e(TAG, "Failed to save membership: " + e.getMessage());
+
+                    // Show UI again on error
+                    findViewById(R.id.main).setVisibility(View.VISIBLE);
                     if (loadingProgress != null) {
                         loadingProgress.setVisibility(View.GONE);
                     }
-                    confirmButtonCard.setEnabled(true);
+                    isProcessingPayment = false;
+
                     Toast.makeText(this, "Failed to save membership: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
-
 }

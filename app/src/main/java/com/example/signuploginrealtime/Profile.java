@@ -1079,20 +1079,20 @@ public class Profile extends AppCompatActivity {
         editor.apply();
 
         if (userDocRef != null) {
-            userDocRef.update("dateOfBirth", dateOfBirth);
-        }
-    }
+            // Save both the formatted string and timestamp to Firestore
+            // ✅ FIXED: Use "birthdate" instead of "dateOfBirth"
+            Map<String, Object> updates = new HashMap<>();
+            updates.put("birthdate", dateOfBirth);
+            updates.put("birthdateTimestamp", selectedDate.getTimeInMillis());
 
-    private void loadDateOfBirthFromPrefs() {
-        SharedPreferences prefs = getSharedPreferences("user_profile", MODE_PRIVATE);
-        String savedDate = prefs.getString("date_of_birth", "");
-        long savedTimestamp = prefs.getLong("date_of_birth_timestamp", -1);
-
-        if (!savedDate.isEmpty()) {
-            tvDob.setText(savedDate);
-            if (savedTimestamp != -1) {
-                selectedDate.setTimeInMillis(savedTimestamp);
-            }
+            userDocRef.update(updates)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d("Profile", "Date of birth saved: " + dateOfBirth);
+                        markProfileAsChanged();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e("Profile", "Failed to save date of birth", e);
+                    });
         }
     }
 
@@ -1109,9 +1109,8 @@ public class Profile extends AppCompatActivity {
                 String name = snapshot.getString("fullname");
                 String email = snapshot.getString("email");
                 String phone = snapshot.getString("phone");
-                String dateOfBirth = snapshot.getString("dateOfBirth");
+                String dateOfBirth = snapshot.getString("birthdate");
                 String profilePictureUrl = snapshot.getString("profilePictureUrl");
-
                 String userType = snapshot.getString("userType");
                 if (userType == null || userType.isEmpty()) {
                     userDocRef.update("userType", "user");
@@ -1203,26 +1202,50 @@ public class Profile extends AppCompatActivity {
             tvPhone.setText("Phone not set");
         }
 
-        // Update Date of Birth
-        if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
-            tvDob.setText(dateOfBirth);
-            try {
-                selectedDate.setTime(dateFormat.parse(dateOfBirth));
-            } catch (Exception e) {}
-        } else {
-            loadDateOfBirthFromPrefs();
-            if (tvDob.getText().toString().equals("Not set")) {
-                tvDob.setText("Select your date of birth");
-            }
-        }
+        // ✅ FIXED: Update Date of Birth - handle both formats with DEBUG LOGS
+        Log.d("Profile", "Received dateOfBirth: " + dateOfBirth); // DEBUG
 
-        // ✅ REMOVED: Membership Status update (now handled by loadMembershipStatus)
-        // The loadMembershipStatus() method will handle this
+        if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
+            try {
+                Date parsedDate = null;
+
+                // Try parsing with display format first (MMMM dd, yyyy)
+                try {
+                    parsedDate = dateFormat.parse(dateOfBirth);
+                    Log.d("Profile", "Parsed with display format successfully"); // DEBUG
+                } catch (Exception e) {
+                    Log.d("Profile", "Display format failed, trying database format"); // DEBUG
+                    // If that fails, try parsing with database format (yyyy-MM-dd)
+                    SimpleDateFormat dbFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                    parsedDate = dbFormat.parse(dateOfBirth);
+
+                    // Convert to display format
+                    if (parsedDate != null) {
+                        dateOfBirth = dateFormat.format(parsedDate);
+                        Log.d("Profile", "Converted to display format: " + dateOfBirth); // DEBUG
+                    }
+                }
+
+                if (parsedDate != null) {
+                    selectedDate.setTime(parsedDate);
+                    tvDob.setText(dateOfBirth);
+                    Log.d("Profile", "Final display: " + dateOfBirth); // DEBUG
+                } else {
+                    tvDob.setText(dateOfBirth); // Fallback: just show the text
+                    Log.d("Profile", "parsedDate is null, showing raw text"); // DEBUG
+                }
+            } catch (Exception e) {
+                Log.e("Profile", "Failed to parse date: " + dateOfBirth, e);
+                tvDob.setText(dateOfBirth); // Fallback: just show the text
+            }
+        } else {
+            Log.d("Profile", "dateOfBirth is null or empty"); // DEBUG
+            tvDob.setText("Select your date of birth");
+        }
 
         // Load fitness profile data
         loadFitnessProfileData();
     }
-
 
 
     // Add this method in Profile.java after your update methods

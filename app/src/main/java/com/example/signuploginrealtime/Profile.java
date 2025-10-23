@@ -51,6 +51,19 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
+import android.view.LayoutInflater;
+import android.view.ViewGroup;
+import androidx.cardview.widget.CardView;
+import java.text.NumberFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Comparator;
+import androidx.recyclerview.widget.RecyclerView;
+import androidx.recyclerview.widget.LinearLayoutManager;
+
 import com.cloudinary.android.MediaManager;
 import com.cloudinary.android.callback.ErrorInfo;
 import com.cloudinary.android.callback.UploadCallback;
@@ -86,8 +99,6 @@ public class Profile extends AppCompatActivity {
     private static final int REQUEST_CROP_IMAGE = 200;
 
     private static final int MIN_PASSWORD_LENGTH = 8;
-
-
     // Email and phone validation patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
             "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$"
@@ -95,6 +106,11 @@ public class Profile extends AppCompatActivity {
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
+
+    private RecyclerView paymentHistoryRecyclerView;
+    private PaymentHistoryAdapter paymentHistoryAdapter;
+    private List<PaymentHistoryItem> paymentHistoryList;
+    private LinearLayout layoutPaymentHistory;
 
 
     // Callback interface for phone check
@@ -104,14 +120,21 @@ public class Profile extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_profile);
 
+        // ===== Firebase Setup =====
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
+        firestore = FirebaseFirestore.getInstance();
 
-        // Initialize TextViews and LinearLayouts based on your existing XML layout
+        if (currentUser != null) {
+            // Initialize Firestore reference for current user
+            userDocRef = firestore.collection("users").document(currentUser.getUid());
+            setupUserDataListener();
+        }
+
+        // ===== Initialize UI Components =====
         profileName = findViewById(R.id.profileName);
         profileEmail = findViewById(R.id.profileEmail);
         tvPhone = findViewById(R.id.tv_phone);
@@ -121,7 +144,7 @@ public class Profile extends AppCompatActivity {
         layoutEmail = findViewById(R.id.layout_email);
         layoutPhone = findViewById(R.id.layout_phone);
 
-        // Initialize fitness profile views
+        // Fitness profile views
         tvFitnessLevel = findViewById(R.id.tv_fitness_level);
         tvFitnessGoal = findViewById(R.id.tv_fitness_goal);
         tvWorkoutFrequency = findViewById(R.id.tv_workout_frequency);
@@ -136,20 +159,25 @@ public class Profile extends AppCompatActivity {
         layoutWeight = findViewById(R.id.layout_weight);
         layoutHeight = findViewById(R.id.layout_height);
 
-
+        // ===== Progress Dialog =====
         uploadProgressDialog = new ProgressDialog(this);
         uploadProgressDialog.setTitle("Uploading Image");
         uploadProgressDialog.setMessage("Please wait...");
         uploadProgressDialog.setCancelable(false);
 
+        // ===== Payment History Section =====
+        layoutPaymentHistory = findViewById(R.id.layout_payment_history);
+        paymentHistoryRecyclerView = findViewById(R.id.recyclerViewPaymentHistory);
+        paymentHistoryList = new ArrayList<>();
+        paymentHistoryAdapter = new PaymentHistoryAdapter(paymentHistoryList);
+        paymentHistoryRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        paymentHistoryRecyclerView.setAdapter(paymentHistoryAdapter);
 
-
-
+        // ===== Image Picker =====
         imagePickerLauncher = registerForActivityResult(
                 new ActivityResultContracts.GetContent(),
                 uri -> {
                     if (uri != null) {
-                        // Open crop activity instead of uploading directly
                         Intent cropIntent = new Intent(Profile.this, ImageCropActivity.class);
                         cropIntent.putExtra("imageUri", uri.toString());
                         startActivityForResult(cropIntent, REQUEST_CROP_IMAGE);
@@ -160,11 +188,20 @@ public class Profile extends AppCompatActivity {
         profilePicture.setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
         findViewById(R.id.cv_edit_button).setOnClickListener(v -> imagePickerLauncher.launch("image/*"));
 
+        // Payment History
+        findViewById(R.id.layout_payment_history).setOnClickListener(v -> {
+            Intent intent = new Intent(Profile.this, PaymentHistoryActivity.class);
+            startActivity(intent);
+        });
+
+
+        // ===== Navigation: Feedback & Contact =====
         LinearLayout layoutFeedback = findViewById(R.id.layout_feedback);
         layoutFeedback.setOnClickListener(v -> {
             startActivity(new Intent(Profile.this, FeedbackActivity.class));
             overridePendingTransition(0, 0);
         });
+
 
         LinearLayout layoutContact = findViewById(R.id.layout_contact);
         layoutContact.setOnClickListener(v -> {
@@ -172,29 +209,21 @@ public class Profile extends AppCompatActivity {
             overridePendingTransition(0, 0);
         });
 
-        // Initialize date components
+        // ===== Date Setup =====
         selectedDate = Calendar.getInstance();
         dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
 
-        // Set up functionality
+        // ===== Setup Functionality =====
         setupDatePicker();
         setupEditableFields();
         setupFitnessProfileEditing();
         setupSecurityClickListeners();
         initCloudinary();
 
-        // Initialize Firestore
-        firestore = FirebaseFirestore.getInstance();
+        // ✅ Load Payment History (Firestore already initialized)
+        loadPaymentHistory();
 
-        if (currentUser != null) {
-            // Set up Firestore document reference
-            userDocRef = firestore.collection("users").document(currentUser.getUid());
-
-            // Set up real-time listener for user data
-            setupUserDataListener();
-        }
-
-        // Handle back press
+        // ===== Back Press Handler =====
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
@@ -204,6 +233,11 @@ public class Profile extends AppCompatActivity {
             }
         });
 
+        RecyclerView recyclerView = findViewById(R.id.recyclerViewPaymentHistory);
+        recyclerView.setLayoutManager(new LinearLayoutManager(this));
+
+
+        // ===== Bottom Navigation =====
         btnBack = findViewById(R.id.btn_back);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
@@ -234,9 +268,19 @@ public class Profile extends AppCompatActivity {
             return false;
         });
 
-        // Logout button
+        // ===== Payment History Toggle =====
+        layoutPaymentHistory.setOnClickListener(v -> {
+            if (paymentHistoryRecyclerView.getVisibility() == View.VISIBLE) {
+                paymentHistoryRecyclerView.setVisibility(View.GONE);
+            } else {
+                paymentHistoryRecyclerView.setVisibility(View.VISIBLE);
+            }
+        });
+
+        // ===== Logout Button =====
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
     }
+
 
     private void setupFitnessProfileEditing() {
         // Fitness Level click listener
@@ -1890,6 +1934,171 @@ public class Profile extends AppCompatActivity {
             } else {
                 // Default color for other statuses
                 tvStatus.setTextColor(getResources().getColor(android.R.color.white));
+            }
+        }
+    }
+
+    // Add this method to load payment history from Firestore
+    private void loadPaymentHistory() {
+        // ✅ Ensure FirebaseAuth and Firestore are initialized
+        if (mAuth == null) {
+            mAuth = FirebaseAuth.getInstance();
+        }
+        if (firestore == null) {
+            firestore = FirebaseFirestore.getInstance();
+        }
+
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            Log.w("Profile", "No user logged in — skipping payment history load");
+            return;
+        }
+
+        firestore.collection("users")
+                .document(currentUser.getUid())
+                .collection("paymentHistory")
+                .addSnapshotListener((querySnapshot, error) -> {
+                    if (error != null) {
+                        Log.e("Profile", "Error loading payment history", error);
+                        return;
+                    }
+
+                    paymentHistoryList.clear();
+
+                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
+                        for (DocumentSnapshot doc : querySnapshot) {
+                            String planLabel = doc.getString("planLabel");
+                            Double amount = doc.getDouble("amount");
+                            String paymentMethod = doc.getString("paymentMethod");
+                            String paymentStatus = doc.getString("paymentStatus");
+                            Timestamp timestamp = doc.getTimestamp("timestamp");
+                            Timestamp startDate = doc.getTimestamp("membershipStartDate");
+                            Timestamp expirationDate = doc.getTimestamp("membershipExpirationDate");
+
+                            if (planLabel != null && amount != null && timestamp != null) {
+                                PaymentHistoryItem item = new PaymentHistoryItem(
+                                        planLabel,
+                                        amount,
+                                        paymentMethod != null ? paymentMethod : "Unknown",
+                                        paymentStatus != null ? paymentStatus : "paid",
+                                        timestamp,
+                                        startDate,
+                                        expirationDate
+                                );
+                                paymentHistoryList.add(item);
+                            }
+                        }
+
+                        // ✅ Sort by timestamp (newest first)
+                        Collections.sort(paymentHistoryList,
+                                (o1, o2) -> Long.compare(o2.timestamp.getSeconds(), o1.timestamp.getSeconds()));
+
+                        paymentHistoryAdapter.notifyDataSetChanged();
+                        paymentHistoryRecyclerView.setVisibility(View.VISIBLE);
+                    } else {
+                        // ✅ No payment history
+                        paymentHistoryAdapter.notifyDataSetChanged();
+                        paymentHistoryRecyclerView.setVisibility(View.GONE);
+                    }
+                });
+    }
+
+
+    // Add PaymentHistoryItem model class
+    private static class PaymentHistoryItem {
+        String planLabel;
+        double amount;
+        String paymentMethod;
+        String paymentStatus;
+        Timestamp timestamp;
+        Timestamp startDate;
+        Timestamp expirationDate;
+
+        public PaymentHistoryItem(String planLabel, double amount, String paymentMethod,
+                                  String paymentStatus, Timestamp timestamp,
+                                  Timestamp startDate, Timestamp expirationDate) {
+            this.planLabel = planLabel;
+            this.amount = amount;
+            this.paymentMethod = paymentMethod;
+            this.paymentStatus = paymentStatus;
+            this.timestamp = timestamp;
+            this.startDate = startDate;
+            this.expirationDate = expirationDate;
+        }
+    }
+
+    // Add PaymentHistoryAdapter class
+    private class PaymentHistoryAdapter extends RecyclerView.Adapter<PaymentHistoryAdapter.ViewHolder> {
+        private List<PaymentHistoryItem> items;
+
+        public PaymentHistoryAdapter(List<PaymentHistoryItem> items) {
+            this.items = items;
+        }
+
+        @Override
+        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
+            View view = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.item_payment_history, parent, false);
+            return new ViewHolder(view);
+        }
+
+        @Override
+        public void onBindViewHolder(ViewHolder holder, int position) {
+            PaymentHistoryItem item = items.get(position);
+
+            holder.tvPlanName.setText(item.planLabel);
+
+            // Format amount
+            NumberFormat currencyFormat = NumberFormat.getCurrencyInstance();
+            currencyFormat.setMaximumFractionDigits(0);
+            String formattedAmount = "₱" + String.format("%.0f", item.amount);
+            holder.tvAmount.setText(formattedAmount);
+
+            // Format date
+            SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
+            String dateStr = dateFormat.format(item.timestamp.toDate());
+            holder.tvDate.setText(dateStr);
+
+            // Payment method
+            holder.tvPaymentMethod.setText(item.paymentMethod);
+
+            // Payment status
+            holder.tvStatus.setText(item.paymentStatus.toUpperCase());
+            if ("paid".equalsIgnoreCase(item.paymentStatus)) {
+                holder.tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+            } else {
+                holder.tvStatus.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
+            }
+
+            // Membership period
+            if (item.startDate != null && item.expirationDate != null) {
+                SimpleDateFormat periodFormat = new SimpleDateFormat("MMM dd", Locale.getDefault());
+                String period = periodFormat.format(item.startDate.toDate()) +
+                        " - " +
+                        periodFormat.format(item.expirationDate.toDate());
+                holder.tvMembershipPeriod.setText(period);
+                holder.tvMembershipPeriod.setVisibility(View.VISIBLE);
+            } else {
+                holder.tvMembershipPeriod.setVisibility(View.GONE);
+            }
+        }
+
+        @Override
+        public int getItemCount() {
+            return items.size();
+        }
+
+        class ViewHolder extends RecyclerView.ViewHolder {
+            TextView tvPlanName, tvAmount, tvDate, tvPaymentMethod, tvStatus, tvMembershipPeriod;
+
+            ViewHolder(View itemView) {
+                super(itemView);
+                tvPlanName = itemView.findViewById(R.id.tv_plan_name);
+                tvAmount = itemView.findViewById(R.id.tv_amount);
+                tvDate = itemView.findViewById(R.id.tv_date);
+                tvPaymentMethod = itemView.findViewById(R.id.tv_payment_method);
+                tvStatus = itemView.findViewById(R.id.tv_status);
+                tvMembershipPeriod = itemView.findViewById(R.id.tv_membership_period);
             }
         }
     }

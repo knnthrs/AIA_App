@@ -19,15 +19,15 @@
         android:theme="@style/Theme.SignupLogInRealtime"
         android:usesCleartextTraffic="true"
         tools:targetApi="31">
-
-
+        <activity
+            android:name=".PaymentHistoryActivity"
+            android:exported="false" />
         <activity
             android:name=".Activity_adjusting_workout"
             android:exported="false" />
-
-        <activity android:name=".ContactUsActivity"
+        <activity
+            android:name=".ContactUsActivity"
             android:exported="false" />
-
         <activity
             android:name=".Activity_prepare_easier_plan"
             android:exported="false" />
@@ -121,8 +121,8 @@
             android:exported="false" />
         <activity
             android:name=".SignupActivity"
-            android:windowSoftInputMode="adjustPan|stateHidden"
-            android:exported="true" />
+            android:exported="true"
+            android:windowSoftInputMode="adjustPan|stateHidden" />
         <activity
             android:name=".MainActivity"
             android:exported="false" />

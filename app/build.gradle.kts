@@ -46,25 +46,24 @@ dependencies {
     implementation(libs.core.ktx)
     implementation("androidx.constraintlayout:constraintlayout:2.1.4")
 
-    // Firebase BOM
+    // ✅ Firebase (use BOM to manage versions)
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
-    implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore:25.1.0")
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-storage")
-
+    implementation("com.google.firebase:firebase-firestore:25.1.1")
 
     // Glide for image loading
     implementation("com.github.bumptech.glide:glide:4.16.0")
     annotationProcessor("com.github.bumptech.glide:compiler:4.16.0")
     implementation("com.cloudinary:cloudinary-android:2.3.1")
 
-    // Retrofit + OkHttp for networking (generic, not Wger-specific)
+    // Retrofit + OkHttp for networking
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.11.0")
-    implementation("com.google.firebase:firebase-auth:22.3.1")
 
     // ZXing barcode scanner
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
@@ -74,3 +73,4 @@ dependencies {
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)
 }
+apply(plugin = "com.google.gms.google-services")

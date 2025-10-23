@@ -4,3 +4,10 @@ plugins {
     alias(libs.plugins.google.gms.google.services) apply false
     alias(libs.plugins.kotlin.android) apply false
 }
+
+buildscript {
+    dependencies {
+        // ✅ Add this line — needed for Firebase Firestore and Timestamp
+        classpath("com.google.gms:google-services:4.4.2")
+    }
+}

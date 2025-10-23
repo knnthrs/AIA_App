@@ -839,7 +839,7 @@
 
                         <!-- Payment History -->
                         <LinearLayout
-                            android:id="@+id/layout_help"
+                            android:id="@+id/layout_payment_history"
                             android:layout_width="match_parent"
                             android:layout_height="56dp"
                             android:orientation="horizontal"
@@ -863,7 +863,18 @@
                                 android:text="Payment History"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
+
                         </LinearLayout>
+
+                        <!-- ✅ RecyclerView for Payment History list -->
+                        <androidx.recyclerview.widget.RecyclerView
+                            android:id="@+id/recyclerViewPaymentHistory"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:paddingHorizontal="8dp"
+                            android:visibility="visible" />
+
 
                         <!-- Feedback -->
                         <LinearLayout

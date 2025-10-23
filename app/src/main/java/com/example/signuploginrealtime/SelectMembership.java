@@ -602,7 +602,7 @@ public class SelectMembership extends AppCompatActivity {
                         intent.putExtra("paymentUrl", paymentLinkUrl);
                         intent.putExtra("packageId", selectedPackageId);
                         intent.putExtra("planLabel", selectedPlanLabel);
-                        intent.putExtra("membershiPlanType", selectedPlanType);
+                        intent.putExtra("membershipPlanType", selectedPlanType);
                         intent.putExtra("months", selectedMonths);
                         intent.putExtra("durationDays", selectedDurationDays);
                         intent.putExtra("sessions", selectedSessions);
@@ -848,7 +848,7 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("packageId", selectedPackageId);
         membershipData.put("membershipPlanLabel", selectedPlanLabel);
         membershipData.put("membershipPlanCode", selectedPackageId);
-        membershipData.put("membershiPlanType", selectedPlanType);
+        membershipData.put("membershipPlanType", selectedPlanType);
         membershipData.put("price", selectedPrice);
         membershipData.put("membershipStatus", "active");
         membershipData.put("membershipStartDate", startTimestamp);
@@ -871,7 +871,7 @@ public class SelectMembership extends AppCompatActivity {
                     userUpdate.put("membershipActive", true);
                     userUpdate.put("membershipStatus", "active");
                     userUpdate.put("membershipExpirationDate", expirationTimestamp);
-                    userUpdate.put("membershiPlanType", selectedPlanType);
+                    userUpdate.put("membershipPlanType", selectedPlanType);
 
 
                     Log.d(TAG, "📝 Updating users/" + userId);
@@ -887,7 +887,7 @@ public class SelectMembership extends AppCompatActivity {
                                 historyData.put("fullname", fullName);
                                 historyData.put("userId", userId);
                                 historyData.put("planLabel", selectedPlanLabel);
-                                historyData.put("membershiPlanType", selectedPlanType);
+                                historyData.put("membershipPlanType", selectedPlanType);
                                 historyData.put("price", selectedPrice);
                                 historyData.put("paymentMethod", paymentMethod);
                                 historyData.put("status", "active");
@@ -908,7 +908,7 @@ public class SelectMembership extends AppCompatActivity {
                                             paymentData.put("fullName", fullName);
                                             paymentData.put("packageId", selectedPackageId);
                                             paymentData.put("planLabel", selectedPlanLabel);
-                                            paymentData.put("membershiPlanType", selectedPlanType);
+                                            paymentData.put("membershipPlanType", selectedPlanType);
                                             paymentData.put("amount", selectedPrice);
                                             paymentData.put("paymentMethod", paymentMethod);
                                             paymentData.put("paymentStatus", "paid");

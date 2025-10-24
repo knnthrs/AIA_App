@@ -3,10 +3,12 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="12dp"
+    android:padding="10dp"
     android:background="@drawable/item_payment_history_bg"
-    android:layout_marginBottom="8dp"
-    android:elevation="3dp"> <!-- gives a soft shadow on Android 5+ -->
+    android:layout_marginBottom="5dp"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:elevation="4dp"> <!-- gives a soft shadow on Android 5+ -->
 
     <TextView
         android:id="@+id/tv_plan_name"
@@ -31,7 +33,7 @@
         android:layout_height="wrap_content"
         android:text="October 10, 2025"
         android:textSize="14sp"
-        android:textColor="@color/dark_gray" />
+        android:textColor="@color/black" />
 
     <TextView
         android:id="@+id/tv_payment_method"
@@ -39,7 +41,7 @@
         android:layout_height="wrap_content"
         android:text="GCash"
         android:textSize="14sp"
-        android:textColor="@color/dark_gray" />
+        android:textColor="@color/black" />
 
     <TextView
         android:id="@+id/tv_status"
@@ -56,5 +58,5 @@
         android:layout_height="wrap_content"
         android:text="Membership: Oct 10 - Nov 10, 2025"
         android:textSize="13sp"
-        android:textColor="@color/gray" />
+        android:textColor="@color/black" />
 </LinearLayout>

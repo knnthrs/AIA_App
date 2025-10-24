@@ -106,10 +106,6 @@ public class Profile extends AppCompatActivity {
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
-
-    private RecyclerView paymentHistoryRecyclerView;
-    private PaymentHistoryAdapter paymentHistoryAdapter;
-    private List<PaymentHistoryItem> paymentHistoryList;
     private LinearLayout layoutPaymentHistory;
 
 
@@ -165,13 +161,8 @@ public class Profile extends AppCompatActivity {
         uploadProgressDialog.setMessage("Please wait...");
         uploadProgressDialog.setCancelable(false);
 
-        // ===== Payment History Section =====
+        // ===== Payment History  =====
         layoutPaymentHistory = findViewById(R.id.layout_payment_history);
-        paymentHistoryRecyclerView = findViewById(R.id.recyclerViewPaymentHistory);
-        paymentHistoryList = new ArrayList<>();
-        paymentHistoryAdapter = new PaymentHistoryAdapter(paymentHistoryList);
-        paymentHistoryRecyclerView.setLayoutManager(new LinearLayoutManager(this));
-        paymentHistoryRecyclerView.setAdapter(paymentHistoryAdapter);
 
         // ===== Image Picker =====
         imagePickerLauncher = registerForActivityResult(
@@ -220,8 +211,6 @@ public class Profile extends AppCompatActivity {
         setupSecurityClickListeners();
         initCloudinary();
 
-        // ✅ Load Payment History (Firestore already initialized)
-        loadPaymentHistory();
 
         // ===== Back Press Handler =====
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
@@ -232,10 +221,6 @@ public class Profile extends AppCompatActivity {
                 finish();
             }
         });
-
-        RecyclerView recyclerView = findViewById(R.id.recyclerViewPaymentHistory);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-
 
         // ===== Bottom Navigation =====
         btnBack = findViewById(R.id.btn_back);
@@ -266,15 +251,6 @@ public class Profile extends AppCompatActivity {
                 return true;
             }
             return false;
-        });
-
-        // ===== Payment History Toggle =====
-        layoutPaymentHistory.setOnClickListener(v -> {
-            if (paymentHistoryRecyclerView.getVisibility() == View.VISIBLE) {
-                paymentHistoryRecyclerView.setVisibility(View.GONE);
-            } else {
-                paymentHistoryRecyclerView.setVisibility(View.VISIBLE);
-            }
         });
 
         // ===== Logout Button =====
@@ -1924,7 +1900,6 @@ public class Profile extends AppCompatActivity {
         }
     }
 
-
     private void updateMembershipStatusColor(String status) {
         if (status != null) {
             if (status.equalsIgnoreCase("Active Member") || status.equalsIgnoreCase("Active")) {
@@ -1934,171 +1909,6 @@ public class Profile extends AppCompatActivity {
             } else {
                 // Default color for other statuses
                 tvStatus.setTextColor(getResources().getColor(android.R.color.white));
-            }
-        }
-    }
-
-    // Add this method to load payment history from Firestore
-    private void loadPaymentHistory() {
-        // ✅ Ensure FirebaseAuth and Firestore are initialized
-        if (mAuth == null) {
-            mAuth = FirebaseAuth.getInstance();
-        }
-        if (firestore == null) {
-            firestore = FirebaseFirestore.getInstance();
-        }
-
-        FirebaseUser currentUser = mAuth.getCurrentUser();
-        if (currentUser == null) {
-            Log.w("Profile", "No user logged in — skipping payment history load");
-            return;
-        }
-
-        firestore.collection("users")
-                .document(currentUser.getUid())
-                .collection("paymentHistory")
-                .addSnapshotListener((querySnapshot, error) -> {
-                    if (error != null) {
-                        Log.e("Profile", "Error loading payment history", error);
-                        return;
-                    }
-
-                    paymentHistoryList.clear();
-
-                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                        for (DocumentSnapshot doc : querySnapshot) {
-                            String planLabel = doc.getString("planLabel");
-                            Double amount = doc.getDouble("amount");
-                            String paymentMethod = doc.getString("paymentMethod");
-                            String paymentStatus = doc.getString("paymentStatus");
-                            Timestamp timestamp = doc.getTimestamp("timestamp");
-                            Timestamp startDate = doc.getTimestamp("membershipStartDate");
-                            Timestamp expirationDate = doc.getTimestamp("membershipExpirationDate");
-
-                            if (planLabel != null && amount != null && timestamp != null) {
-                                PaymentHistoryItem item = new PaymentHistoryItem(
-                                        planLabel,
-                                        amount,
-                                        paymentMethod != null ? paymentMethod : "Unknown",
-                                        paymentStatus != null ? paymentStatus : "paid",
-                                        timestamp,
-                                        startDate,
-                                        expirationDate
-                                );
-                                paymentHistoryList.add(item);
-                            }
-                        }
-
-                        // ✅ Sort by timestamp (newest first)
-                        Collections.sort(paymentHistoryList,
-                                (o1, o2) -> Long.compare(o2.timestamp.getSeconds(), o1.timestamp.getSeconds()));
-
-                        paymentHistoryAdapter.notifyDataSetChanged();
-                        paymentHistoryRecyclerView.setVisibility(View.VISIBLE);
-                    } else {
-                        // ✅ No payment history
-                        paymentHistoryAdapter.notifyDataSetChanged();
-                        paymentHistoryRecyclerView.setVisibility(View.GONE);
-                    }
-                });
-    }
-
-
-    // Add PaymentHistoryItem model class
-    private static class PaymentHistoryItem {
-        String planLabel;
-        double amount;
-        String paymentMethod;
-        String paymentStatus;
-        Timestamp timestamp;
-        Timestamp startDate;
-        Timestamp expirationDate;
-
-        public PaymentHistoryItem(String planLabel, double amount, String paymentMethod,
-                                  String paymentStatus, Timestamp timestamp,
-                                  Timestamp startDate, Timestamp expirationDate) {
-            this.planLabel = planLabel;
-            this.amount = amount;
-            this.paymentMethod = paymentMethod;
-            this.paymentStatus = paymentStatus;
-            this.timestamp = timestamp;
-            this.startDate = startDate;
-            this.expirationDate = expirationDate;
-        }
-    }
-
-    // Add PaymentHistoryAdapter class
-    private class PaymentHistoryAdapter extends RecyclerView.Adapter<PaymentHistoryAdapter.ViewHolder> {
-        private List<PaymentHistoryItem> items;
-
-        public PaymentHistoryAdapter(List<PaymentHistoryItem> items) {
-            this.items = items;
-        }
-
-        @Override
-        public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View view = LayoutInflater.from(parent.getContext())
-                    .inflate(R.layout.item_payment_history, parent, false);
-            return new ViewHolder(view);
-        }
-
-        @Override
-        public void onBindViewHolder(ViewHolder holder, int position) {
-            PaymentHistoryItem item = items.get(position);
-
-            holder.tvPlanName.setText(item.planLabel);
-
-            // Format amount
-            NumberFormat currencyFormat = NumberFormat.getCurrencyInstance();
-            currencyFormat.setMaximumFractionDigits(0);
-            String formattedAmount = "₱" + String.format("%.0f", item.amount);
-            holder.tvAmount.setText(formattedAmount);
-
-            // Format date
-            SimpleDateFormat dateFormat = new SimpleDateFormat("MMM dd, yyyy", Locale.getDefault());
-            String dateStr = dateFormat.format(item.timestamp.toDate());
-            holder.tvDate.setText(dateStr);
-
-            // Payment method
-            holder.tvPaymentMethod.setText(item.paymentMethod);
-
-            // Payment status
-            holder.tvStatus.setText(item.paymentStatus.toUpperCase());
-            if ("paid".equalsIgnoreCase(item.paymentStatus)) {
-                holder.tvStatus.setTextColor(getResources().getColor(android.R.color.holo_green_dark));
-            } else {
-                holder.tvStatus.setTextColor(getResources().getColor(android.R.color.holo_orange_dark));
-            }
-
-            // Membership period
-            if (item.startDate != null && item.expirationDate != null) {
-                SimpleDateFormat periodFormat = new SimpleDateFormat("MMM dd", Locale.getDefault());
-                String period = periodFormat.format(item.startDate.toDate()) +
-                        " - " +
-                        periodFormat.format(item.expirationDate.toDate());
-                holder.tvMembershipPeriod.setText(period);
-                holder.tvMembershipPeriod.setVisibility(View.VISIBLE);
-            } else {
-                holder.tvMembershipPeriod.setVisibility(View.GONE);
-            }
-        }
-
-        @Override
-        public int getItemCount() {
-            return items.size();
-        }
-
-        class ViewHolder extends RecyclerView.ViewHolder {
-            TextView tvPlanName, tvAmount, tvDate, tvPaymentMethod, tvStatus, tvMembershipPeriod;
-
-            ViewHolder(View itemView) {
-                super(itemView);
-                tvPlanName = itemView.findViewById(R.id.tv_plan_name);
-                tvAmount = itemView.findViewById(R.id.tv_amount);
-                tvDate = itemView.findViewById(R.id.tv_date);
-                tvPaymentMethod = itemView.findViewById(R.id.tv_payment_method);
-                tvStatus = itemView.findViewById(R.id.tv_status);
-                tvMembershipPeriod = itemView.findViewById(R.id.tv_membership_period);
             }
         }
     }

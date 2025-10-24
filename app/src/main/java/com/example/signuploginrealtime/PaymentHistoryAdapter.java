@@ -1,6 +1,9 @@
 package com.example.signuploginrealtime;
 
 import android.view.LayoutInflater;
+import android.app.AlertDialog;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.firestore.FirebaseFirestore;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -18,9 +21,13 @@ public class PaymentHistoryAdapter extends RecyclerView.Adapter<PaymentHistoryAd
 
     private final List<PaymentHistoryItem> paymentList;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM dd, yyyy", Locale.getDefault());
+    private FirebaseAuth mAuth;
+    private FirebaseFirestore firestore;
 
-    public PaymentHistoryAdapter(List<PaymentHistoryItem> paymentList) {
+    public PaymentHistoryAdapter(List<PaymentHistoryItem> paymentList, FirebaseAuth auth, FirebaseFirestore firestore) {
         this.paymentList = paymentList;
+        this.mAuth = auth;
+        this.firestore = firestore;
     }
 
     @NonNull
@@ -56,6 +63,18 @@ public class PaymentHistoryAdapter extends RecyclerView.Adapter<PaymentHistoryAd
         } else {
             holder.tvMembershipPeriod.setVisibility(View.GONE);
         }
+
+        holder.itemView.setOnLongClickListener(v -> {
+            new AlertDialog.Builder(v.getContext())
+                    .setTitle("Delete Payment")
+                    .setMessage("Are you sure you want to delete this payment record?")
+                    .setPositiveButton("Delete", (dialog, which) -> {
+                        deletePaymentRecord(item.documentId, position);
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+            return true;
+        });
     }
 
     @Override
@@ -75,5 +94,15 @@ public class PaymentHistoryAdapter extends RecyclerView.Adapter<PaymentHistoryAd
             tvStatus = itemView.findViewById(R.id.tv_status);
             tvMembershipPeriod = itemView.findViewById(R.id.tv_membership_period);
         }
+    }
+
+    private void deletePaymentRecord(String documentId, int position) {
+        if (mAuth.getCurrentUser() == null || documentId == null) return;
+
+        firestore.collection("users")
+                .document(mAuth.getCurrentUser().getUid())
+                .collection("paymentHistory")
+                .document(documentId)
+                .delete();
     }
 }

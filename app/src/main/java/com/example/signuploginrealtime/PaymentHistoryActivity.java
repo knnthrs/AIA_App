@@ -12,7 +12,7 @@ import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
-
+import com.google.firebase.Timestamp;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -32,18 +32,20 @@ public class PaymentHistoryActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_payment_history);
 
-        recyclerView = findViewById(R.id.rv_payment_history);
+        recyclerView = findViewById(R.id.recyclerViewPaymentHistory);
         tvNoPayments = findViewById(R.id.tv_no_payments);
 
         mAuth = FirebaseAuth.getInstance();
         firestore = FirebaseFirestore.getInstance();
 
         paymentList = new ArrayList<>();
-        adapter = new PaymentHistoryAdapter(paymentList);
+        adapter = new PaymentHistoryAdapter(paymentList, mAuth, firestore);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         recyclerView.setAdapter(adapter);
 
         loadPaymentHistory();
+
+        findViewById(R.id.btn_back).setOnClickListener(v -> finish());
     }
 
     private void loadPaymentHistory() {
@@ -53,10 +55,17 @@ public class PaymentHistoryActivity extends AppCompatActivity {
         firestore.collection("users")
                 .document(currentUser.getUid())
                 .collection("paymentHistory")
-                .get()
-                .addOnSuccessListener(querySnapshot -> {
+                .addSnapshotListener((querySnapshot, error) -> {
                     paymentList.clear();
                     for (QueryDocumentSnapshot doc : querySnapshot) {
+                        if (error != null) {
+                            recyclerView.setVisibility(View.GONE);
+                            tvNoPayments.setVisibility(View.VISIBLE);
+                            tvNoPayments.setText("Error loading payments.");
+                            return;
+                        }
+
+                        if (querySnapshot != null) {
                         String planLabel = doc.getString("planLabel");
                         Double amount = doc.getDouble("amount");
                         String paymentMethod = doc.getString("paymentMethod");
@@ -66,8 +75,11 @@ public class PaymentHistoryActivity extends AppCompatActivity {
                                     planLabel,
                                     amount,
                                     paymentMethod != null ? paymentMethod : "Unknown",
-                                    paymentStatus != null ? paymentStatus : "Paid"
-                            ));
+                                    paymentStatus != null ? paymentStatus : "paid",
+                                    doc.getTimestamp("timestamp"),
+                                    doc.getTimestamp("membershipStartDate"),
+                                    doc.getTimestamp("membershipExpirationDate"),
+                                    doc.getId()                            ));
                         }
                     }
 
@@ -80,11 +92,8 @@ public class PaymentHistoryActivity extends AppCompatActivity {
                         Collections.reverse(paymentList);
                         adapter.notifyDataSetChanged();
                     }
-                })
-                .addOnFailureListener(e -> {
-                    recyclerView.setVisibility(View.GONE);
-                    tvNoPayments.setVisibility(View.VISIBLE);
-                    tvNoPayments.setText("Error loading payments.");
+                    }
                 });
+
     }
 }

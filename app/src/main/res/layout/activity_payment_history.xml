@@ -2,22 +2,53 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:padding="16dp"
-    android:background="#F9F9F9">
+    android:fitsSystemWindows="true"
+    android:id="@+id/main"
+    android:padding="40dp"
+    android:background="@drawable/yellowbg">
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Payment History"
-        android:textSize="20sp"
-        android:textStyle="bold"
-        android:textColor="#333333"
-        android:layout_marginBottom="12dp" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/rv_payment_history"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="12dp">
+
+        <ImageView
+            android:id="@+id/btn_back"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:src="@drawable/ic_arrow_back"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="4dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp" />
+
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAlignment="center"
+            android:text="Payment History"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#333333" />
+        <View
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:visibility="invisible" />
+
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerViewPaymentHistory"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="30dp"
         android:visibility="visible" />
 
     <TextView

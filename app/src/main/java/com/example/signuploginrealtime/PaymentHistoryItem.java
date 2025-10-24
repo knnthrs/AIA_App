@@ -11,16 +11,23 @@ public class PaymentHistoryItem {
     public Timestamp timestamp;
     public Timestamp membershipStartDate;
     public Timestamp membershipExpirationDate;
+    public String documentId;
 
     // No-arg constructor required by Firestore deserialization
     public PaymentHistoryItem() { }
 
     // 4-arg constructor (matches your current usage)
-    public PaymentHistoryItem(String planLabel, double amount, String paymentMethod, String paymentStatus) {
+    public PaymentHistoryItem(String planLabel, double amount, String paymentMethod, String paymentStatus,
+                              Timestamp timestamp, Timestamp membershipStartDate, Timestamp membershipExpirationDate,
+                              String documentId) {
         this.planLabel = planLabel;
         this.amount = amount;
         this.paymentMethod = paymentMethod;
         this.paymentStatus = paymentStatus;
+        this.timestamp = timestamp;
+        this.membershipStartDate = membershipStartDate;
+        this.membershipExpirationDate = membershipExpirationDate;
+        this.documentId = documentId;
     }
 
     // Full constructor (optional — useful later)

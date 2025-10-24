@@ -1,4 +1,3 @@
-<!-- res/layout/activity_promo.xml -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
@@ -41,24 +40,24 @@
     <!-- Promo Image Card -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:gravity="center"
         android:padding="16dp"
         android:orientation="vertical">
 
         <androidx.cardview.widget.CardView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="10dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="6dp"
-            android:foreground="?attr/selectableItemBackground">
+            android:layout_height="match_parent"
+            android:layout_margin="0dp"
+            app:cardCornerRadius="0dp"
+            app:cardElevation="0dp"
+            app:cardBackgroundColor="@android:color/transparent">
 
             <ImageView
                 android:id="@+id/promoImageView"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:adjustViewBounds="true"
+                android:layout_height="match_parent"
                 android:scaleType="matrix"
                 android:contentDescription="Promo Image" />
         </androidx.cardview.widget.CardView>

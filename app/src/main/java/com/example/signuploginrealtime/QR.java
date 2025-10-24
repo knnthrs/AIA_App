@@ -68,6 +68,12 @@ public class QR extends AppCompatActivity {
     private android.widget.Button btnGetMembership;  // ← ADD THIS
     private ListenerRegistration membershipListener;
 
+    private boolean isDeleteMode = false;
+    private List<String> selectedAttendanceIds = new ArrayList<>();
+    private LinearLayout deleteToolbar;
+    private TextView tvDeleteCount;
+    private android.widget.Button btnDeleteSelected, btnCancelDelete;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -98,7 +104,6 @@ public class QR extends AppCompatActivity {
         qrUserName = findViewById(R.id.qr_user_name);
         membershipStatus = findViewById(R.id.membership_status);
 
-        // Attendance history views
         attendanceHistoryCard = findViewById(R.id.attendance_history_card);
         attendanceHeader = findViewById(R.id.attendance_header);
         attendanceContent = findViewById(R.id.attendance_content);
@@ -111,11 +116,21 @@ public class QR extends AppCompatActivity {
         noMembershipContainer = findViewById(R.id.no_membership_container);
         btnGetMembership = findViewById(R.id.btn_get_membership);
 
+        // Delete toolbar views
+        deleteToolbar = findViewById(R.id.delete_toolbar);
+        tvDeleteCount = findViewById(R.id.tv_delete_count);
+        btnDeleteSelected = findViewById(R.id.btn_delete_selected);
+        btnCancelDelete = findViewById(R.id.btn_cancel_delete);
+
         btnGetMembership.setOnClickListener(v -> {
             Intent intent = new Intent(QR.this, SelectMembership.class);
             startActivity(intent);
         });
+
+        btnDeleteSelected.setOnClickListener(v -> deleteSelectedAttendance());
+        btnCancelDelete.setOnClickListener(v -> exitDeleteMode());
     }
+
 
     private void setupClickListeners() {
         backButton.setOnClickListener(v -> finish());
@@ -123,11 +138,27 @@ public class QR extends AppCompatActivity {
         attendanceHeader.setOnClickListener(v -> toggleAttendanceHistory());
     }
 
+    // Modify your setupRecyclerView() method
     private void setupRecyclerView() {
         attendanceAdapter = new AttendanceAdapter(attendanceRecords);
         attendanceRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         attendanceRecyclerView.setAdapter(attendanceAdapter);
+
+        attendanceAdapter.setOnLongClickListener(position -> {
+            if (!isDeleteMode) {
+                enterDeleteMode();
+            }
+            toggleSelection(position);
+            return true;
+        });
+
+        attendanceAdapter.setOnClickListener(position -> {
+            if (isDeleteMode) {
+                toggleSelection(position);
+            }
+        });
     }
+
 
     private void toggleAttendanceHistory() {
         isAttendanceExpanded = !isAttendanceExpanded;
@@ -141,14 +172,15 @@ public class QR extends AppCompatActivity {
         }
     }
 
+    // Modified loadAttendanceHistory() method - replace the existing one
     private void loadAttendanceHistory() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
             firestore = FirebaseFirestore.getInstance();
 
-            // Query the root-level attendance collection filtered by uid
-            attendanceListener = firestore.collection("attendance")
-                    .whereEqualTo("uid", currentUser.getUid())
+            attendanceListener = firestore.collection("users")
+                    .document(currentUser.getUid())
+                    .collection("attendance")
                     .orderBy("timeInTimestamp", Query.Direction.DESCENDING)
                     .limit(20)
                     .addSnapshotListener((snapshots, error) -> {
@@ -163,7 +195,6 @@ public class QR extends AppCompatActivity {
                             int thisMonthCount = 0;
 
                             for (QueryDocumentSnapshot doc : snapshots) {
-                                // Get timestamps from your field names
                                 Long timeInTimestamp = doc.getLong("timeInTimestamp");
                                 Long timeOutTimestamp = doc.getLong("timeOutTimestamp");
 
@@ -172,10 +203,11 @@ public class QR extends AppCompatActivity {
                                     long timeOut = timeOutTimestamp != null ? timeOutTimestamp : 0;
                                     String status = timeOut > 0 ? "completed" : "active";
 
+                                    // Store document ID with the record
                                     AttendanceRecord record = new AttendanceRecord(timeIn, timeOut, status);
+                                    record.setDocumentId(doc.getId()); // Add this method to AttendanceRecord class
                                     attendanceRecords.add(record);
 
-                                    // Count this month's visits
                                     if (isThisMonth(timeIn)) {
                                         thisMonthCount++;
                                     }
@@ -184,11 +216,9 @@ public class QR extends AppCompatActivity {
 
                             attendanceAdapter.notifyDataSetChanged();
 
-                            // Update statistics
                             totalVisitsText.setText(String.valueOf(attendanceRecords.size()));
                             thisMonthText.setText(String.valueOf(thisMonthCount));
 
-                            // Show/hide no records message
                             if (attendanceRecords.isEmpty()) {
                                 noRecordsText.setVisibility(View.VISIBLE);
                                 attendanceRecyclerView.setVisibility(View.GONE);
@@ -669,4 +699,90 @@ public class QR extends AppCompatActivity {
         }
     }
 
+    private void enterDeleteMode() {
+        isDeleteMode = true;
+        selectedAttendanceIds.clear();
+        attendanceAdapter.setDeleteMode(true);
+        deleteToolbar.setVisibility(View.VISIBLE);
+    }
+
+
+    private void exitDeleteMode() {
+        isDeleteMode = false;
+        selectedAttendanceIds.clear();
+        attendanceAdapter.setDeleteMode(false);
+        attendanceAdapter.clearSelections();
+        deleteToolbar.setVisibility(View.GONE);
+    }
+
+
+    private void toggleSelection(int position) {
+        AttendanceRecord record = attendanceRecords.get(position);
+        String docId = record.getDocumentId();
+
+        if (selectedAttendanceIds.contains(docId)) {
+            selectedAttendanceIds.remove(docId);
+            attendanceAdapter.deselectItem(position);
+        } else {
+            selectedAttendanceIds.add(docId);
+            attendanceAdapter.selectItem(position);
+        }
+
+        tvDeleteCount.setText(selectedAttendanceIds.size() + " selected");
+
+        if (selectedAttendanceIds.isEmpty()) {
+            exitDeleteMode();
+        }
+    }
+
+    // Method to delete selected items
+    private void deleteSelectedAttendance() {
+        if (selectedAttendanceIds.isEmpty()) {
+            Toast.makeText(this, "No items selected", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Delete Attendance")
+                .setMessage("Delete " + selectedAttendanceIds.size() + " selected record(s)?")
+                .setPositiveButton("Delete", (dialog, which) -> {
+                    FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+                    if (currentUser == null) return;
+
+                    int totalItems = selectedAttendanceIds.size();
+                    int[] deletedCount = {0};
+
+                    for (String docId : selectedAttendanceIds) {
+                        firestore.collection("users")
+                                .document(currentUser.getUid())
+                                .collection("attendance")
+                                .document(docId)
+                                .delete()
+                                .addOnSuccessListener(aVoid -> {
+                                    deletedCount[0]++;
+                                    if (deletedCount[0] == totalItems) {
+                                        Toast.makeText(this, "Deleted " + totalItems + " record(s)",
+                                                Toast.LENGTH_SHORT).show();
+                                        exitDeleteMode();
+                                    }
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e("QR", "Failed to delete: " + docId, e);
+                                    Toast.makeText(this, "Some records failed to delete",
+                                            Toast.LENGTH_SHORT).show();
+                                });
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isDeleteMode) {
+            exitDeleteMode();
+        } else {
+            super.onBackPressed();
+        }
+    }
 }

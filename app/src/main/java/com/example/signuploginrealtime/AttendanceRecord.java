@@ -4,8 +4,8 @@ public class AttendanceRecord {
     private long timeIn;
     private long timeOut;
     private String status; // "active" or "completed"
+    private String documentId; // ← ADD THIS to store Firestore document ID
 
-    // Required empty constructor for Firestore
     public AttendanceRecord() {
     }
 
@@ -37,5 +37,14 @@ public class AttendanceRecord {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    // ← ADD THESE METHODS
+    public String getDocumentId() {
+        return documentId;
+    }
+
+    public void setDocumentId(String documentId) {
+        this.documentId = documentId;
     }
 }

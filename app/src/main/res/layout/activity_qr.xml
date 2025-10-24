@@ -268,6 +268,46 @@
                             tools:ignore="ContentDescription" />
                     </LinearLayout>
 
+                    <!-- Delete Toolbar (Hidden by default) -->
+                    <LinearLayout
+                        android:id="@+id/delete_toolbar"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:padding="12dp"
+                        android:background="#D32F2F"
+                        android:gravity="center_vertical"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:id="@+id/tv_delete_count"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="0 selected"
+                            android:textColor="@android:color/white"
+                            android:textSize="16sp"
+                            android:textStyle="bold" />
+
+                        <Button
+                            android:id="@+id/btn_delete_selected"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="Delete"
+                            android:textColor="@android:color/white"
+                            android:backgroundTint="#B71C1C"
+                            android:onClick="deleteSelectedAttendance" />
+
+                        <Button
+                            android:id="@+id/btn_cancel_delete"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Cancel"
+                            android:textColor="@android:color/white"
+                            android:backgroundTint="#757575" />
+                    </LinearLayout>
+
                     <!-- Expandable Content -->
                     <LinearLayout
                         android:id="@+id/attendance_content"

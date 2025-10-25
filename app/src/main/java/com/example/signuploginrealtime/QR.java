@@ -180,7 +180,7 @@ public class QR extends AppCompatActivity {
 
             attendanceListener = firestore.collection("users")
                     .document(currentUser.getUid())
-                    .collection("attendance")
+                    .collection("attendanceHistory")
                     .orderBy("timeInTimestamp", Query.Direction.DESCENDING)
                     .limit(20)
                     .addSnapshotListener((snapshots, error) -> {
@@ -761,7 +761,7 @@ public class QR extends AppCompatActivity {
                     for (String docId : selectedAttendanceIds) {
                         firestore.collection("users")
                                 .document(currentUser.getUid())
-                                .collection("attendance")
+                                .collection("attendanceHistory")
                                 .document(docId)
                                 .delete()
                                 .addOnSuccessListener(aVoid -> {

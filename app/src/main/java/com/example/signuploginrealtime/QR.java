@@ -510,11 +510,18 @@ public class QR extends AppCompatActivity {
                                 DocumentSnapshot snapshot = task.getResult();
                                 String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
 
-                                // ✅ NEW FORMAT: userName_membershipType_uid
+                                // ✅ Get user email
+                                String userEmail = currentUser.getEmail();
+                                if (userEmail == null || userEmail.isEmpty()) {
+                                    Toast.makeText(this, "Email not found", Toast.LENGTH_SHORT).show();
+                                    return;
+                                }
+
+                                // ✅ NEW FORMAT: userName_membershipType_email
                                 String qrData = String.format("%s_%s_%s",
                                         userName.replaceAll("[\\s\\W]", ""),
                                         finalMembershipType,
-                                        currentUser.getUid());
+                                        userEmail);  // ✅ Changed from UID to email
 
                                 if (savedQr == null || !savedQr.equals(qrData)) {
                                     // Update QR code in database
@@ -542,7 +549,6 @@ public class QR extends AppCompatActivity {
                     showNoMembershipMessage();
                 });
     }
-
 
 
 

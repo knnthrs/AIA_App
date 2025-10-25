@@ -71,6 +71,7 @@
         private static String cachedUserName = null;
         private static List<String> cachedExerciseNames = null;
         private static List<String> cachedExerciseGifs = null;
+        private static String cachedPromoImageUrl = null;
 
         TextView greetingText;
         TextView membershipStatus;
@@ -137,12 +138,44 @@
     
     
             initializeViews();
+
+            displayCachedMembershipData();
+
+            // ✅ Pre-fetch coach name immediately (don't wait for listener)
+            if (currentUser != null) {
+                dbFirestore.collection("users").document(currentUser.getUid())
+                        .get()
+                        .addOnSuccessListener(userDoc -> {
+                            if (userDoc.exists()) {
+                                String coachId = userDoc.getString("coachId");
+                                if (coachId != null && !coachId.isEmpty()) {
+                                    dbFirestore.collection("coaches").document(coachId)
+                                            .get()
+                                            .addOnSuccessListener(coachDoc -> {
+                                                if (coachDoc.exists()) {
+                                                    String coachName = coachDoc.getString("fullname");
+                                                    if (coachName != null) {
+                                                        cachedCoachName = coachName;
+                                                        displayCoachName(coachName);
+                                                    }
+                                                }
+                                            });
+                                }
+                            }
+                        });
+            }
+
+            // ✅ Setup coach listener early (before waiting for user data)
+            if (currentUser != null && coachNameListener == null) {
+                setupCoachNameListener(currentUser.getUid());
+            }
+
             setupPromoListener();
             setupClickListeners();
             loadUserDataFromFirestore();
             updateStreakDisplay();
             setupWorkoutListener();
-            displayCachedMembershipData();
+
 
             new android.os.Handler().postDelayed(() -> {
                 checkAndHandleMembershipExpiration();
@@ -186,6 +219,22 @@
         }
 
         private void setupPromoListener() {
+            // ✅ Display cached promo immediately
+            if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
+                ImageView testImage = findViewById(R.id.testImage);
+                Glide.with(this).load(cachedPromoImageUrl)
+                        .placeholder(R.drawable.no_image_placeholder)
+                        .error(R.drawable.no_image_placeholder)
+                        .into(testImage);
+
+                LinearLayout promoLayout = findViewById(R.id.promoLayout);
+                promoLayout.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, Promo.class);
+                    intent.putExtra("promoUrl", cachedPromoImageUrl);
+                    startActivity(intent);
+                });
+            }
+
             DocumentReference latestPromoRef = dbFirestore.collection("promotions").document("latest");
             latestPromoRef.addSnapshotListener((snapshot, e) -> {
                 if (e != null) {
@@ -196,6 +245,8 @@
                     String imageUrl = snapshot.getString("imageUrl");
 
                     if (imageUrl != null && !imageUrl.isEmpty()) {
+                        cachedPromoImageUrl = imageUrl; // ✅ CACHE IT
+
                         ImageView testImage = findViewById(R.id.testImage);
                         Glide.with(this).load(imageUrl)
                                 .placeholder(R.drawable.no_image_placeholder)
@@ -219,6 +270,8 @@
                 }
             });
         }
+
+
         private void setupClickListeners() {
             findViewById(R.id.membershipCard).setOnClickListener(v -> {
                 Intent intent = new Intent(MainActivity.this, SelectMembership.class);
@@ -630,9 +683,6 @@
                 return;
             }
             Log.d(TAG, "🔄 Attaching membership listener (one-time setup)");
-
-            // ✅ Setup real-time coach name listener FIRST
-            setupCoachNameListener(user.getUid());
 
 
             // Set up real-time membership listener
@@ -1312,8 +1362,21 @@
             if (cachedPlanType != null) planType.setText(cachedPlanType);
             if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
             if (cachedCoachName != null) displayCoachName(cachedCoachName);
-        }
 
+            // ✅ Display cached workouts
+            if (cachedExerciseNames != null && !cachedExerciseNames.isEmpty()) {
+                displayYourWorkouts(cachedExerciseNames, cachedExerciseGifs);
+            }
+
+            // ✅ Display cached promo
+            if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
+                ImageView testImage = findViewById(R.id.testImage);
+                Glide.with(this).load(cachedPromoImageUrl)
+                        .placeholder(R.drawable.no_image_placeholder)
+                        .error(R.drawable.no_image_placeholder)
+                        .into(testImage);
+            }
+        }
 
 
     } // ← Closing brace ng MainActivity class

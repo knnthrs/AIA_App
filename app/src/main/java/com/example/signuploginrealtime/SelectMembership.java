@@ -73,6 +73,8 @@ public class SelectMembership extends AppCompatActivity {
     private CardView currentlySelectedCard = null;
     private List<CardView> allCards = new ArrayList<>();
     private boolean isProcessingPayment = false;
+    private String selectedCoachId = null;
+    private String selectedCoachName = null;
 
 
     @Override
@@ -111,7 +113,13 @@ public class SelectMembership extends AppCompatActivity {
                 Toast.makeText(this, "Please select a plan first.", Toast.LENGTH_SHORT).show();
                 return;
             }
-            initiatePayMongoPayment();
+
+            // ✅ Check if selected plan has PT sessions
+            if (selectedSessions > 0) {
+                showCoachSelectionDialog();
+            } else {
+                initiatePayMongoPayment();
+            }
         });
     }
 
@@ -619,6 +627,127 @@ public class SelectMembership extends AppCompatActivity {
         card.animate().scaleX(1.1f).scaleY(1.1f).setDuration(200).start();
     }
 
+    private void showCoachSelectionDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle); // ✅ Add style
+        builder.setTitle("Personal Training Coach");
+        builder.setMessage("This membership includes " + selectedSessions + " PT sessions.\n\nHow would you like to choose your coach?");
+
+        builder.setPositiveButton("Choose My Coach", (dialog, which) -> {
+            dialog.dismiss();
+            showAvailableCoachesList();
+        });
+
+        builder.setNegativeButton("Auto-Assign", (dialog, which) -> {
+            dialog.dismiss();
+            autoAssignCoach();
+        });
+
+        builder.setCancelable(true);
+
+        AlertDialog dialog = builder.create(); // ✅ Create the dialog first
+
+        // ✅ Apply rounded background
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show(); // ✅ Show the dialog
+
+        // ✅ Style the buttons after showing
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#4CAF50")); // Green
+        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#2196F3")); // Blue
+    }
+    private void showAvailableCoachesList() {
+        loadingProgress.setVisibility(View.VISIBLE);
+
+        db.collection("coaches")
+                .get()
+                .addOnSuccessListener(querySnapshot -> {
+                    loadingProgress.setVisibility(View.GONE);
+
+                    if (querySnapshot.isEmpty()) {
+                        Toast.makeText(this, "No available coaches at the moment. Auto-assigning...", Toast.LENGTH_SHORT).show();
+                        autoAssignCoach();
+                        return;
+                    }
+
+                    List<String> coachNames = new ArrayList<>();
+                    List<String> coachIds = new ArrayList<>();
+
+                    for (QueryDocumentSnapshot doc : querySnapshot) {
+                        String name = doc.getString("fullname");
+                        if (name != null) {
+                            coachNames.add(name);
+                            coachIds.add(doc.getId());
+                        }
+                    }
+
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+                    builder.setTitle("Select Your Coach");
+                    builder.setItems(coachNames.toArray(new String[0]), (dialog, which) -> {
+                        selectedCoachId = coachIds.get(which);
+                        selectedCoachName = coachNames.get(which);
+
+                        Toast.makeText(this, "Coach selected: " + selectedCoachName, Toast.LENGTH_SHORT).show();
+                        initiatePayMongoPayment();
+                    });
+
+                    builder.setNegativeButton("Cancel", (dialog, which) -> {  // ✅ Add action
+                        dialog.dismiss();
+                    });
+
+                    AlertDialog dialog = builder.create();
+
+                    if (dialog.getWindow() != null) {
+                        dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+                    }
+
+                    dialog.show();
+
+                    // ✅ Style the Cancel button after showing
+                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#D32F2F")); // Red
+                })
+                .addOnFailureListener(e -> {
+                    loadingProgress.setVisibility(View.GONE);
+                    Toast.makeText(this, "Error loading coaches. Auto-assigning...", Toast.LENGTH_SHORT).show();
+                    autoAssignCoach();
+                });
+    }
+
+    private void autoAssignCoach() {
+        loadingProgress.setVisibility(View.VISIBLE);
+
+        db.collection("coaches")
+                .get()  // ✅ Remove yung .whereEqualTo("status", "active")
+                .addOnSuccessListener(querySnapshot -> {
+                    loadingProgress.setVisibility(View.GONE);
+
+                    if (querySnapshot.isEmpty()) {
+                        Toast.makeText(this, "No coaches available. Membership will be activated without coach assignment.", Toast.LENGTH_LONG).show();
+                        selectedCoachId = null;
+                        selectedCoachName = null;
+                        initiatePayMongoPayment();
+                        return;
+                    }
+
+                    // Get random coach or first available
+                    QueryDocumentSnapshot firstCoach = (QueryDocumentSnapshot) querySnapshot.getDocuments().get(0);
+                    selectedCoachId = firstCoach.getId();
+                    selectedCoachName = firstCoach.getString("fullname");
+
+                    Toast.makeText(this, "Coach assigned: " + selectedCoachName, Toast.LENGTH_SHORT).show();
+                    initiatePayMongoPayment();
+                })
+                .addOnFailureListener(e -> {
+                    loadingProgress.setVisibility(View.GONE);
+                    Toast.makeText(this, "Error assigning coach. Proceeding without coach.", Toast.LENGTH_LONG).show();
+                    selectedCoachId = null;
+                    selectedCoachName = null;
+                    initiatePayMongoPayment();
+                });
+    }
+
+
     private void initiatePayMongoPayment() {
         if (loadingProgress != null) {
             loadingProgress.setVisibility(View.VISIBLE);
@@ -869,7 +998,14 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("membershipStartDate", startTimestamp);
         membershipData.put("membershipExpirationDate", expirationTimestamp);
         membershipData.put("lastUpdated", Timestamp.now());
-        membershipData.put("coachName", "No coach assigned"); // Or get from user selection
+
+        // ✅ Save coach info if selected
+        if (selectedCoachId != null) {
+            membershipData.put("coachId", selectedCoachId);
+            membershipData.put("coachName", selectedCoachName);
+        } else {
+            membershipData.put("coachName", "No coach assigned");
+        }
 
         Log.d(TAG, "📝 Writing to memberships/" + userId);
 
@@ -880,7 +1016,6 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ Membership document updated for user: " + userId);
 
-                    // ✅ STEP 2: Update the users collection
                     Map<String, Object> userUpdate = new HashMap<>();
                     userUpdate.put("membershipPlanType", selectedPlanType);
                     userUpdate.put("membershipActive", true);
@@ -888,6 +1023,11 @@ public class SelectMembership extends AppCompatActivity {
                     userUpdate.put("membershipExpirationDate", expirationTimestamp);
                     userUpdate.put("months", selectedMonths);
                     userUpdate.put("sessions", selectedSessions);
+
+                    // ✅ Save coach assignment if PT package
+                    if (selectedCoachId != null) {
+                        userUpdate.put("coachId", selectedCoachId);
+                    }
 
 
                     Log.d(TAG, "📝 Updating users/" + userId);
@@ -1140,7 +1280,7 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ Membership document reset to 'None'");
 
-                    // ✅ STEP 3: Update users collection
+                    // ✅ STEP 2: Update the users collection
                     Map<String, Object> userUpdate = new HashMap<>();
                     userUpdate.put("membershipPlanType", "None");
                     userUpdate.put("membershipActive", false);
@@ -1148,6 +1288,7 @@ public class SelectMembership extends AppCompatActivity {
                     userUpdate.put("membershipExpirationDate", null);
                     userUpdate.put("months", 0);
                     userUpdate.put("sessions", 0);
+
 
                     Log.d(TAG, "📝 Updating users/" + userId);
 

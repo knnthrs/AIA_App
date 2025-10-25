@@ -316,7 +316,6 @@
                         android:layout_marginEnd="1dp"
                         android:layout_marginBottom="10dp"
                         android:backgroundTint="@color/zxing_transparent"
-                        app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
                         android:clickable="true"
                         android:focusable="true"

@@ -59,6 +59,7 @@ public class PaymentHistoryActivity extends AppCompatActivity {
         firestore.collection("users")
                 .document(currentUser.getUid())
                 .collection("paymentHistory")
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
                 .addSnapshotListener((querySnapshot, error) -> {
                     if (error != null) {
                         recyclerView.setVisibility(View.GONE);
@@ -70,19 +71,30 @@ public class PaymentHistoryActivity extends AppCompatActivity {
                     if (querySnapshot != null) {
                         paymentList.clear();
                         for (QueryDocumentSnapshot doc : querySnapshot) {
-                            String planLabel = doc.getString("planLabel");
-                            Double amount = doc.getDouble("amount");
+                            // ✅ Get new fields
+                            String membershipPlanType = doc.getString("membershipPlanType");
+                            Long months = doc.getLong("months");
+                            Long sessions = doc.getLong("sessions");
+                            Double amount = doc.getDouble("price"); // Changed from "amount" to "price"
                             String paymentMethod = doc.getString("paymentMethod");
                             String paymentStatus = doc.getString("paymentStatus");
-                            if (planLabel != null && amount != null) {
+
+                            // ✅ Generate formatted display name
+                            String displayName = generateFormattedPlanName(
+                                    membershipPlanType,
+                                    months,
+                                    sessions
+                            );
+
+                            if (displayName != null && amount != null) {
                                 paymentList.add(new PaymentHistoryItem(
-                                        planLabel,
+                                        displayName, // Use formatted name
                                         amount,
                                         paymentMethod != null ? paymentMethod : "Unknown",
                                         paymentStatus != null ? paymentStatus : "paid",
                                         doc.getTimestamp("timestamp"),
-                                        doc.getTimestamp("membershipStartDate"),
-                                        doc.getTimestamp("membershipExpirationDate"),
+                                        doc.getTimestamp("startDate"), // Changed from membershipStartDate
+                                        doc.getTimestamp("expirationDate"), // Changed from membershipExpirationDate
                                         doc.getId()
                                 ));
                             }
@@ -94,13 +106,44 @@ public class PaymentHistoryActivity extends AppCompatActivity {
                         } else {
                             recyclerView.setVisibility(View.VISIBLE);
                             tvNoPayments.setVisibility(View.GONE);
-                            Collections.reverse(paymentList);
-                            adapter.notifyDataSetChanged();
+                            adapter.notifyDataSetChanged(); // No need to reverse, already ordered DESC
                         }
                     }
                 });
-
     }
+
+
+    private String generateFormattedPlanName(String type, Long months, Long sessions) {
+        if (type == null) return "Unknown Plan";
+
+        int monthsVal = (months != null) ? months.intValue() : 0;
+        int sessionsVal = (sessions != null) ? sessions.intValue() : 0;
+
+        // For Daily Pass
+        if ("Daily".equals(type) || monthsVal == 0) {
+            return "Daily";
+        }
+
+        // For Standard (no PT sessions)
+        if (sessionsVal == 0) {
+            if (monthsVal == 1) return "Standard Monthly";
+            else if (monthsVal == 3) return "Standard 3 Months";
+            else if (monthsVal == 6) return "Standard 6 Months";
+            else if (monthsVal == 12) return "Standard Annual";
+        }
+
+        // For Monthly with PT
+        if (sessionsVal > 0) {
+            if (monthsVal == 1) return "Monthly with " + sessionsVal + " PT";
+            else if (monthsVal == 3) return "3 Months with " + sessionsVal + " PT";
+            else if (monthsVal == 6) return "6 Months with " + sessionsVal + " PT";
+            else if (monthsVal == 12) return "Annual with " + sessionsVal + " PT";
+        }
+
+        // Fallback
+        return type;
+    }
+
 
     @Override
     public void onBackPressed() {

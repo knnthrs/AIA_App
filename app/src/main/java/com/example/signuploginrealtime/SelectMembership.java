@@ -60,7 +60,6 @@ public class SelectMembership extends AppCompatActivity {
     private Date currentExpirationDate = null;
 
     private String selectedPackageId = null;
-    private String selectedPlanLabel = null;
     private String selectedPlanType = null;
     private int selectedMonths = 0;
     private int selectedDurationDays = 0;
@@ -108,7 +107,7 @@ public class SelectMembership extends AppCompatActivity {
         loadPackagesFromFirestore();
 
         confirmButtonCard.setOnClickListener(v -> {
-            if (selectedPackageId == null || selectedPlanLabel == null) {
+            if (selectedPackageId == null) {
                 Toast.makeText(this, "Please select a plan first.", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -122,14 +121,24 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
-                        String planLabel = documentSnapshot.getString("membershipPlanLabel");
                         String planType = documentSnapshot.getString("membershipPlanType");  // ✅ Also check planType
 
                         // ✅ Check both planLabel AND planType
-                        if (planLabel != null && !planLabel.isEmpty() && !planLabel.equals("None") &&
-                                planType != null && !planType.isEmpty() && !planType.equals("None")) {
+                        if (planType != null && !planType.isEmpty() && !planType.equals("None")) {
                             hasActiveMembership = true;
-                            currentMembershipPlan = planLabel;
+
+                            // Get months and sessions to generate proper display name
+                            Long months = documentSnapshot.getLong("months");
+                            Long sessions = documentSnapshot.getLong("sessions");
+
+                            String displayName = generateTitleText(
+                                    planType,
+                                    months != null ? months.intValue() : 0,
+                                    0,
+                                    sessions != null ? sessions.intValue() : 0
+                            );
+
+                            currentMembershipPlan = displayName;  // Use formatted display name
 
                             Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
                             if (expTimestamp != null) {
@@ -382,16 +391,39 @@ public class SelectMembership extends AppCompatActivity {
         featuresText.setLayoutParams(featuresParams);
         mainLayout.addView(featuresText);
 
+        // Highlight current membership
+        if (isCurrentMembership(type, months, sessions)) {
+            card.setCardBackgroundColor(Color.parseColor("#E8F5E9")); // Light green background
+
+            // Add "Current Plan" badge
+            TextView currentBadge = new TextView(this);
+            currentBadge.setText("✓ Current Plan");
+            currentBadge.setTextColor(Color.parseColor("#2E7D32"));
+            currentBadge.setTextSize(11);
+            currentBadge.setTypeface(null, android.graphics.Typeface.BOLD);
+            currentBadge.setBackgroundColor(Color.parseColor("#C8E6C9"));
+            int badgePadding = (int) (4 * getResources().getDisplayMetrics().density);
+            int badgePaddingH = (int) (8 * getResources().getDisplayMetrics().density);
+            currentBadge.setPadding(badgePaddingH, badgePadding, badgePaddingH, badgePadding);
+
+            LinearLayout.LayoutParams currentBadgeParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+            );
+            currentBadgeParams.setMargins(0, (int) (8 * getResources().getDisplayMetrics().density), 0, 0);
+            currentBadge.setLayoutParams(currentBadgeParams);
+
+            mainLayout.addView(currentBadge);
+        }
+
         card.addView(mainLayout);
 
         // Set click listener
-        String planLabel = generatePlanLabel(type, months, durationDays, sessions, price);
         card.setOnClickListener(v -> {
-            // Check if user has active membership before allowing selection
             if (hasActiveMembership) {
-                showMembershipChangeConfirmation(card, packageId, planLabel, type, months, durationDays, sessions, price);
+                showMembershipChangeConfirmation(card, packageId, type, months, durationDays, sessions, price);
             } else {
-                selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+                selectPackage(card, packageId, type, months, durationDays, sessions, price);
             }
         });
 
@@ -399,12 +431,12 @@ public class SelectMembership extends AppCompatActivity {
         return card;
     }
 
-    private void showMembershipChangeConfirmation(CardView card, String packageId, String planLabel,
+    private void showMembershipChangeConfirmation(CardView card, String packageId,
                                                   String type, int months, int durationDays,
                                                   int sessions, double price) {
         // ✅ Don't show confirmation if current plan is "None"
         if (currentMembershipPlan == null || currentMembershipPlan.equals("None") || currentMembershipPlan.isEmpty()) {
-            selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            selectPackage(card, packageId, type, months, durationDays, sessions, price);
             return;
         }
 
@@ -417,9 +449,11 @@ public class SelectMembership extends AppCompatActivity {
                     android.text.format.DateFormat.format("MMM dd, yyyy", currentExpirationDate);
         }
 
+        String newPlanDisplay = generateTitleText(type, months, durationDays, sessions);
+
         builder.setMessage("You currently have an active membership:\n\n" +
                 "Current Plan: " + currentMembershipPlan + expirationInfo +
-                "\n\nNew Plan: " + planLabel +
+                "\n\nNew Plan: " + newPlanDisplay +
                 "\n\n⚠️ WARNING: If you proceed with this change, you will:\n" +
                 "• Lose access to your current membership\n" +
                 "• Forfeit any remaining time on your current plan\n" +
@@ -427,7 +461,7 @@ public class SelectMembership extends AppCompatActivity {
                 "Are you sure you want to continue?");
 
         builder.setPositiveButton("Yes, Change Membership", (dialog, which) -> {
-            selectPackage(card, packageId, planLabel, type, months, durationDays, sessions, price);
+            selectPackage(card, packageId, type, months, durationDays, sessions, price);
             dialog.dismiss();
         });
 
@@ -455,22 +489,57 @@ public class SelectMembership extends AppCompatActivity {
     private String generateTitleText(String type, int months, int durationDays, int sessions) {
         StringBuilder title = new StringBuilder();
 
-        if (durationDays == 1) {
-            title.append("Daily Pass");
-        } else if (months == 1) {
-            title.append("1 Month");
-        } else if (months == 12) {
-            title.append("12 Months / 1 Year");
-        } else if (months > 0) {
-            title.append(months).append(" Months");
+        // For Daily Pass
+        if (durationDays == 1 || "Daily".equals(type)) {
+            return "Daily";
         }
 
+        // For Standard Monthly (no PT sessions)
+        if (sessions == 0) {
+            if (months == 1) {
+                return "Standard Monthly";
+            } else if (months == 3) {
+                return "Standard 3 Months";
+            } else if (months == 6) {
+                return "Standard 6 Months";
+            } else if (months == 12) {
+                return "Standard Annual";
+            }
+        }
+
+        // For Monthly with PT
         if (sessions > 0) {
-            title.append(" + ").append(sessions).append("PT");
+            if (months == 1) {
+                return "Monthly with " + sessions + " PT";
+            } else if (months == 3) {
+                return "3 Months with " + sessions + " PT";
+            } else if (months == 6) {
+                return "6 Months with " + sessions + " PT";
+            } else if (months == 12) {
+                return "Annual with " + sessions + " PT";
+            }
         }
 
-        return title.toString();
+        // Fallback
+        return type;
     }
+
+    private boolean isCurrentMembership(String type, int months, int sessions) {
+        if (!hasActiveMembership) {
+            return false;
+        }
+
+        // For Daily packages, check if both are "Daily"
+        if ("Daily".equals(type) || months == 0) {
+            return currentMembershipPlan.equals("Daily");
+        }
+
+        // Generate display name and compare
+        String displayName = generateTitleText(type, months, 0, sessions);
+        return currentMembershipPlan.equals(displayName);
+    }
+
+
 
     private String generateSubtitleText(String type, int months, int sessions) {
         if (sessions > 0) {
@@ -522,10 +591,9 @@ public class SelectMembership extends AppCompatActivity {
         return "Full gym access • All equipment • Locker room";
     }
 
-    private void selectPackage(CardView card, String packageId, String planLabel, String type,
+    private void selectPackage(CardView card, String packageId, String type,
                                int months, int durationDays, int sessions, double price) {
         selectedPackageId = packageId;
-        selectedPlanLabel = planLabel;
         selectedPlanType = type;
         selectedMonths = months;
         selectedDurationDays = durationDays;
@@ -539,34 +607,6 @@ public class SelectMembership extends AppCompatActivity {
         if (confirmButtonCard.getVisibility() != View.VISIBLE) {
             confirmButtonCard.setVisibility(View.VISIBLE);
         }
-    }
-
-    private String generatePlanLabel(String type, int months, int durationDays, int sessions, double price) {
-        StringBuilder label = new StringBuilder();
-
-        if (durationDays > 0) {
-            if (durationDays == 1) {
-                label.append("Daily Pass");
-            } else {
-                label.append(durationDays).append(" Days");
-            }
-        } else if (months == 0 || months < 1) {
-            label.append("Daily Pass");
-        } else if (months == 1) {
-            label.append("1 Month");
-        } else if (months == 12) {
-            label.append("12 Months / 1 Year");
-        } else {
-            label.append(months).append(" Months");
-        }
-
-        if (sessions > 0) {
-            label.append(" + ").append(sessions).append(" PT Sessions");
-        }
-
-        label.append(" — ₱").append(String.format("%.0f", price));
-
-        return label.toString();
     }
 
     private void resetAllCards() {
@@ -601,7 +641,6 @@ public class SelectMembership extends AppCompatActivity {
                         Intent intent = new Intent(SelectMembership.this, PayMongoPaymentActivity.class);
                         intent.putExtra("paymentUrl", paymentLinkUrl);
                         intent.putExtra("packageId", selectedPackageId);
-                        intent.putExtra("planLabel", selectedPlanLabel);
                         intent.putExtra("membershipPlanType", selectedPlanType);
                         intent.putExtra("months", selectedMonths);
                         intent.putExtra("durationDays", selectedDurationDays);
@@ -646,11 +685,12 @@ public class SelectMembership extends AppCompatActivity {
             JSONObject data = new JSONObject();
             JSONObject attributes = new JSONObject();
 
+            String description = generateTitleText(selectedPlanType, selectedMonths, selectedDurationDays, selectedSessions);
             attributes.put("amount", amountInCents);
-            attributes.put("description", selectedPlanLabel);
-            attributes.put("remarks", "Membership: " + selectedPlanLabel);
+            attributes.put("description", description);  // ← UPDATED NA TO
+            attributes.put("remarks", "Membership: " + description);  // ← UPDATED NA TO
 
-            data.put("data", new JSONObject().put("attributes", attributes));
+            data.put("data", new JSONObject().put("attributes", attributes));  // ← CORRECT YANG FORMAT NA YAN
 
             OutputStream os = conn.getOutputStream();
             os.write(data.toString().getBytes());
@@ -765,19 +805,16 @@ public class SelectMembership extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(existingDoc -> {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
-                        String existingPlanLabel = existingDoc.getString("membershipPlanLabel");
                         String existingPlanType = existingDoc.getString("membershipPlanType");  // ✅ ADD THIS
 
                         // ✅ Check BOTH planLabel AND planType
-                        if (existingPlanLabel != null && !existingPlanLabel.isEmpty() && !existingPlanLabel.equals("None") &&
-                                existingPlanType != null && !existingPlanType.isEmpty() && !existingPlanType.equals("None")) {
+                        if (existingPlanType != null && !existingPlanType.isEmpty() && !existingPlanType.equals("None")) {
 
-                            Log.d(TAG, "Replacing existing membership: " + existingPlanLabel + " (" + existingPlanType + ")");
+                            Log.d(TAG, "Replacing existing membership: " + existingPlanType);
                             saveNewMembershipData(fullName, paymentMethod);
                         } else {
                             // Plan is "None" or empty - just create new membership
-                            Log.d(TAG, "No real active membership found (planLabel=" + existingPlanLabel +
-                                    ", planType=" + existingPlanType + "), creating new one");
+                            Log.d(TAG, "No real active membership found (planType=" + existingPlanType + "), creating new one");
                             saveNewMembershipData(fullName, paymentMethod);
                         }
                     } else {
@@ -809,7 +846,7 @@ public class SelectMembership extends AppCompatActivity {
 
         String userId = currentUser.getUid();
         Log.d(TAG, "User ID: " + userId);
-        Log.d(TAG, "Selected Plan: " + selectedPlanLabel);
+        Log.d(TAG, "Selected Plan Type: " + selectedPlanType);
         Log.d(TAG, "Price: " + selectedPrice);
 
         // Generate start and expiration dates
@@ -823,15 +860,16 @@ public class SelectMembership extends AppCompatActivity {
         Map<String, Object> membershipData = new HashMap<>();
         membershipData.put("fullname", fullName);
         membershipData.put("userId", userId);
-        membershipData.put("packageId", selectedPackageId);
-        membershipData.put("membershipPlanLabel", selectedPlanLabel);
-        membershipData.put("membershipPlanCode", selectedPackageId);
+        membershipData.put("email", currentUser.getEmail());
         membershipData.put("membershipPlanType", selectedPlanType);
+        membershipData.put("months", selectedMonths);
+        membershipData.put("sessions", selectedSessions);
         membershipData.put("price", selectedPrice);
         membershipData.put("membershipStatus", "active");
         membershipData.put("membershipStartDate", startTimestamp);
         membershipData.put("membershipExpirationDate", expirationTimestamp);
         membershipData.put("lastUpdated", Timestamp.now());
+        membershipData.put("coachName", "No coach assigned"); // Or get from user selection
 
         Log.d(TAG, "📝 Writing to memberships/" + userId);
 
@@ -844,12 +882,12 @@ public class SelectMembership extends AppCompatActivity {
 
                     // ✅ STEP 2: Update the users collection
                     Map<String, Object> userUpdate = new HashMap<>();
-                    userUpdate.put("membershipPlanLabel", selectedPlanLabel);
-                    userUpdate.put("membershipPlanCode", selectedPackageId);
+                    userUpdate.put("membershipPlanType", selectedPlanType);
                     userUpdate.put("membershipActive", true);
                     userUpdate.put("membershipStatus", "active");
                     userUpdate.put("membershipExpirationDate", expirationTimestamp);
-                    userUpdate.put("membershipPlanType", selectedPlanType);
+                    userUpdate.put("months", selectedMonths);
+                    userUpdate.put("sessions", selectedSessions);
 
 
                     Log.d(TAG, "📝 Updating users/" + userId);
@@ -864,8 +902,10 @@ public class SelectMembership extends AppCompatActivity {
                                 Map<String, Object> historyData = new HashMap<>();
                                 historyData.put("fullname", fullName);
                                 historyData.put("userId", userId);
-                                historyData.put("planLabel", selectedPlanLabel);
+                                historyData.put("email", currentUser.getEmail());
                                 historyData.put("membershipPlanType", selectedPlanType);
+                                historyData.put("months", selectedMonths);
+                                historyData.put("sessions", selectedSessions);
                                 historyData.put("price", selectedPrice);
                                 historyData.put("paymentMethod", paymentMethod);
                                 historyData.put("status", "active");
@@ -883,16 +923,17 @@ public class SelectMembership extends AppCompatActivity {
                                             // ✅ STEP 4: Add payment record
                                             Map<String, Object> paymentData = new HashMap<>();
                                             paymentData.put("userId", userId);
-                                            paymentData.put("fullName", fullName);
-                                            paymentData.put("packageId", selectedPackageId);
-                                            paymentData.put("planLabel", selectedPlanLabel);
+                                            paymentData.put("fullname", fullName);
+                                            paymentData.put("email", currentUser.getEmail());
                                             paymentData.put("membershipPlanType", selectedPlanType);
-                                            paymentData.put("amount", selectedPrice);
+                                            paymentData.put("months", selectedMonths);
+                                            paymentData.put("sessions", selectedSessions);
+                                            paymentData.put("price", selectedPrice);
                                             paymentData.put("paymentMethod", paymentMethod);
                                             paymentData.put("paymentStatus", "paid");
                                             paymentData.put("timestamp", Timestamp.now());
-                                            paymentData.put("membershipStartDate", startTimestamp);
-                                            paymentData.put("membershipExpirationDate", expirationTimestamp);
+                                            paymentData.put("startDate", startTimestamp);
+                                            paymentData.put("expirationDate", expirationTimestamp);
 
                                             Log.d(TAG, "📝 Adding to users/" + userId + "/paymentHistory");
 
@@ -1028,7 +1069,6 @@ public class SelectMembership extends AppCompatActivity {
      */
     private void archiveExpiredMembership(com.google.firebase.firestore.DocumentSnapshot membershipDoc) {
         String userId = membershipDoc.getString("userId");
-        String planLabel = membershipDoc.getString("membershipPlanLabel");
         String planType = membershipDoc.getString("membershipPlanType");
         Double price = membershipDoc.getDouble("price");
         Timestamp startDate = membershipDoc.getTimestamp("membershipStartDate");
@@ -1039,16 +1079,18 @@ public class SelectMembership extends AppCompatActivity {
         final String fullName = (fullNameTemp == null || fullNameTemp.isEmpty()) ? "Unknown User" : fullNameTemp;
 
         Log.d(TAG, "🔄 Archiving expired membership for: " + fullName);
-        Log.d(TAG, "📊 Plan: " + planLabel + " (" + planType + ")");
+        Log.d(TAG, "📊 Plan: " + planType);
 
         // ✅ STEP 1: Add to history with "expired" status
         Map<String, Object> historyData = new HashMap<>();
         historyData.put("fullname", fullName);
         historyData.put("userId", userId);
-        historyData.put("planLabel", planLabel);
+        historyData.put("email", membershipDoc.getString("email"));
         historyData.put("membershipPlanType", planType);
+        historyData.put("months", membershipDoc.getLong("months"));
+        historyData.put("sessions", membershipDoc.getLong("sessions"));
         historyData.put("price", price);
-        historyData.put("status", "expired");  // Mark as expired
+        historyData.put("status", "expired");
         historyData.put("timestamp", Timestamp.now());
         historyData.put("startDate", startDate);
         historyData.put("expirationDate", expirationDate);
@@ -1080,10 +1122,11 @@ public class SelectMembership extends AppCompatActivity {
         Map<String, Object> resetData = new HashMap<>();
         resetData.put("fullname", fullName);
         resetData.put("userId", userId);
-        resetData.put("membershipPlanLabel", "None");
+        resetData.put("email", null);
         resetData.put("membershipPlanType", "None");
-        resetData.put("membershipPlanCode", "none");
         resetData.put("membershipStatus", "expired");
+        resetData.put("months", 0);
+        resetData.put("sessions", 0);
         resetData.put("price", 0);
         resetData.put("lastUpdated", Timestamp.now());
         resetData.put("membershipStartDate", null);
@@ -1099,12 +1142,12 @@ public class SelectMembership extends AppCompatActivity {
 
                     // ✅ STEP 3: Update users collection
                     Map<String, Object> userUpdate = new HashMap<>();
-                    userUpdate.put("membershipPlanLabel", "None");
                     userUpdate.put("membershipPlanType", "None");
-                    userUpdate.put("membershipPlanCode", "none");
                     userUpdate.put("membershipActive", false);
                     userUpdate.put("membershipStatus", "expired");
                     userUpdate.put("membershipExpirationDate", null);
+                    userUpdate.put("months", 0);
+                    userUpdate.put("sessions", 0);
 
                     Log.d(TAG, "📝 Updating users/" + userId);
 

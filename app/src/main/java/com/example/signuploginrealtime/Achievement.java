@@ -77,17 +77,29 @@ public class Achievement extends AppCompatActivity {
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.item_1) {
-                startActivity(new Intent(this, MainActivity.class));
+                // Going back to MainActivity - just finish Achievement
+                finish();
                 overridePendingTransition(0, 0);
+                return true;
             } else if (id == R.id.item_2) {
+                // Going to Profile - finish Achievement first
                 startActivity(new Intent(this, Profile.class));
                 overridePendingTransition(0, 0);
+                finish();
+                return true;
             } else if (id == R.id.item_3) {
+                // Going to WorkoutList - finish Achievement first
                 startActivity(new Intent(this, WorkoutList.class));
                 overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (id == R.id.item_4) {
+                // Already on Achievement
+                return true;
             }
-            return true;
+            return false;
         });
+
     }
     private void listenUserProgress() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -203,7 +215,7 @@ public class Achievement extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        super.onBackPressed();
-        overridePendingTransition(0, 0); // Remove animation when pressing back button
+        finish();  // ✅ Just finish, go back to previous activity
+        overridePendingTransition(0, 0);
     }
 }

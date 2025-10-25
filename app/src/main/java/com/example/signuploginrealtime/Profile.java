@@ -216,9 +216,8 @@ public class Profile extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                startActivity(new Intent(Profile.this, MainActivity.class));
+                finish();  // Just finish, MainActivity is in back stack
                 overridePendingTransition(0, 0);
-                finish();
             }
         });
 
@@ -226,28 +225,40 @@ public class Profile extends AppCompatActivity {
         btnBack = findViewById(R.id.btn_back);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
 
+
         btnBack.setOnClickListener(v -> {
-            startActivity(new Intent(Profile.this, MainActivity.class));
+            finish();  // Just finish, MainActivity is in back stack
             overridePendingTransition(0, 0);
-            finish();
         });
 
         bottomNavigationView.setSelectedItemId(R.id.item_2);
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
             if (itemId == R.id.item_1) {
-                startActivity(new Intent(getApplicationContext(), MainActivity.class));
-                overridePendingTransition(0, 0);
-                return true;
-            } else if (itemId == R.id.item_3) {
-                startActivity(new Intent(getApplicationContext(), WorkoutList.class));
-                overridePendingTransition(0, 0);
-                return true;
-            } else if (itemId == R.id.item_4) {
-                startActivity(new Intent(getApplicationContext(), Achievement.class));
+                // Going back to MainActivity
+                if (isTaskRoot()) {
+                    // No MainActivity in back stack, create new one
+                    Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(intent);
+                }
+                finish();
                 overridePendingTransition(0, 0);
                 return true;
             } else if (itemId == R.id.item_2) {
+                // Already on Profile
+                return true;
+            } else if (itemId == R.id.item_3) {
+                // Going to WorkoutList - finish Profile first
+                startActivity(new Intent(getApplicationContext(), WorkoutList.class));
+                overridePendingTransition(0, 0);
+                finish();
+                return true;
+            } else if (itemId == R.id.item_4) {
+                // Going to Achievement - finish Profile first
+                startActivity(new Intent(getApplicationContext(), Achievement.class));
+                overridePendingTransition(0, 0);
+                finish();
                 return true;
             }
             return false;

@@ -215,7 +215,7 @@
 
                             </LinearLayout>
 
-                            <!-- Plan + Expiry -->
+                            <!-- Plan + Expiry + Coach (3 columns) -->
                             <LinearLayout
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
@@ -271,6 +271,33 @@
                                         android:textStyle="bold" />
 
                                 </LinearLayout>
+
+                            </LinearLayout>
+
+                            <!-- Coach Name Row (Full Width Below) -->
+                            <LinearLayout
+                                android:id="@+id/coachNameContainer"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:orientation="vertical"
+                                android:visibility="gone">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Assigned Coach"
+                                    android:textColor="#666666"
+                                    android:textSize="12sp" />
+
+                                <TextView
+                                    android:id="@+id/coach_name"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="No coach assigned"
+                                    android:textColor="#333333"
+                                    android:textSize="16sp"
+                                    android:textStyle="bold" />
 
                             </LinearLayout>
 

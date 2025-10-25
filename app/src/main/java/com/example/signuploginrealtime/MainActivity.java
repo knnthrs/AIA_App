@@ -62,7 +62,13 @@
         private ListenerRegistration unreadNotifListener;
         private ListenerRegistration workoutListener;
         private ListenerRegistration membershipListener;
-    
+        private ListenerRegistration coachNameListener;
+        private static String cachedCoachName = null;
+        private static String cachedMembershipStatus = null;
+        private static String cachedPlanType = null;
+        private static String cachedExpiryDate = null;
+        private static Integer cachedStatusColor = null;
+
         TextView greetingText;
         TextView membershipStatus;
         TextView planType;
@@ -340,10 +346,13 @@
                 return;
             }
 
-            // Remove previous listener if any
+            // ✅ Prevent duplicate listeners
             if (workoutListener != null) {
-                workoutListener.remove();
+                Log.d(TAG, "Workout listener already active");
+                return;
             }
+
+            Log.d(TAG, "🔄 Attaching workout listener (one-time setup)");
 
             // Set up real-time listener
             workoutListener = dbFirestore.collection("users")
@@ -390,6 +399,7 @@
                         }
                     });
         }
+
 
 
         // Updated displayYourWorkouts to handle names and GIFs
@@ -504,26 +514,29 @@
                 streakDisplay.setText(String.valueOf(currentStreak));
             }
         }
-    
+
         private void loadUserDataFromFirestore() {
             FirebaseUser currentUserAuth = mAuth.getCurrentUser();
             if (currentUserAuth != null) {
                 String uid = currentUserAuth.getUid();
                 userDocRefFS = dbFirestore.collection("users").document(uid);
-    
-                // Remove previous listener if any
+
+                // ✅ Only attach listener if not already attached
                 if (userDataListenerRegistrationFS != null) {
-                    userDataListenerRegistrationFS.remove();
+                    Log.d(TAG, "User data listener already active, skipping re-attach");
+                    return;
                 }
-    
-                // Add snapshot listener
+
+                Log.d(TAG, "🔄 Attaching user data listener (one-time setup)");
+
+                // Add snapshot listener - will stay active until onDestroy
                 userDataListenerRegistrationFS = userDocRefFS.addSnapshotListener((firestoreSnapshot, e) -> {
                     if (e != null) {
                         Log.w(TAG, "Firestore listen failed for user data.", e);
                         setDefaultValues();
                         return;
                     }
-    
+
                     if (firestoreSnapshot == null || !firestoreSnapshot.exists()) {
                         // User document deleted → account no longer available
                         showAccountDeletedDialog();
@@ -533,9 +546,14 @@
                             firestoreSnapshot.contains("fitnessGoal")) {
                         Log.d(TAG, "User data complete in Firestore. Updating UI.");
                         updateGreeting(firestoreSnapshot);
-                        setupMembershipListener();
-                        updateGoalsProgressDisplay(firestoreSnapshot); // Add this line
-    
+
+                        // ✅ Only setup membership listener once
+                        if (membershipListener == null) {
+                            setupMembershipListener();
+                        }
+
+                        updateGoalsProgressDisplay(firestoreSnapshot);
+
                         SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
                         editor.putBoolean("profile_complete_firebase", true);
                         editor.apply();
@@ -549,6 +567,8 @@
                 goToLogin();
             }
         }
+
+
         private void redirectToProfileCompletion() {
             SharedPreferences.Editor editor = getSharedPreferences("user_profile_prefs", MODE_PRIVATE).edit();
             editor.putBoolean("profile_complete_firebase", false); editor.apply();
@@ -570,18 +590,32 @@
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) return;
 
-            // Remove previous listener if any
+            // ✅ Prevent duplicate listeners
             if (membershipListener != null) {
-                membershipListener.remove();
+                Log.d(TAG, "Membership listener already active");
+                return;
             }
 
-            // Show loading state
-            membershipStatus.setText("Loading...");
-            membershipStatus.setTextColor(getColor(R.color.gray));
-            planType.setText("Checking membership...");
-            expiryDate.setText("—");
+            // ✅ SHOW CACHED DATA IMMEDIATELY (including color)
+            if (cachedMembershipStatus != null) {
+                membershipStatus.setText(cachedMembershipStatus);
+                if (cachedStatusColor != null) {
+                    membershipStatus.setTextColor(cachedStatusColor);
+                }
+            }
+            if (cachedPlanType != null) {
+                planType.setText(cachedPlanType);
+            }
+            if (cachedExpiryDate != null) {
+                expiryDate.setText(cachedExpiryDate);
+            }
 
-            // Set up real-time listener
+            Log.d(TAG, "🔄 Attaching membership listener (one-time setup)");
+
+            // ✅ FIRST: Setup real-time coach name listener
+            setupCoachNameListener(user.getUid());
+
+            // Set up real-time membership listener
             membershipListener = dbFirestore.collection("memberships")
                     .document(user.getUid())
                     .addSnapshotListener((documentSnapshot, e) -> {
@@ -594,69 +628,182 @@
                         if (documentSnapshot != null && documentSnapshot.exists() &&
                                 "active".equals(documentSnapshot.getString("membershipStatus"))) {
 
-                            String plan = documentSnapshot.getString("membershipPlanLabel");
+                            String planTypeValue = documentSnapshot.getString("membershipPlanType");
+                            Long months = documentSnapshot.getLong("months");
+                            Long sessions = documentSnapshot.getLong("sessions");
                             Timestamp expirationTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
 
-                            if (plan != null) planType.setText(plan);
+                            // Generate formatted display name
+                            String displayName = generateFormattedPlanName(planTypeValue, months, sessions);
 
-                            if (expirationTimestamp != null) {
-                                Date expDate = expirationTimestamp.toDate();
-                                expiryDate.setText(new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate));
+                            // Check if plan is valid (not "None")
+                            if (planTypeValue != null && !planTypeValue.isEmpty() && !planTypeValue.equals("None")) {
 
-                                long diffInMillis = expDate.getTime() - new Date().getTime();
-                                long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                                long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+                                if (expirationTimestamp != null) {
+                                    Date expDate = expirationTimestamp.toDate();
+                                    cachedExpiryDate = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate);
+                                    expiryDate.setText(cachedExpiryDate);
 
+                                    long diffInMillis = expDate.getTime() - new Date().getTime();
+                                    long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                    long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
-                                if (plan != null && !plan.isEmpty() && !plan.equals("None")) {
-                                    planType.setText(plan);
-                                    // ... rest of the code
-                                } else {
-                                    // Plan is "None" or invalid - treat as no membership
-                                    Log.d(TAG, "Plan is 'None' or invalid - showing inactive");
-                                    setDefaultMembershipValues();
-                                }
+                                    if (diffInMillis < 0) {
+                                        // EXPIRED
+                                        cachedMembershipStatus = "EXPIRED";
+                                        cachedStatusColor = getColor(R.color.red); // ✅ CACHE COLOR
+                                        membershipStatus.setText("EXPIRED");
+                                        membershipStatus.setTextColor(cachedStatusColor);
+                                        cachedPlanType = displayName + " (Expired)";
+                                        planType.setText(displayName + " (Expired)");
 
-                                if (diffInMillis < 0) {
-                                    // EXPIRED
-                                    membershipStatus.setText("EXPIRED");
-                                    membershipStatus.setTextColor(getColor(R.color.red));
-                                    planType.setText(plan + " (Expired)");
+                                    } else if (diffInHours <= 6) {
+                                        // EXPIRING SOON - only in last 6 hours
+                                        cachedMembershipStatus = "EXPIRING SOON";
+                                        cachedStatusColor = getColor(R.color.orange); // ✅ CACHE COLOR
+                                        membershipStatus.setText("EXPIRING SOON");
+                                        membershipStatus.setTextColor(cachedStatusColor);
+                                        if (diffInHours > 0) {
+                                            cachedPlanType = displayName + " (Expires in " + diffInHours + "h)";
+                                            planType.setText(displayName + " (Expires in " + diffInHours + "h)");
+                                        } else {
+                                            long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                                            cachedPlanType = displayName + " (Expires in " + diffInMinutes + "m)";
+                                            planType.setText(displayName + " (Expires in " + diffInMinutes + "m)");
+                                        }
 
-                                } else if (diffInHours <= 6) {
-                                    // EXPIRING SOON - only in last 6 hours
-                                    membershipStatus.setText("EXPIRING SOON");
-                                    membershipStatus.setTextColor(getColor(R.color.orange));
-                                    if (diffInHours > 0) {
-                                        planType.setText(plan + " (Expires in " + diffInHours + "h)");
+                                    } else if (diffInDays >= 1 && diffInDays <= 3) {
+                                        // EXPIRING SOON - 1 to 3 days
+                                        cachedMembershipStatus = "EXPIRING SOON";
+                                        cachedStatusColor = getColor(R.color.orange); // ✅ CACHE COLOR
+                                        membershipStatus.setText("EXPIRING SOON");
+                                        membershipStatus.setTextColor(cachedStatusColor);
+                                        cachedPlanType = displayName + " (" + diffInDays + " day(s) left)";
+                                        planType.setText(displayName + " (" + diffInDays + " day(s) left)");
+
                                     } else {
-                                        long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
-                                        planType.setText(plan + " (Expires in " + diffInMinutes + "m)");
+                                        // ACTIVE - more than 6 hours or more than 3 days
+                                        cachedMembershipStatus = "ACTIVE";
+                                        cachedStatusColor = getColor(R.color.green); // ✅ CACHE COLOR
+                                        membershipStatus.setText("ACTIVE");
+                                        membershipStatus.setTextColor(cachedStatusColor);
+                                        cachedPlanType = displayName;
+                                        planType.setText(displayName);
                                     }
-
-                                } else if (diffInDays >= 1 && diffInDays <= 3) {
-                                    // EXPIRING SOON - 1 to 3 days
-                                    membershipStatus.setText("EXPIRING SOON");
-                                    membershipStatus.setTextColor(getColor(R.color.orange));
-                                    planType.setText(plan + " (" + diffInDays + " day(s) left)");
-
                                 } else {
-                                    // ACTIVE - more than 6 hours or more than 3 days
-                                    membershipStatus.setText("ACTIVE");
-                                    membershipStatus.setTextColor(getColor(R.color.green));
-                                    planType.setText(plan);
+                                    cachedMembershipStatus = "INACTIVE";
+                                    cachedStatusColor = getColor(R.color.red); // ✅ CACHE COLOR
+                                    membershipStatus.setText("INACTIVE");
+                                    membershipStatus.setTextColor(cachedStatusColor);
+                                    cachedExpiryDate = "—";
+                                    expiryDate.setText("—");
+                                    cachedPlanType = "No plan";
+                                    planType.setText("No plan");
                                 }
                             } else {
-                                membershipStatus.setText("INACTIVE");
-                                membershipStatus.setTextColor(getColor(R.color.red));
-                                expiryDate.setText("—");
-                                planType.setText("No plan");
+                                // Plan is "None" or invalid - treat as no membership
+                                Log.d(TAG, "Plan is 'None' or invalid - showing inactive");
+                                setDefaultMembershipValues();
                             }
                         } else {
                             Log.d(TAG, "No active membership found");
                             setDefaultMembershipValues();
+                            hideCoachName();
                         }
                     });
+        }
+
+        private void setupCoachNameListener(String userId) {
+            // ✅ Prevent duplicate listeners
+            if (coachNameListener != null) {
+                Log.d(TAG, "Coach name listener already active");
+                return;
+            }
+
+            // ✅ Show cached coach name immediately if available
+            if (cachedCoachName != null) {
+                displayCoachName(cachedCoachName);
+            }
+
+            Log.d(TAG, "🔄 Attaching coach name listener (real-time)");
+
+            // Real-time listener on user document for coachId changes
+            coachNameListener = dbFirestore.collection("users")
+                    .document(userId)
+                    .addSnapshotListener((userDoc, e) -> {
+                        if (e != null) {
+                            Log.e(TAG, "❌ Error listening to user document", e);
+                            hideCoachName();
+                            return;
+                        }
+
+                        if (userDoc != null && userDoc.exists()) {
+                            String coachId = userDoc.getString("coachId");
+                            Log.d(TAG, "👤 User's coachId: " + coachId);
+
+                            if (coachId != null && !coachId.isEmpty()) {
+                                // Fetch coach's full name from coaches collection
+                                dbFirestore.collection("coaches")
+                                        .document(coachId)
+                                        .get()
+                                        .addOnSuccessListener(coachDoc -> {
+                                            if (coachDoc.exists()) {
+                                                String coachFullName = coachDoc.getString("fullname");
+                                                cachedCoachName = coachFullName; // ✅ CACHE IT
+                                                Log.d(TAG, "✅ Found coach: " + coachFullName);
+                                                displayCoachName(coachFullName);
+                                            } else {
+                                                cachedCoachName = null; // ✅ CLEAR CACHE
+                                                Log.d(TAG, "⚠️ Coach document not found for ID: " + coachId);
+                                                hideCoachName();
+                                            }
+                                        })
+                                        .addOnFailureListener(ex -> {
+                                            Log.e(TAG, "❌ Error fetching coach document", ex);
+                                            hideCoachName();
+                                        });
+                            } else {
+                                cachedCoachName = null; // ✅ CLEAR CACHE
+                                Log.d(TAG, "No coachId assigned to user");
+                                hideCoachName();
+                            }
+                        } else {
+                            Log.e(TAG, "User document not found!");
+                            hideCoachName();
+                        }
+                    });
+        }
+
+
+        private String generateFormattedPlanName(String type, Long months, Long sessions) {
+            if (type == null) return "Unknown Plan";
+
+            int monthsVal = (months != null) ? months.intValue() : 0;
+            int sessionsVal = (sessions != null) ? sessions.intValue() : 0;
+
+            // For Daily Pass
+            if ("Daily".equals(type) || monthsVal == 0) {
+                return "Daily";
+            }
+
+            // For Standard (no PT sessions)
+            if (sessionsVal == 0) {
+                if (monthsVal == 1) return "Standard Monthly";
+                else if (monthsVal == 3) return "Standard 3 Months";
+                else if (monthsVal == 6) return "Standard 6 Months";
+                else if (monthsVal == 12) return "Standard Annual";
+            }
+
+            // For Monthly with PT
+            if (sessionsVal > 0) {
+                if (monthsVal == 1) return "Monthly with " + sessionsVal + " PT";
+                else if (monthsVal == 3) return "3 Months with " + sessionsVal + " PT";
+                else if (monthsVal == 6) return "6 Months with " + sessionsVal + " PT";
+                else if (monthsVal == 12) return "Annual with " + sessionsVal + " PT";
+            }
+
+            // Fallback
+            return type;
         }
 
 
@@ -680,7 +827,9 @@
             }
             planType.setText("No plan selected");
             expiryDate.setText("—");
+
         }
+
     
         @SuppressLint("SetTextI18n")
         private void setDefaultValues() {
@@ -694,7 +843,6 @@
             super.onResume();
             if (mAuth.getCurrentUser() != null) {
                 updateStreakDisplay();
-                loadUserDataFromFirestore();
                 checkAndHandleMembershipExpiration();
                 checkAndSendWorkoutReminder();
                 setupUnreadNotificationListener();
@@ -735,6 +883,7 @@
             goToLogin();
         }
     
+
         @Override
         protected void onDestroy() {
             super.onDestroy();
@@ -747,10 +896,14 @@
             if (workoutListener != null) {
                 workoutListener.remove();
             }
-            if (membershipListener != null) {  // ← ADD THIS
+            if (membershipListener != null) {
                 membershipListener.remove();
             }
+            if (coachNameListener != null) {
+                coachNameListener.remove();
+            }
         }
+
         private void showAccountDeletedDialog() {
             new AlertDialog.Builder(this)
                     .setTitle("Account Unavailable")
@@ -1048,12 +1201,15 @@
             FirebaseUser currentUser = mAuth.getCurrentUser();
             if (currentUser == null) return;
 
+            // ✅ Prevent duplicate listeners
+            if (unreadNotifListener != null) {
+                Log.d(TAG, "Unread notification listener already active");
+                return;
+            }
+
             String userId = currentUser.getUid();
 
-            // Remove previous listener if any
-            if (unreadNotifListener != null) {
-                unreadNotifListener.remove();
-            }
+            Log.d(TAG, "🔄 Attaching unread notification listener (one-time setup)");
 
             // Listen for unread notifications in real-time
             unreadNotifListener = dbFirestore.collection("notifications")
@@ -1081,6 +1237,7 @@
                     });
         }
 
+
         private void createNotificationWithDate(String userId, String title, String message, String type, String dateStr) {
             Map<String, Object> notification = new HashMap<>();
             notification.put("userId", userId);
@@ -1101,4 +1258,29 @@
                     });
         }
 
-    }
+        // ✅ Helper method to display coach name
+        private void displayCoachName(String coachName) {
+            LinearLayout coachNameContainer = findViewById(R.id.coachNameContainer);
+            TextView coachNameView = findViewById(R.id.coach_name);
+
+            if (coachName != null && !coachName.isEmpty()) {
+                coachNameView.setText(coachName);
+                coachNameContainer.setVisibility(View.VISIBLE);
+                Log.d(TAG, "✅ Displaying coach: " + coachName);
+            } else {
+                hideCoachName();
+            }
+        }
+
+        // ✅ Helper method to hide coach name
+        private void hideCoachName() {
+            LinearLayout coachNameContainer = findViewById(R.id.coachNameContainer);
+            if (coachNameContainer != null) {
+                coachNameContainer.setVisibility(View.GONE);
+                Log.d(TAG, "❌ Hiding coach name container");
+            }
+        }
+
+
+
+    } // ← Closing brace ng MainActivity class

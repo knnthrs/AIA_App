@@ -2,13 +2,13 @@
 <androidx.cardview.widget.CardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="100dp"
-    android:layout_height="100dp"
-    android:layout_marginStart="8dp"
-    android:layout_marginEnd="8dp"
+    android:layout_width="140dp"
+    android:layout_height="130dp"
+    android:layout_marginStart="1dp"
+    android:layout_marginEnd="1dp"
     app:cardCornerRadius="12dp"
     app:cardElevation="3dp"
-    app:cardBackgroundColor="#F5F5F5">
+    app:cardBackgroundColor="#2b2b2b">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -22,9 +22,9 @@
         <ImageView
             android:id="@+id/iv_activity_gif"
             android:layout_width="match_parent"
-            android:layout_height="70dp"
+            android:layout_height="95dp"
             android:adjustViewBounds="true"
-            android:scaleType="centerCrop"
+            android:scaleType="fitCenter"
             android:contentDescription="Exercise animation"
             android:background="@drawable/gif_placeholder_bg"
             android:clipToOutline="true" />
@@ -39,7 +39,7 @@
             android:text="Push-ups"
             android:textSize="10sp"
             android:textStyle="bold"
-            android:textColor="#333333"
+            android:textColor="@color/white"
             android:gravity="center"
             android:maxLines="2"
             android:ellipsize="end" />

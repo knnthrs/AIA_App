@@ -172,8 +172,8 @@
                         android:id="@+id/membershipCard"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
-                        android:backgroundTint="#FFFFFF"
+                        android:layout_marginBottom="5dp"
+                        android:backgroundTint="#2b2b2b"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
                         android:clickable="true"
@@ -199,7 +199,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
                                     android:text="Membership Status"
-                                    android:textColor="#333333"
+                                    android:textColor="@color/white"
                                     android:textSize="18sp"
                                     android:textStyle="bold" />
 
@@ -233,7 +233,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:text="Plan Type"
-                                        android:textColor="#666666"
+                                        android:textColor="@color/white"
                                         android:textSize="12sp" />
 
                                     <TextView
@@ -241,7 +241,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:text="No plan selected"
-                                        android:textColor="#333333"
+                                        android:textColor="@color/white"
                                         android:textSize="16sp"
                                         android:textStyle="bold" />
 
@@ -258,7 +258,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:text="Expires On"
-                                        android:textColor="#666666"
+                                        android:textColor="@color/white"
                                         android:textSize="12sp" />
 
                                     <TextView
@@ -266,7 +266,7 @@
                                         android:layout_width="wrap_content"
                                         android:layout_height="wrap_content"
                                         android:text="—"
-                                        android:textColor="#333333"
+                                        android:textColor="@color/white"
                                         android:textSize="16sp"
                                         android:textStyle="bold" />
 
@@ -287,7 +287,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Assigned Coach"
-                                    android:textColor="#666666"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp" />
 
                                 <TextView
@@ -295,7 +295,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="No coach assigned"
-                                    android:textColor="#333333"
+                                    android:textColor="@color/white"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -312,8 +312,10 @@
                         android:id="@+id/activities_card"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginBottom="20dp"
-                        android:backgroundTint="#FFFFFF"
+                        android:layout_marginStart="1dp"
+                        android:layout_marginEnd="1dp"
+                        android:layout_marginBottom="10dp"
+                        android:backgroundTint="@color/zxing_transparent"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
                         android:clickable="true"
@@ -323,30 +325,26 @@
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:orientation="vertical"
-                            android:padding="15dp">
+                            android:orientation="vertical">
 
                             <TextView
                                 android:id="@+id/tv_activity_status"
                                 android:layout_width="match_parent"
-                                android:layout_height="wrap_content"
-                                android:text="Your Workouts"
-                                android:textSize="15sp"
-                                android:textStyle="bold"
-                                android:textColor="@color/black"
+                                android:layout_height="match_parent"
+                                android:layout_marginTop="1dp"
                                 android:gravity="center"
-                                android:layout_marginTop="2dp"/>
-
-
+                                android:text="YOUR WORKOUTS"
+                                android:textColor="@color/black"
+                                android:textSize="20sp"
+                                android:textStyle="bold" />
 
 
                             <!-- Horizontal ScrollView for Dynamic Activities -->
                             <HorizontalScrollView
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:scrollbars="none"
                                 android:clipToPadding="false"
-                                >
+                                android:scrollbars="none">
 
                                 <LinearLayout
                                     android:id="@+id/activities_horizontal_container"
@@ -379,7 +377,7 @@
                             android:layout_height="120dp"
                             android:layout_marginEnd="8dp"
                             android:layout_weight="1"
-                            android:backgroundTint="#FFFFFF"
+                            android:backgroundTint="#2b2b2b"
                             app:cardCornerRadius="24dp"
                             app:cardElevation="0dp"
                             android:clickable="true"
@@ -399,7 +397,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginBottom="4dp"
                                     android:text="Weekly Goal"
-                                    android:textColor="#666666"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp" />
 
                                 <TextView
@@ -430,7 +428,7 @@
                             android:layout_height="120dp"
                             android:layout_marginStart="8dp"
                             android:layout_weight="1"
-                            android:backgroundTint="#FFFFFF"
+                            android:backgroundTint="#2b2b2b"
                             app:cardCornerRadius="24dp"
                             app:cardElevation="0dp"
                             android:clickable="true"
@@ -449,7 +447,7 @@
                                     android:layout_height="wrap_content"
                                     android:layout_marginBottom="4dp"
                                     android:text="Streak"
-                                    android:textColor="#666666"
+                                    android:textColor="@color/white"
                                     android:textSize="12sp" />
 
                                 <LinearLayout

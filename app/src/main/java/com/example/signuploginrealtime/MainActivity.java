@@ -481,32 +481,32 @@
         private void displayYourWorkouts(List<String> exercises, @Nullable List<String> gifs) {
             Log.d(TAG, "=== displayYourWorkouts DEBUG START ===");
             Log.d(TAG, "Method called with " + exercises.size() + " exercises");
-    
+
             // Check if activitiesContainer exists
             if (activitiesContainer == null) {
                 Log.e(TAG, "ERROR: activitiesContainer is NULL! Check R.id.activities_horizontal_container");
                 return;
             }
-    
+
             Log.d(TAG, "activitiesContainer found successfully");
             activitiesContainer.removeAllViews();
-    
+
             if (exercises.isEmpty()) {
                 Log.d(TAG, "No exercises to display, calling showNoWorkouts");
                 showNoWorkouts();
                 return;
             }
-    
+
             LayoutInflater inflater = LayoutInflater.from(this);
             int max = Math.min(exercises.size(), 5);
             Log.d(TAG, "Will create " + max + " exercise cards");
-    
+
             for (int i = 0; i < max; i++) {
                 String name = exercises.get(i);
                 String gifUrl = (gifs != null && i < gifs.size()) ? gifs.get(i) : null;
-    
+
                 Log.d(TAG, "Creating card " + i + ": name=" + name + ", gif=" + gifUrl);
-    
+
                 // Check if the layout file exists
                 View exerciseCard;
                 try {
@@ -516,30 +516,30 @@
                     Log.e(TAG, "ERROR: Failed to inflate item_activity_card layout: " + e.getMessage());
                     continue;
                 }
-    
+
                 // Find the views inside the card
                 TextView exerciseNameView = exerciseCard.findViewById(R.id.tv_activity_name);
                 ImageView exerciseGifView = exerciseCard.findViewById(R.id.iv_activity_gif);
-    
+
                 if (exerciseNameView == null) {
                     Log.e(TAG, "ERROR: tv_activity_name not found in item_activity_card layout");
                 } else {
                     Log.d(TAG, "Found tv_activity_name successfully");
                 }
-    
+
                 if (exerciseGifView == null) {
                     Log.e(TAG, "ERROR: iv_activity_gif not found in item_activity_card layout");
                 } else {
                     Log.d(TAG, "Found iv_activity_gif successfully");
                 }
-    
+
                 // Set the exercise name
                 if (exerciseNameView != null) {
                     String displayName = name.length() > 15 ? name.substring(0, 12) + "..." : name;
                     exerciseNameView.setText(displayName);
                     Log.d(TAG, "Set exercise name to: " + displayName);
                 }
-    
+
                 // Load the GIF
                 if (exerciseGifView != null) {
                     if (gifUrl != null && !gifUrl.isEmpty()) {
@@ -555,7 +555,14 @@
                         exerciseGifView.setImageResource(R.drawable.no_image_placeholder);
                     }
                 }
-    
+
+                // ✅ ADD CLICK LISTENER TO EACH CARD
+                exerciseCard.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, WorkoutList.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+
                 // Add the card to the container
                 try {
                     activitiesContainer.addView(exerciseCard);
@@ -564,12 +571,13 @@
                     Log.e(TAG, "ERROR: Failed to add card to container: " + e.getMessage());
                 }
             }
-    
+
             Log.d(TAG, "Final container child count: " + activitiesContainer.getChildCount());
             Log.d(TAG, "Container visibility: " + activitiesContainer.getVisibility());
             Log.d(TAG, "=== displayYourWorkouts DEBUG END ===");
         }
-    
+
+
         // Fallback if no workouts
         private void showNoWorkouts() {
             activitiesContainer.removeAllViews();

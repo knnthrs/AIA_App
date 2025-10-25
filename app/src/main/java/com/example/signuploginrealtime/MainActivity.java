@@ -68,6 +68,9 @@
         private static String cachedPlanType = null;
         private static String cachedExpiryDate = null;
         private static Integer cachedStatusColor = null;
+        private static String cachedUserName = null;
+        private static List<String> cachedExerciseNames = null;
+        private static List<String> cachedExerciseGifs = null;
 
         TextView greetingText;
         TextView membershipStatus;
@@ -139,8 +142,13 @@
             loadUserDataFromFirestore();
             updateStreakDisplay();
             setupWorkoutListener();
+            displayCachedMembershipData();
 
-            new android.os.Handler().postDelayed(this::checkAndHandleMembershipExpiration, 800);
+            new android.os.Handler().postDelayed(() -> {
+                checkAndHandleMembershipExpiration();
+                checkAndSendWorkoutReminder();
+            }, 800);
+
 
             getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
                 @Override
@@ -352,6 +360,11 @@
                 return;
             }
 
+            // ✅ Display cached workouts immediately (NO FLICKER!)
+            if (cachedExerciseNames != null && !cachedExerciseNames.isEmpty()) {
+                displayYourWorkouts(cachedExerciseNames, cachedExerciseGifs);
+            }
+
             Log.d(TAG, "🔄 Attaching workout listener (one-time setup)");
 
             // Set up real-time listener
@@ -362,6 +375,8 @@
                     .addSnapshotListener((documentSnapshot, e) -> {
                         if (e != null) {
                             Log.e(TAG, "Error loading workouts", e);
+                            cachedExerciseNames = null;
+                            cachedExerciseGifs = null;
                             showNoWorkouts();
                             return;
                         }
@@ -387,19 +402,26 @@
                                 }
 
                                 if (!exerciseNames.isEmpty()) {
+                                    cachedExerciseNames = new ArrayList<>(exerciseNames); // ✅ CACHE IT
+                                    cachedExerciseGifs = new ArrayList<>(exerciseGifs);   // ✅ CACHE IT
                                     displayYourWorkouts(exerciseNames, exerciseGifs);
                                 } else {
+                                    cachedExerciseNames = null; // ✅ CLEAR CACHE
+                                    cachedExerciseGifs = null;
                                     showNoWorkouts();
                                 }
                             } else {
+                                cachedExerciseNames = null;
+                                cachedExerciseGifs = null;
                                 showNoWorkouts();
                             }
                         } else {
+                            cachedExerciseNames = null;
+                            cachedExerciseGifs = null;
                             showNoWorkouts();
                         }
                     });
         }
-
 
 
         // Updated displayYourWorkouts to handle names and GIFs
@@ -576,13 +598,14 @@
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent); finish();
         }
-    
+
         @SuppressLint("SetTextI18n")
         private void updateGreeting(DocumentSnapshot firestoreSnapshot) {
             String name = firestoreSnapshot.getString("fullname");
-            greetingText.setText((name != null && !name.trim().isEmpty())
-                    ? "Hi, " + name
-                    : "Hi, User");
+            String displayName = (name != null && !name.trim().isEmpty()) ? name : "User";
+
+            cachedUserName = displayName; // ✅ CACHE IT
+            greetingText.setText("Hi, " + displayName);
         }
 
 
@@ -590,30 +613,27 @@
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) return;
 
-            // ✅ Prevent duplicate listeners
-            if (membershipListener != null) {
-                Log.d(TAG, "Membership listener already active");
-                return;
-            }
-
-            // ✅ SHOW CACHED DATA IMMEDIATELY (including color)
+            // ✅ SHOW CACHED DATA IMMEDIATELY - NO FLICKER
             if (cachedMembershipStatus != null) {
                 membershipStatus.setText(cachedMembershipStatus);
                 if (cachedStatusColor != null) {
                     membershipStatus.setTextColor(cachedStatusColor);
                 }
             }
-            if (cachedPlanType != null) {
-                planType.setText(cachedPlanType);
-            }
-            if (cachedExpiryDate != null) {
-                expiryDate.setText(cachedExpiryDate);
-            }
+            if (cachedPlanType != null) planType.setText(cachedPlanType);
+            if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
+            if (cachedCoachName != null) displayCoachName(cachedCoachName);
 
+            // ✅ Prevent duplicate listeners
+            if (membershipListener != null) {
+                Log.d(TAG, "Membership listener already active");
+                return;
+            }
             Log.d(TAG, "🔄 Attaching membership listener (one-time setup)");
 
-            // ✅ FIRST: Setup real-time coach name listener
+            // ✅ Setup real-time coach name listener FIRST
             setupCoachNameListener(user.getUid());
+
 
             // Set up real-time membership listener
             membershipListener = dbFirestore.collection("memberships")
@@ -836,21 +856,17 @@
             greetingText.setText("Hi, User");
             setDefaultMembershipValues();
         }
-    
-    
+
+
         @Override
         protected void onResume() {
             super.onResume();
             if (mAuth.getCurrentUser() != null) {
                 updateStreakDisplay();
-                checkAndHandleMembershipExpiration();
-                checkAndSendWorkoutReminder();
-                setupUnreadNotificationListener();
-                
+
                 // Check if a workout was just completed
                 boolean workoutCompleted = workoutPrefs.getBoolean("workout_completed", false);
                 if (workoutCompleted) {
-                    // Reset the flag
                     workoutPrefs.edit().putBoolean("workout_completed", false).apply();
                 }
             } else {
@@ -1279,6 +1295,23 @@
                 coachNameContainer.setVisibility(View.GONE);
                 Log.d(TAG, "❌ Hiding coach name container");
             }
+        }
+
+        private void displayCachedMembershipData() {
+            // ✅ Display cached name first
+            if (cachedUserName != null) {
+                greetingText.setText("Hi, " + cachedUserName);
+            }
+
+            if (cachedMembershipStatus != null) {
+                membershipStatus.setText(cachedMembershipStatus);
+                if (cachedStatusColor != null) {
+                    membershipStatus.setTextColor(cachedStatusColor);
+                }
+            }
+            if (cachedPlanType != null) planType.setText(cachedPlanType);
+            if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
+            if (cachedCoachName != null) displayCoachName(cachedCoachName);
         }
 
 

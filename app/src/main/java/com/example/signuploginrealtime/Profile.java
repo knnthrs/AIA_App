@@ -211,12 +211,18 @@ public class Profile extends AppCompatActivity {
         setupSecurityClickListeners();
         initCloudinary();
 
-
         // ===== Back Press Handler =====
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                finish();  // Just finish, MainActivity is in back stack
+                // ✅ Check if MainActivity is in the back stack
+                if (isTaskRoot()) {
+                    // No MainActivity in back stack, create new one
+                    Intent intent = new Intent(Profile.this, MainActivity.class);
+                    intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                    startActivity(intent);
+                }
+                finish();  // Finish Profile activity
                 overridePendingTransition(0, 0);
             }
         });

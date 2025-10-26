@@ -64,6 +64,8 @@
         private ListenerRegistration membershipListener;
         private ListenerRegistration coachNameListener;
         private static String cachedCoachName = null;
+        private static String lastCoachId = null;
+        private SharedPreferences coachCache;
         private static String cachedMembershipStatus = null;
         private static String cachedPlanType = null;
         private static String cachedExpiryDate = null;
@@ -135,9 +137,11 @@
             } else {
                 workoutPrefs = getSharedPreferences("workout_prefs_default", MODE_PRIVATE);
             }
-    
-    
+
+
             initializeViews();
+
+            coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
 
             displayCachedMembershipData();
 
@@ -219,56 +223,168 @@
         }
 
         private void setupPromoListener() {
-            // ✅ Display cached promo immediately
-            if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
-                ImageView testImage = findViewById(R.id.testImage);
-                Glide.with(this).load(cachedPromoImageUrl)
-                        .placeholder(R.drawable.no_image_placeholder)
-                        .error(R.drawable.no_image_placeholder)
-                        .into(testImage);
+            CardView promoCard = findViewById(R.id.promo_card);
+            ImageView testImage = findViewById(R.id.testImage);
+            LinearLayout promoLayout = findViewById(R.id.promoLayout);
 
-                LinearLayout promoLayout = findViewById(R.id.promoLayout);
+            // ✅ Add null checks before proceeding
+            if (promoCard == null || promoLayout == null) {
+                Log.e(TAG, "❌ Promo views not found in layout!");
+                return;
+            }
+
+            // ✅ Display cached promo immediately if available
+            if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
+                if (testImage != null) {
+                    testImage.setVisibility(View.VISIBLE);
+                    Glide.with(this).load(cachedPromoImageUrl)
+                            .placeholder(R.drawable.no_image_placeholder)
+                            .error(R.drawable.no_image_placeholder)
+                            .into(testImage);
+                }
+
                 promoLayout.setOnClickListener(v -> {
                     Intent intent = new Intent(MainActivity.this, Promo.class);
                     intent.putExtra("promoUrl", cachedPromoImageUrl);
                     startActivity(intent);
                 });
+                promoCard.setCardBackgroundColor(getColor(android.R.color.black));
+            } else {
+                // Show "No Promo" state
+                showNoPromoState(promoCard, testImage, promoLayout);
             }
 
+            // Real-time listener
             DocumentReference latestPromoRef = dbFirestore.collection("promotions").document("latest");
             latestPromoRef.addSnapshotListener((snapshot, e) -> {
                 if (e != null) {
                     Log.w(TAG, "Listen failed for promotions.", e);
+                    showNoPromoState(promoCard, testImage, promoLayout);
                     return;
                 }
+
                 if (snapshot != null && snapshot.exists()) {
                     String imageUrl = snapshot.getString("imageUrl");
 
                     if (imageUrl != null && !imageUrl.isEmpty()) {
-                        cachedPromoImageUrl = imageUrl; // ✅ CACHE IT
+                        cachedPromoImageUrl = imageUrl;
 
-                        ImageView testImage = findViewById(R.id.testImage);
-                        Glide.with(this).load(imageUrl)
-                                .placeholder(R.drawable.no_image_placeholder)
-                                .error(R.drawable.no_image_placeholder)
-                                .into(testImage);
-                        LinearLayout promoLayout = findViewById(R.id.promoLayout);
-                        promoLayout.setOnClickListener(v -> {
+                        // ✅ CLEAR the "No Promo" layout first
+                        promoLayout.removeAllViews();
+                        promoLayout.setVisibility(View.GONE); // ✅ Hide the layout completely
+
+                        // ✅ Make sure testImage is visible and loaded
+                        if (testImage != null) {
+                            testImage.setVisibility(View.VISIBLE);
+
+                            // ✅ Force Glide to reload (clear cache for this URL)
+                            Glide.with(this)
+                                    .load(imageUrl)
+                                    .skipMemoryCache(true)
+                                    .placeholder(R.drawable.no_image_placeholder)
+                                    .error(R.drawable.no_image_placeholder)
+                                    .into(testImage);
+                        }
+
+                        // ✅ Set click listener on the CARD, not just the layout
+                        promoCard.setOnClickListener(v -> {
                             Intent intent = new Intent(MainActivity.this, Promo.class);
                             intent.putExtra("promoUrl", imageUrl);
                             startActivity(intent);
                         });
 
-                        // 🔔 Create notification for new promo using imageUrl as unique identifier
+                        // ✅ Change background back to black
+                        promoCard.setCardBackgroundColor(getColor(android.R.color.black));
+
+                        Log.d(TAG, "✅ Promo image updated: " + imageUrl);
+
+                        // Create notification for new promo
                         FirebaseUser currentUser = mAuth.getCurrentUser();
                         if (currentUser != null) {
                             checkAndCreatePromoNotification(currentUser.getUid(), imageUrl);
                         }
                     }
+
+                    else {
+                        cachedPromoImageUrl = null;
+                        showNoPromoState(promoCard, testImage, promoLayout);
+                    }
                 } else {
                     Log.d(TAG, "No data found in latest promotion document");
+                    cachedPromoImageUrl = null;
+                    showNoPromoState(promoCard, testImage, promoLayout);
                 }
             });
+        }
+
+
+
+        private void showNoPromoState(CardView promoCard, ImageView testImage, LinearLayout promoLayout) {
+            if (promoCard == null || promoLayout == null) {
+                Log.e(TAG, "promoCard or promoLayout is null, cannot show no promo state");
+                return;
+            }
+
+            if (testImage != null) {
+                testImage.setVisibility(View.GONE);
+            }
+
+            promoLayout.removeAllViews();
+            promoLayout.setVisibility(View.VISIBLE);
+
+            // ❌ REMOVE THIS - DON'T SET LAYOUT PARAMS!
+            // promoLayout.setLayoutParams(new FrameLayout.LayoutParams(...));
+
+            // Create "No Promo" layout
+            LinearLayout noPromoLayout = new LinearLayout(this);
+            noPromoLayout.setOrientation(LinearLayout.VERTICAL);
+            noPromoLayout.setGravity(android.view.Gravity.CENTER);
+            noPromoLayout.setLayoutParams(new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT
+            ));
+
+            // Lock icon
+            TextView lockIcon = new TextView(this);
+            lockIcon.setText("🔒");
+            lockIcon.setTextSize(48);
+            lockIcon.setGravity(android.view.Gravity.CENTER);
+            noPromoLayout.addView(lockIcon);
+
+            // "No Promo" text
+            TextView noPromoText = new TextView(this);
+            noPromoText.setText("No Promotions Available");
+            noPromoText.setTextColor(getColor(android.R.color.white));
+            noPromoText.setTextSize(16);
+            noPromoText.setTypeface(null, android.graphics.Typeface.BOLD);
+            noPromoText.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams textParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            textParams.setMargins(0, (int) (12 * getResources().getDisplayMetrics().density), 0, 0);
+            noPromoText.setLayoutParams(textParams);
+            noPromoLayout.addView(noPromoText);
+
+            // Subtitle
+            TextView subtitle = new TextView(this);
+            subtitle.setText("Check back later for exciting offers!");
+            subtitle.setTextColor(getColor(android.R.color.darker_gray));
+            subtitle.setTextSize(12);
+            subtitle.setGravity(android.view.Gravity.CENTER);
+            LinearLayout.LayoutParams subtitleParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            subtitleParams.setMargins(0, (int) (4 * getResources().getDisplayMetrics().density), 0, 0);
+            subtitle.setLayoutParams(subtitleParams);
+            noPromoLayout.addView(subtitle);
+
+            promoLayout.addView(noPromoLayout);
+
+            promoCard.setCardBackgroundColor(getColor(android.R.color.darker_gray));
+            promoCard.setOnClickListener(null);
+            promoCard.setClickable(false);
         }
 
 
@@ -276,7 +392,9 @@
             findViewById(R.id.membershipCard).setOnClickListener(v -> {
                 Intent intent = new Intent(MainActivity.this, SelectMembership.class);
                 startActivity(intent);
+                overridePendingTransition(0, 0);
             });
+
             if (streakCard != null) {
                 streakCard.setOnClickListener(v -> {
                     Intent intent = new Intent(MainActivity.this, StreakCalendar.class);
@@ -284,6 +402,7 @@
                     overridePendingTransition(0, 0);
                 });
             }
+
             if (activitiesCard != null) {
                 activitiesCard.setOnClickListener(v -> {
                     Intent intent = new Intent(MainActivity.this, WorkoutList.class);
@@ -291,6 +410,7 @@
                     overridePendingTransition(0, 0);
                 });
             }
+
             ImageView bellIcon = findViewById(R.id.bell_icon);
             if (bellIcon != null) {
                 bellIcon.setOnClickListener(v -> {
@@ -299,28 +419,6 @@
                     overridePendingTransition(0, 0);
                 });
             }
-            fab.setOnClickListener(v -> {
-                Intent intent = new Intent(this, QR.class);
-                startActivity(intent);
-            });
-            bottomNavigationView.setSelectedItemId(R.id.item_1);
-            bottomNavigationView.setOnItemSelectedListener(item -> {
-                int itemId = item.getItemId();
-                if (itemId == R.id.item_1) return true;
-                else if (itemId == R.id.item_2) {
-                    startActivity(new Intent(getApplicationContext(), Profile.class));
-                    overridePendingTransition(0, 0); finish(); return true;
-                }
-                else if (itemId == R.id.item_3) {
-                    startActivity(new Intent(getApplicationContext(), WorkoutList.class));
-                    overridePendingTransition(0, 0); return true;
-                }
-                else if (itemId == R.id.item_4) {
-                    startActivity(new Intent(getApplicationContext(), Achievement.class));
-                    overridePendingTransition(0, 0); return true;
-                }
-                return false;
-            });
 
             FrameLayout bellIconContainer = findViewById(R.id.bell_icon_container);
             if (bellIconContainer != null) {
@@ -331,10 +429,13 @@
                 });
             }
 
+            // ✅ KEEP THIS - with overridePendingTransition
             fab.setOnClickListener(v -> {
                 Intent intent = new Intent(this, QR.class);
                 startActivity(intent);
+                overridePendingTransition(0, 0); // ✅ No animation
             });
+
             bottomNavigationView.setSelectedItemId(R.id.item_1);
             bottomNavigationView.setOnItemSelectedListener(item -> {
                 int itemId = item.getItemId();
@@ -357,7 +458,9 @@
             // Start listening for unread notifications
             setupUnreadNotificationListener();
         }
-    // Helper method to get current week's workout progress
+
+
+        // Helper method to get current week's workout progress
         private void updateGoalsProgressDisplay(DocumentSnapshot firestoreSnapshot) {
             TextView goalsProgressText = findViewById(R.id.goals_progress_text);
     
@@ -792,66 +895,59 @@
         }
 
         private void setupCoachNameListener(String userId) {
-            // ✅ Prevent duplicate listeners
             if (coachNameListener != null) {
-                Log.d(TAG, "Coach name listener already active");
                 return;
             }
 
-            // ✅ Show cached coach name immediately if available
-            if (cachedCoachName != null) {
-                displayCoachName(cachedCoachName);
-            }
-
-            Log.d(TAG, "🔄 Attaching coach name listener (real-time)");
-
-            // Real-time listener on user document for coachId changes
             coachNameListener = dbFirestore.collection("users")
                     .document(userId)
                     .addSnapshotListener((userDoc, e) -> {
                         if (e != null) {
-                            Log.e(TAG, "❌ Error listening to user document", e);
-                            hideCoachName();
                             return;
                         }
 
                         if (userDoc != null && userDoc.exists()) {
                             String coachId = userDoc.getString("coachId");
-                            Log.d(TAG, "👤 User's coachId: " + coachId);
 
                             if (coachId != null && !coachId.isEmpty()) {
-                                // Fetch coach's full name from coaches collection
-                                dbFirestore.collection("coaches")
-                                        .document(coachId)
-                                        .get()
-                                        .addOnSuccessListener(coachDoc -> {
-                                            if (coachDoc.exists()) {
-                                                String coachFullName = coachDoc.getString("fullname");
-                                                cachedCoachName = coachFullName; // ✅ CACHE IT
-                                                Log.d(TAG, "✅ Found coach: " + coachFullName);
-                                                displayCoachName(coachFullName);
-                                            } else {
-                                                cachedCoachName = null; // ✅ CLEAR CACHE
-                                                Log.d(TAG, "⚠️ Coach document not found for ID: " + coachId);
-                                                hideCoachName();
-                                            }
-                                        })
-                                        .addOnFailureListener(ex -> {
-                                            Log.e(TAG, "❌ Error fetching coach document", ex);
-                                            hideCoachName();
-                                        });
+                                if (!coachId.equals(lastCoachId)) {
+                                    lastCoachId = coachId;
+
+                                    dbFirestore.collection("coaches")
+                                            .document(coachId)
+                                            .get()
+                                            .addOnSuccessListener(coachDoc -> {
+                                                if (coachDoc.exists()) {
+                                                    String coachFullName = coachDoc.getString("fullname");
+                                                    if (coachFullName != null && !coachFullName.equals(cachedCoachName)) {
+                                                        cachedCoachName = coachFullName;
+
+                                                        if (coachCache == null) {
+                                                            coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                                                        }
+                                                        coachCache.edit().putString("cached_coach_name", coachFullName).apply();
+
+                                                        displayCoachName(coachFullName);
+                                                    }
+                                                }
+                                            });
+                                }
                             } else {
-                                cachedCoachName = null; // ✅ CLEAR CACHE
-                                Log.d(TAG, "No coachId assigned to user");
-                                hideCoachName();
+                                if (lastCoachId != null) {
+                                    lastCoachId = null;
+                                    cachedCoachName = null;
+
+                                    if (coachCache == null) {
+                                        coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                                    }
+                                    coachCache.edit().remove("cached_coach_name").apply();
+
+                                    hideCoachName();
+                                }
                             }
-                        } else {
-                            Log.e(TAG, "User document not found!");
-                            hideCoachName();
                         }
                     });
         }
-
 
         private String generateFormattedPlanName(String type, Long months, Long sessions) {
             if (type == null) return "Unknown Plan";
@@ -916,9 +1012,16 @@
         }
 
 
+
         @Override
         protected void onResume() {
             super.onResume();
+
+            // ✅ ADD THIS - Force update bottom nav selection
+            if (bottomNavigationView != null) {
+                bottomNavigationView.setSelectedItemId(R.id.item_1);
+            }
+
             if (mAuth.getCurrentUser() != null) {
                 updateStreakDisplay();
 
@@ -931,7 +1034,8 @@
                 goToLogin();
             }
         }
-    
+
+
         private void goToLogin(){
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -1369,22 +1473,59 @@
             }
             if (cachedPlanType != null) planType.setText(cachedPlanType);
             if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
-            if (cachedCoachName != null) displayCoachName(cachedCoachName);
+            // ✅ Load coach name from prefs
+            if (coachCache == null) {
+                coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+            }
+            String savedCoachName = coachCache.getString("cached_coach_name", null);
+            if (savedCoachName != null && !savedCoachName.isEmpty()) {
+                cachedCoachName = savedCoachName;
+                displayCoachName(savedCoachName);
+            } else if (cachedCoachName != null) {
+                displayCoachName(cachedCoachName);
+            }
 
             // ✅ Display cached workouts
             if (cachedExerciseNames != null && !cachedExerciseNames.isEmpty()) {
                 displayYourWorkouts(cachedExerciseNames, cachedExerciseGifs);
             }
 
-            // ✅ Display cached promo
-            if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
-                ImageView testImage = findViewById(R.id.testImage);
-                Glide.with(this).load(cachedPromoImageUrl)
-                        .placeholder(R.drawable.no_image_placeholder)
-                        .error(R.drawable.no_image_placeholder)
-                        .into(testImage);
-            }
-        }
+            // ✅ Display cached promo or show "No Promo" state
+            CardView promoCard = findViewById(R.id.promo_card);
+            ImageView testImage = findViewById(R.id.testImage);
+            LinearLayout promoLayout = findViewById(R.id.promoLayout);
 
+            // ✅ Add null checks
+            if (promoCard != null && promoLayout != null) {
+                if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
+                    // ✅ Has promo - show image, hide "no promo" layout
+                    promoLayout.removeAllViews();
+                    promoLayout.setVisibility(View.GONE); // ✅ HIDE IT
+
+                    if (testImage != null) {
+                        testImage.setVisibility(View.VISIBLE);
+                        Glide.with(this).load(cachedPromoImageUrl)
+                                .skipMemoryCache(true)
+                                .placeholder(R.drawable.no_image_placeholder)
+                                .error(R.drawable.no_image_placeholder)
+                                .into(testImage);
+                    }
+
+                    promoCard.setCardBackgroundColor(getColor(android.R.color.black));
+
+                    // ✅ Set click on CARD
+                    promoCard.setOnClickListener(v -> {
+                        Intent intent = new Intent(MainActivity.this, Promo.class);
+                        intent.putExtra("promoUrl", cachedPromoImageUrl);
+                        startActivity(intent);
+                    });
+
+                } else {
+                    // ✅ No promo - show "no promo" state
+                    showNoPromoState(promoCard, testImage, promoLayout);
+                }
+            }
+
+    }
 
     } // ← Closing brace ng MainActivity class

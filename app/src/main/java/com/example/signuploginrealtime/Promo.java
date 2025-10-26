@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.target.CustomTarget;
 import com.bumptech.glide.request.transition.Transition;
+import com.google.firebase.firestore.ListenerRegistration;
 
 public class Promo extends AppCompatActivity {
     private ImageView promoImageView;
@@ -31,6 +32,8 @@ public class Promo extends AppCompatActivity {
     private float imageHeight = 0;
     private boolean isImageLoaded = false;
     private float initialFitScale = 1f;
+    private ListenerRegistration promoListener;
+    private String currentPromoUrl;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,7 +43,17 @@ public class Promo extends AppCompatActivity {
 
         promoImageView = findViewById(R.id.promoImageView);
         ImageView backButton = findViewById(R.id.back_button);
+
         String promoUrl = getIntent().getStringExtra("promoUrl");
+        currentPromoUrl = promoUrl;
+
+        if (promoUrl == null || promoUrl.isEmpty()) {
+            showPromoUnavailableDialog();
+            return;
+        }
+
+        setupPromoChangeListener();
+
 
         if (promoUrl != null && !promoUrl.isEmpty()) {
             Glide.with(this)
@@ -246,5 +259,62 @@ public class Promo extends AppCompatActivity {
     public void finish() {
         super.finish();
         overridePendingTransition(0, 0);
+    }
+
+    private void setupPromoChangeListener() {
+        com.google.firebase.firestore.FirebaseFirestore db = com.google.firebase.firestore.FirebaseFirestore.getInstance();
+
+        promoListener = db.collection("promotions")
+                .document("latest")
+                .addSnapshotListener((snapshot, e) -> {
+                    if (e != null) {
+                        android.util.Log.w("Promo", "Listen failed", e);
+                        return;
+                    }
+
+                    if (snapshot != null && snapshot.exists()) {
+                        String newImageUrl = snapshot.getString("imageUrl");
+
+                        // ✅ Check if promo was deleted or changed
+                        if (newImageUrl == null || newImageUrl.isEmpty() ||
+                                !newImageUrl.equals(currentPromoUrl)) {
+
+                            android.util.Log.d("Promo", "Promo changed or deleted, closing activity");
+                            showPromoUnavailableDialog();
+                        }
+                    } else {
+                        // Document deleted
+                        android.util.Log.d("Promo", "Promo document deleted");
+                        showPromoUnavailableDialog();
+                    }
+                });
+    }
+
+    private void showPromoUnavailableDialog() {
+        runOnUiThread(() -> {
+            androidx.appcompat.app.AlertDialog dialog = new androidx.appcompat.app.AlertDialog.Builder(this)
+                    .setTitle("Promo Unavailable")
+                    .setMessage("This promotion is no longer available.")
+                    .setCancelable(false)
+                    .setPositiveButton("OK", (d, which) -> {
+                        finish();
+                    })
+                    .create();
+
+            // ✅ Set rounded background
+            if (dialog.getWindow() != null) {
+                dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+            }
+
+            dialog.show();
+        });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (promoListener != null) {
+            promoListener.remove();
+        }
     }
 }

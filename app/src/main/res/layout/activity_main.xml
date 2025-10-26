@@ -111,60 +111,32 @@
                         android:focusable="true"
                         android:foreground="?attr/selectableItemBackground">
 
-                        <LinearLayout
-                            android:id="@+id/promoLayout"
+                        <!-- ✅ Use FrameLayout to layer image and "no promo" content -->
+                        <FrameLayout
                             android:layout_width="match_parent"
-                            android:layout_height="match_parent"
-                            android:orientation="vertical"
-                            android:gravity="center"
-                            android:clickable="true"
-                            android:focusable="true">
+                            android:layout_height="200dp">
 
+                            <!-- ✅ Image View (shown when promo exists) -->
                             <ImageView
                                 android:id="@+id/testImage"
                                 android:layout_width="match_parent"
-                                android:layout_height="200dp"
+                                android:layout_height="match_parent"
                                 android:adjustViewBounds="true"
                                 android:scaleType="centerCrop"
-                                android:contentDescription="Promo Image" />
+                                android:contentDescription="Promo Image"
+                                android:visibility="gone" />
 
-                        </LinearLayout>
-
-
-                        <LinearLayout
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:orientation="horizontal"
-                            android:padding="20dp"
-                            android:gravity="center_vertical">
-
+                            <!-- ✅ Layout for "No Promo" content (shown when no promo) -->
                             <LinearLayout
-                                android:layout_width="0dp"
-                                android:layout_height="wrap_content"
-                                android:layout_weight="1"
-                                android:orientation="vertical">
+                                android:id="@+id/promoLayout"
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent"
+                                android:orientation="vertical"
+                                android:gravity="center"
+                                android:clickable="true"
+                                android:focusable="true" />
 
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="🔥 New Promo!"
-                                    android:textColor="#FFFFFF"
-                                    android:textSize="20sp"
-                                    android:textStyle="bold"
-                                    android:layout_marginBottom="4dp" />
-
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:text="Limited time only!"
-                                    android:textColor="#FFE0E0"
-                                    android:textStyle="bold"
-                                    android:textSize="15sp" />
-
-                            </LinearLayout>
-
-
-                        </LinearLayout>
+                        </FrameLayout>
 
                     </androidx.cardview.widget.CardView>
 

@@ -1,5 +1,6 @@
 package com.example.signuploginrealtime;
 
+import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ScrollView;
@@ -78,6 +79,12 @@ public class SelectMembership extends AppCompatActivity {
     private boolean isProcessingPayment = false;
     private String selectedCoachId = null;
     private String selectedCoachName = null;
+    private List<String> loadedPackageIds = new ArrayList<>();
+    private boolean isInitialLoad = true; // ✅ ADD THIS
+    private boolean warningBannerShown = false;
+    private SharedPreferences packageCache; // ✅ BAGONG LINE
+    private boolean packagesDisplayedFromCache = false; // ✅ BAGONG LINE
+
 
 
     @Override
@@ -99,17 +106,43 @@ public class SelectMembership extends AppCompatActivity {
         confirmButtonCard = findViewById(R.id.confirm_membership_button);
         loadingProgress = findViewById(R.id.loading_progress);
 
-        // Get the containers from layout
         dailyContainer = findViewById(R.id.daily_container);
         standardContainer = findViewById(R.id.standard_container);
         ptContainer = findViewById(R.id.pt_container);
 
-        backButton.setOnClickListener(v -> finish());
+        backButton.setOnClickListener(v -> {
+            finish();
+            overridePendingTransition(0, 0);
+        });
+
         confirmButtonCard.setVisibility(View.GONE);
 
-        checkAndHandleExpiredMemberships();  // Check and handle expired first
-        checkExistingMembership();            // ✅ ADD THIS LINE - Check for active membership
-        loadPackagesFromFirestore();
+        // ✅ Display cached packages immediately
+        List<Map<String, Object>> cachedPackages = loadPackageDataFromCache();
+        if (!cachedPackages.isEmpty()) {
+            dailyContainer.removeAllViews();
+            standardContainer.removeAllViews();
+            ptContainer.removeAllViews();
+            allCards.clear();
+
+            for (Map<String, Object> packageData : cachedPackages) {
+                String packageId = (String) packageData.get("id");
+                String type = (String) packageData.get("type");
+                int months = (int) packageData.get("months");
+                int durationDays = (int) packageData.get("durationDays");
+                int sessions = (int) packageData.get("sessions");
+                double price = (double) packageData.get("price");
+
+                CardView card = createPackageCard(packageId, type, months, durationDays, sessions, price);
+                addCardToContainer(card, type, sessions, durationDays);
+            }
+
+            packagesDisplayedFromCache = true;
+        }
+
+        checkAndHandleExpiredMemberships();
+        checkExistingMembershipOnce();  // ✅ TAMA TO
+        loadPackagesOnce();             // ✅ TAMA TO
 
         confirmButtonCard.setOnClickListener(v -> {
             if (selectedPackageId == null) {
@@ -117,7 +150,6 @@ public class SelectMembership extends AppCompatActivity {
                 return;
             }
 
-            // ✅ Check if selected plan has PT sessions
             if (selectedSessions > 0) {
                 showCoachSelectionDialog();
             } else {
@@ -126,18 +158,12 @@ public class SelectMembership extends AppCompatActivity {
         });
     }
 
-    private void checkExistingMembership() {
-        // ✅ Use addSnapshotListener instead of get()
-        membershipListener = db.collection("memberships")
+    private void checkExistingMembershipOnce() {
+        // ✅ ONE-TIME check using .get() instead of listener
+        db.collection("memberships")
                 .document(currentUserId)
-                .addSnapshotListener((documentSnapshot, error) -> {
-                    if (error != null) {
-                        Log.e(TAG, "Error listening to membership", error);
-                        hasActiveMembership = false;
-                        currentMembershipPlan = "";
-                        return;
-                    }
-
+                .get()
+                .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot != null && documentSnapshot.exists() &&
                             "active".equals(documentSnapshot.getString("membershipStatus"))) {
 
@@ -164,22 +190,332 @@ public class SelectMembership extends AppCompatActivity {
                             }
 
                             showActiveMembershipWarning();
+
+                            // ✅ NOW setup real-time listener AFTER initial UI is done
+                            setupMembershipListener();
                         } else {
                             hasActiveMembership = false;
                             currentMembershipPlan = "";
-                            Log.d(TAG, "Membership exists but plan is 'None' - treating as inactive");
                         }
                     } else {
                         hasActiveMembership = false;
                         currentMembershipPlan = "";
                     }
 
-                    Log.d(TAG, "👤 Membership status updated in real-time");
+                    Log.d(TAG, "👤 Initial membership check complete");
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error checking membership", e);
+                    hasActiveMembership = false;
+                    currentMembershipPlan = "";
                 });
     }
 
+    private void setupMembershipListener() {
+        // ✅ Real-time updates AFTER initial load
+        membershipListener = db.collection("memberships")
+                .document(currentUserId)
+                .addSnapshotListener((documentSnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Error listening to membership", error);
+                        return;
+                    }
+
+                    // Process membership updates (same logic as before but won't trigger on first load)
+                    if (documentSnapshot != null && documentSnapshot.exists() &&
+                            "active".equals(documentSnapshot.getString("membershipStatus"))) {
+
+                        String planType = documentSnapshot.getString("membershipPlanType");
+
+                        if (planType != null && !planType.isEmpty() && !planType.equals("None")) {
+                            hasActiveMembership = true;
+
+                            Long months = documentSnapshot.getLong("months");
+                            Long sessions = documentSnapshot.getLong("sessions");
+
+                            String displayName = generateTitleText(
+                                    planType,
+                                    months != null ? months.intValue() : 0,
+                                    0,
+                                    sessions != null ? sessions.intValue() : 0
+                            );
+
+                            currentMembershipPlan = displayName;
+
+                            Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
+                            if (expTimestamp != null) {
+                                currentExpirationDate = expTimestamp.toDate();
+                            }
+                        }
+                    }
+
+                    Log.d(TAG, "👤 Membership updated in real-time");
+                });
+    }
+
+
+    private void savePackageDataToCache(List<Map<String, Object>> packagesData) {
+        if (packageCache == null) {
+            packageCache = getSharedPreferences("SelectMembership_cache", MODE_PRIVATE);
+        }
+
+        try {
+            org.json.JSONArray jsonArray = new org.json.JSONArray();
+            for (Map<String, Object> packageData : packagesData) {
+                org.json.JSONObject jsonObject = new org.json.JSONObject(packageData);
+                jsonArray.put(jsonObject);
+            }
+
+            packageCache.edit().putString("cached_packages_data", jsonArray.toString()).apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving packages", e);
+        }
+    }
+
+    private List<Map<String, Object>> loadPackageDataFromCache() {
+        if (packageCache == null) {
+            packageCache = getSharedPreferences("SelectMembership_cache", MODE_PRIVATE);
+        }
+
+        List<Map<String, Object>> packagesList = new ArrayList<>();
+        String cachedData = packageCache.getString("cached_packages_data", "");
+
+        if (cachedData.isEmpty()) {
+            return packagesList;
+        }
+
+        try {
+            org.json.JSONArray jsonArray = new org.json.JSONArray(cachedData);
+            for (int i = 0; i < jsonArray.length(); i++) {
+                org.json.JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+                Map<String, Object> packageData = new HashMap<>();
+                packageData.put("id", jsonObject.getString("id"));
+                packageData.put("type", jsonObject.getString("type"));
+                packageData.put("months", jsonObject.getInt("months"));
+                packageData.put("durationDays", jsonObject.getInt("durationDays"));
+                packageData.put("sessions", jsonObject.getInt("sessions"));
+                packageData.put("price", jsonObject.getDouble("price"));
+
+                packagesList.add(packageData);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading packages", e);
+        }
+
+        return packagesList;
+    }
+
+
+
+    private void loadPackagesOnce() {
+        if (loadingProgress != null && !packagesDisplayedFromCache) {
+            loadingProgress.setVisibility(View.VISIBLE);
+        }
+
+        db.collection("packages")
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+
+                    if (queryDocumentSnapshots == null) return;
+
+                    List<String> newPackageSignatures = new ArrayList<>();
+                    List<Map<String, Object>> packagesData = new ArrayList<>();
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String packageId = document.getId();
+                        String type = document.getString("type");
+                        Long months = document.getLong("months");
+                        Long durationDays = document.getLong("durationDays");
+                        Long sessions = document.getLong("sessions");
+                        Double price = document.getDouble("price");
+
+                        if (type == null || price == null) continue;
+                        if (months == null) months = 0L;
+                        if (durationDays == null) durationDays = 0L;
+                        if (sessions == null) sessions = 0L;
+
+                        String signature = packageId + "_" + price + "_" + type + "_" + months + "_" + sessions;
+                        newPackageSignatures.add(signature);
+
+                        Map<String, Object> packageData = new HashMap<>();
+                        packageData.put("id", packageId);
+                        packageData.put("type", type);
+                        packageData.put("months", months.intValue());
+                        packageData.put("durationDays", durationDays.intValue());
+                        packageData.put("sessions", sessions.intValue());
+                        packageData.put("price", price);
+                        packagesData.add(packageData);
+                    }
+
+                    savePackageDataToCache(packagesData);
+
+                    if (packageCache == null) {
+                        packageCache = getSharedPreferences("SelectMembership_cache", MODE_PRIVATE);
+                    }
+                    String signaturesStr = android.text.TextUtils.join(",", newPackageSignatures);
+                    packageCache.edit().putString("package_signatures", signaturesStr).apply();
+
+                    loadedPackageIds = new ArrayList<>(newPackageSignatures);
+
+                    if (!packagesDisplayedFromCache) {
+                        dailyContainer.removeAllViews();
+                        standardContainer.removeAllViews();
+                        ptContainer.removeAllViews();
+                        allCards.clear();
+
+                        for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                            String packageId = document.getId();
+                            String type = document.getString("type");
+                            Long months = document.getLong("months");
+                            Long durationDays = document.getLong("durationDays");
+                            Long sessions = document.getLong("sessions");
+                            Double price = document.getDouble("price");
+
+                            if (type == null || price == null) continue;
+                            if (months == null) months = 0L;
+                            if (durationDays == null) durationDays = 0L;
+
+                            CardView card = createPackageCard(
+                                    packageId,
+                                    type,
+                                    months.intValue(),
+                                    durationDays.intValue(),
+                                    sessions != null ? sessions.intValue() : 0,
+                                    price
+                            );
+
+                            addCardToContainer(card, type, sessions != null ? sessions.intValue() : 0, durationDays.intValue());
+                        }
+                    }
+
+                    setupPackagesListener();
+                })
+                .addOnFailureListener(error -> {
+                    if (loadingProgress != null) {
+                        loadingProgress.setVisibility(View.GONE);
+                    }
+                    Log.e(TAG, "Error loading packages", error);
+                    Toast.makeText(this, "Failed to load packages: " + error.getMessage(),
+                            Toast.LENGTH_LONG).show();
+                });
+    }
+
+
+
+    private void setupPackagesListener() {
+        packagesListener = db.collection("packages")
+                .addSnapshotListener((queryDocumentSnapshots, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Error listening to packages", error);
+                        return;
+                    }
+
+                    if (queryDocumentSnapshots == null) return;
+
+                    // ✅ Build NEW signatures AND package data
+                    List<String> newPackageSignatures = new ArrayList<>();
+                    List<Map<String, Object>> packagesData = new ArrayList<>();
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String packageId = document.getId();
+                        String type = document.getString("type");
+                        Long months = document.getLong("months");
+                        Long durationDays = document.getLong("durationDays");
+                        Long sessions = document.getLong("sessions");
+                        Double price = document.getDouble("price");
+
+                        if (type == null || price == null) continue;
+                        if (months == null) months = 0L;
+                        if (durationDays == null) durationDays = 0L;
+                        if (sessions == null) sessions = 0L;
+
+                        // Build signature
+                        String signature = packageId + "_" + price + "_" + type + "_" + months + "_" + sessions;
+                        newPackageSignatures.add(signature);
+
+                        // ✅ Build package data for cache
+                        Map<String, Object> packageData = new HashMap<>();
+                        packageData.put("id", packageId);
+                        packageData.put("type", type);
+                        packageData.put("months", months.intValue());
+                        packageData.put("durationDays", durationDays.intValue());
+                        packageData.put("sessions", sessions.intValue());
+                        packageData.put("price", price);
+                        packagesData.add(packageData);
+                    }
+
+                    // ✅ Sort both lists before comparing
+                    List<String> sortedOld = new ArrayList<>(loadedPackageIds);
+                    List<String> sortedNew = new ArrayList<>(newPackageSignatures);
+                    java.util.Collections.sort(sortedOld);
+                    java.util.Collections.sort(sortedNew);
+
+                    // ✅ Check if ACTUALLY changed
+                    if (sortedOld.equals(sortedNew)) {
+                        Log.d(TAG, "📦 Packages unchanged, skipping UI rebuild");
+                        return;
+                    }
+
+                    Log.d(TAG, "📦 Packages changed, reloading...");
+
+                    // ✅ UPDATE CACHE with new data
+                    savePackageDataToCache(packagesData);
+
+                    if (packageCache == null) {
+                        packageCache = getSharedPreferences("SelectMembership_cache", MODE_PRIVATE);
+                    }
+                    String signaturesStr = android.text.TextUtils.join(",", newPackageSignatures);
+                    packageCache.edit().putString("package_signatures", signaturesStr).apply();
+
+                    loadedPackageIds = new ArrayList<>(newPackageSignatures);
+
+                    // Rebuild UI
+                    dailyContainer.removeAllViews();
+                    standardContainer.removeAllViews();
+                    ptContainer.removeAllViews();
+                    allCards.clear();
+
+                    for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        String packageId = document.getId();
+                        String type = document.getString("type");
+                        Long months = document.getLong("months");
+                        Long durationDays = document.getLong("durationDays");
+                        Long sessions = document.getLong("sessions");
+                        Double price = document.getDouble("price");
+
+                        if (type == null || price == null) continue;
+                        if (months == null) months = 0L;
+                        if (durationDays == null) durationDays = 0L;
+
+                        CardView card = createPackageCard(
+                                packageId,
+                                type,
+                                months.intValue(),
+                                durationDays.intValue(),
+                                sessions != null ? sessions.intValue() : 0,
+                                price
+                        );
+
+                        addCardToContainer(card, type, sessions != null ? sessions.intValue() : 0, durationDays.intValue());
+                    }
+                });
+    }
+
+
     private void showActiveMembershipWarning() {
-        // Find the ScrollView - it's a direct child of the CoordinatorLayout
+        // ✅ Prevent duplicate banners
+        if (warningBannerShown) {
+            Log.d(TAG, "⚠️ Warning banner already shown, skipping");
+            return;
+        }
+
+        Log.d(TAG, "📢 Showing warning banner...");
+
+        // Find the ScrollView
         View rootView = findViewById(R.id.main);
         ScrollView scrollView = null;
 
@@ -194,7 +530,10 @@ public class SelectMembership extends AppCompatActivity {
             }
         }
 
-        if (scrollView == null) return;
+        if (scrollView == null) {
+            Log.e(TAG, "❌ ScrollView not found!");
+            return;
+        }
 
         LinearLayout scrollContent = (LinearLayout) scrollView.getChildAt(0);
 
@@ -234,66 +573,12 @@ public class SelectMembership extends AppCompatActivity {
 
         warningBanner.addView(warningText);
 
-        // Insert banner at the top of scroll content (before Daily Package header)
+        // Insert banner at the top
         scrollContent.addView(warningBanner, 0);
+
+        warningBannerShown = true; // ✅ Mark as shown
+        Log.d(TAG, "✅ Warning banner added");
     }
-
-
-    private void loadPackagesFromFirestore() {
-        if (loadingProgress != null) {
-            loadingProgress.setVisibility(View.VISIBLE);
-        }
-
-        // ✅ Use addSnapshotListener instead of get()
-        packagesListener = db.collection("packages")
-                .addSnapshotListener((queryDocumentSnapshots, error) -> {
-                    if (loadingProgress != null) {
-                        loadingProgress.setVisibility(View.GONE);
-                    }
-
-                    if (error != null) {
-                        Log.e(TAG, "Error listening to packages", error);
-                        Toast.makeText(this, "Failed to load packages: " + error.getMessage(),
-                                Toast.LENGTH_LONG).show();
-                        return;
-                    }
-
-                    if (queryDocumentSnapshots == null) return;
-
-                    // Clear existing cards
-                    dailyContainer.removeAllViews();
-                    standardContainer.removeAllViews();
-                    ptContainer.removeAllViews();
-                    allCards.clear();
-
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        String packageId = document.getId();
-                        String type = document.getString("type");
-                        Long months = document.getLong("months");
-                        Long durationDays = document.getLong("durationDays");
-                        Long sessions = document.getLong("sessions");
-                        Double price = document.getDouble("price");
-
-                        if (type == null || price == null) continue;
-                        if (months == null) months = 0L;
-                        if (durationDays == null) durationDays = 0L;
-
-                        CardView card = createPackageCard(
-                                packageId,
-                                type,
-                                months.intValue(),
-                                durationDays.intValue(),
-                                sessions != null ? sessions.intValue() : 0,
-                                price
-                        );
-
-                        addCardToContainer(card, type, sessions != null ? sessions.intValue() : 0, durationDays.intValue());
-                    }
-
-                    Log.d(TAG, "📦 Packages updated in real-time");
-                });
-    }
-
 
     private void addCardToContainer(CardView card, String type, int sessions, int durationDays) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -1313,7 +1598,7 @@ public class SelectMembership extends AppCompatActivity {
                                             "Your membership has expired",
                                             Toast.LENGTH_SHORT).show();
 
-                                    checkExistingMembership();
+                                   // checkExistingMembership();
                                 });
                             })
                             .addOnFailureListener(e -> {
@@ -1327,16 +1612,23 @@ public class SelectMembership extends AppCompatActivity {
                 });
     }
 
+
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ Remove listeners when activity is destroyed
-        if (packagesListener != null) {
-            packagesListener.remove();
-        }
-        if (membershipListener != null) {
-            membershipListener.remove();
-        }
-        Log.d(TAG, "🧹 Listeners removed");
+        // ✅ REMOVE ALL LISTENERS - we're not using them anymore
+        Log.d(TAG, "🧹 Activity destroyed");
+    }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, 0); // ✅ No animation on any finish
+    }
+
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        overridePendingTransition(0, 0); // ✅ No animation on back press
     }
 }

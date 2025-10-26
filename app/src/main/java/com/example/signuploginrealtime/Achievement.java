@@ -77,18 +77,19 @@ public class Achievement extends AppCompatActivity {
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int id = item.getItemId();
             if (id == R.id.item_1) {
-                // Going back to MainActivity - just finish Achievement
-                finish();
+                // ✅ FIX: Explicitly go to MainActivity
+                Intent intent = new Intent(this, MainActivity.class);
+                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+                startActivity(intent);
                 overridePendingTransition(0, 0);
+                finish();
                 return true;
             } else if (id == R.id.item_2) {
-                // Going to Profile - finish Achievement first
                 startActivity(new Intent(this, Profile.class));
                 overridePendingTransition(0, 0);
                 finish();
                 return true;
             } else if (id == R.id.item_3) {
-                // Going to WorkoutList - finish Achievement first
                 startActivity(new Intent(this, WorkoutList.class));
                 overridePendingTransition(0, 0);
                 finish();
@@ -99,8 +100,9 @@ public class Achievement extends AppCompatActivity {
             }
             return false;
         });
-
     }
+
+
     private void listenUserProgress() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) {

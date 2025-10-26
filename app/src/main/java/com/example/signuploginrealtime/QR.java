@@ -133,10 +133,30 @@ public class QR extends AppCompatActivity {
 
 
     private void setupClickListeners() {
-        backButton.setOnClickListener(v -> finish());
+        backButton.setOnClickListener(v -> {
+            finish();
+            overridePendingTransition(0, 0); // ✅ No animation on exit
+        });
 
         attendanceHeader.setOnClickListener(v -> toggleAttendanceHistory());
     }
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(0, 0); // ✅ No animation on any finish
+    }
+
+    @Override
+    public void onBackPressed() {
+        if (isDeleteMode) {
+            exitDeleteMode();
+        } else {
+            super.onBackPressed();
+            overridePendingTransition(0, 0); // ✅ No animation on back press
+        }
+    }
+
 
     // Modify your setupRecyclerView() method
     private void setupRecyclerView() {
@@ -783,12 +803,4 @@ public class QR extends AppCompatActivity {
                 .show();
     }
 
-    @Override
-    public void onBackPressed() {
-        if (isDeleteMode) {
-            exitDeleteMode();
-        } else {
-            super.onBackPressed();
-        }
-    }
 }

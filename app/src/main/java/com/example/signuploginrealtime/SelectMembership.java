@@ -20,6 +20,7 @@ import androidx.cardview.widget.CardView;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.ListenerRegistration;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.firebase.firestore.QuerySnapshot;
 import com.google.firebase.Timestamp;
@@ -69,6 +70,8 @@ public class SelectMembership extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId;
     private Executor executor = Executors.newSingleThreadExecutor();
+    private ListenerRegistration packagesListener;  // ✅ ADD THIS
+    private ListenerRegistration membershipListener;  // ✅ ADD THIS
 
     private CardView currentlySelectedCard = null;
     private List<CardView> allCards = new ArrayList<>();
@@ -124,18 +127,25 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void checkExistingMembership() {
-        db.collection("memberships")
+        // ✅ Use addSnapshotListener instead of get()
+        membershipListener = db.collection("memberships")
                 .document(currentUserId)
-                .get()
-                .addOnSuccessListener(documentSnapshot -> {
-                    if (documentSnapshot.exists() && "active".equals(documentSnapshot.getString("membershipStatus"))) {
-                        String planType = documentSnapshot.getString("membershipPlanType");  // ✅ Also check planType
+                .addSnapshotListener((documentSnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Error listening to membership", error);
+                        hasActiveMembership = false;
+                        currentMembershipPlan = "";
+                        return;
+                    }
 
-                        // ✅ Check both planLabel AND planType
+                    if (documentSnapshot != null && documentSnapshot.exists() &&
+                            "active".equals(documentSnapshot.getString("membershipStatus"))) {
+
+                        String planType = documentSnapshot.getString("membershipPlanType");
+
                         if (planType != null && !planType.isEmpty() && !planType.equals("None")) {
                             hasActiveMembership = true;
 
-                            // Get months and sessions to generate proper display name
                             Long months = documentSnapshot.getLong("months");
                             Long sessions = documentSnapshot.getLong("sessions");
 
@@ -146,7 +156,7 @@ public class SelectMembership extends AppCompatActivity {
                                     sessions != null ? sessions.intValue() : 0
                             );
 
-                            currentMembershipPlan = displayName;  // Use formatted display name
+                            currentMembershipPlan = displayName;
 
                             Timestamp expTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
                             if (expTimestamp != null) {
@@ -155,7 +165,6 @@ public class SelectMembership extends AppCompatActivity {
 
                             showActiveMembershipWarning();
                         } else {
-                            // Plan is "None" or empty - treat as no active membership
                             hasActiveMembership = false;
                             currentMembershipPlan = "";
                             Log.d(TAG, "Membership exists but plan is 'None' - treating as inactive");
@@ -164,14 +173,10 @@ public class SelectMembership extends AppCompatActivity {
                         hasActiveMembership = false;
                         currentMembershipPlan = "";
                     }
-                })
-                .addOnFailureListener(e -> {
-                    Log.e(TAG, "Error checking membership", e);
-                    hasActiveMembership = false;
-                    currentMembershipPlan = "";
+
+                    Log.d(TAG, "👤 Membership status updated in real-time");
                 });
     }
-
 
     private void showActiveMembershipWarning() {
         // Find the ScrollView - it's a direct child of the CoordinatorLayout
@@ -239,12 +244,21 @@ public class SelectMembership extends AppCompatActivity {
             loadingProgress.setVisibility(View.VISIBLE);
         }
 
-        db.collection("packages")
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
+        // ✅ Use addSnapshotListener instead of get()
+        packagesListener = db.collection("packages")
+                .addSnapshotListener((queryDocumentSnapshots, error) -> {
                     if (loadingProgress != null) {
                         loadingProgress.setVisibility(View.GONE);
                     }
+
+                    if (error != null) {
+                        Log.e(TAG, "Error listening to packages", error);
+                        Toast.makeText(this, "Failed to load packages: " + error.getMessage(),
+                                Toast.LENGTH_LONG).show();
+                        return;
+                    }
+
+                    if (queryDocumentSnapshots == null) return;
 
                     // Clear existing cards
                     dailyContainer.removeAllViews();
@@ -264,7 +278,6 @@ public class SelectMembership extends AppCompatActivity {
                         if (months == null) months = 0L;
                         if (durationDays == null) durationDays = 0L;
 
-                        // Create card dynamically
                         CardView card = createPackageCard(
                                 packageId,
                                 type,
@@ -274,18 +287,13 @@ public class SelectMembership extends AppCompatActivity {
                                 price
                         );
 
-                        // Add to appropriate container
                         addCardToContainer(card, type, sessions != null ? sessions.intValue() : 0, durationDays.intValue());
                     }
-                })
-                .addOnFailureListener(e -> {
-                    if (loadingProgress != null) {
-                        loadingProgress.setVisibility(View.GONE);
-                    }
-                    Toast.makeText(this, "Failed to load packages: " + e.getMessage(),
-                            Toast.LENGTH_LONG).show();
+
+                    Log.d(TAG, "📦 Packages updated in real-time");
                 });
     }
+
 
     private void addCardToContainer(CardView card, String type, int sessions, int durationDays) {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -1317,5 +1325,18 @@ public class SelectMembership extends AppCompatActivity {
                     Log.e(TAG, "❌ Failed to reset membership document", e);
                     e.printStackTrace();
                 });
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // ✅ Remove listeners when activity is destroyed
+        if (packagesListener != null) {
+            packagesListener.remove();
+        }
+        if (membershipListener != null) {
+            membershipListener.remove();
+        }
+        Log.d(TAG, "🧹 Listeners removed");
     }
 }

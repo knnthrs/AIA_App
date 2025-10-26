@@ -104,7 +104,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="20dp"
-                        android:backgroundTint="@color/black"
+                        android:backgroundTint="#2b2b2b"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="0dp"
                         android:clickable="true"

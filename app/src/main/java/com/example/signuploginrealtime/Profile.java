@@ -73,7 +73,6 @@ import java.util.Map;
 
 public class Profile extends AppCompatActivity {
 
-    private ImageView btnBack;
     private BottomNavigationView bottomNavigationView;
     private FirebaseAuth mAuth;
     private TextView profileName, profileEmail, tvPhone, tvDob, tvStatus;
@@ -107,6 +106,9 @@ public class Profile extends AppCompatActivity {
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
     );
     private LinearLayout layoutPaymentHistory;
+    private static String cachedMembershipStatus = null;
+    private static Integer cachedStatusColor = null;
+    private static String cachedUserName = null; // ✅ ADD THIS
 
 
     // Callback interface for phone check
@@ -139,6 +141,28 @@ public class Profile extends AppCompatActivity {
         layoutDob = findViewById(R.id.layout_dob);
         layoutEmail = findViewById(R.id.layout_email);
         layoutPhone = findViewById(R.id.layout_phone);
+
+        // ✅ Display cached membership status and name immediately (NO FLICKER)
+        SharedPreferences cache = getSharedPreferences("Profile_cache", MODE_PRIVATE);
+        String savedStatus = cache.getString("cached_status", null);
+        int savedColor = cache.getInt("cached_color", -1);
+        String savedName = cache.getString("cached_name", null);
+
+        if (savedStatus != null && tvStatus != null) {
+            cachedMembershipStatus = savedStatus;
+            tvStatus.setText(savedStatus);
+
+            if (savedColor != -1) {
+                cachedStatusColor = savedColor;
+                tvStatus.setTextColor(savedColor);
+            }
+        }
+
+        // ✅ Display cached name
+        if (savedName != null && profileName != null) {
+            cachedUserName = savedName;
+            profileName.setText(savedName);
+        }
 
         // Fitness profile views
         tvFitnessLevel = findViewById(R.id.tv_fitness_level);
@@ -227,23 +251,7 @@ public class Profile extends AppCompatActivity {
             }
         });
 
-        // ===== Bottom Navigation =====
-        btnBack = findViewById(R.id.btn_back);
         bottomNavigationView = findViewById(R.id.bottomNavigation);
-
-
-        btnBack.setOnClickListener(v -> {
-            // ✅ Check if MainActivity is in the back stack
-            if (isTaskRoot()) {
-                // No MainActivity in back stack, create new one
-                Intent intent = new Intent(Profile.this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-                startActivity(intent);
-            }
-            finish();  // Finish Profile activity
-            overridePendingTransition(0, 0);
-        });
-
         bottomNavigationView.setSelectedItemId(R.id.item_2);
         bottomNavigationView.setOnItemSelectedListener(item -> {
             int itemId = item.getItemId();
@@ -1285,9 +1293,29 @@ public class Profile extends AppCompatActivity {
 
                         // Simple: Active or Inactive
                         if ("active".equalsIgnoreCase(status) && !isExpired) {
+                            cachedMembershipStatus = "ACTIVE";
+                            cachedStatusColor = getResources().getColor(android.R.color.holo_green_dark);
+
+                            // ✅ SAVE TO SHARED PREFERENCES
+                            getSharedPreferences("Profile_cache", MODE_PRIVATE)
+                                    .edit()
+                                    .putString("cached_status", "ACTIVE")
+                                    .putInt("cached_color", cachedStatusColor)
+                                    .apply();
+
                             tvStatus.setText("ACTIVE");
                             updateMembershipStatusColor("Active");
                         } else {
+                            cachedMembershipStatus = "INACTIVE";
+                            cachedStatusColor = getResources().getColor(android.R.color.holo_red_dark);
+
+                            // ✅ SAVE TO SHARED PREFERENCES
+                            getSharedPreferences("Profile_cache", MODE_PRIVATE)
+                                    .edit()
+                                    .putString("cached_status", "INACTIVE")
+                                    .putInt("cached_color", cachedStatusColor)
+                                    .apply();
+
                             tvStatus.setText("INACTIVE");
                             updateMembershipStatusColor("Inactive");
 
@@ -1310,13 +1338,23 @@ public class Profile extends AppCompatActivity {
 
     private void updateProfileDisplay(String name, String email, String phone, String dateOfBirth, String membershipStatus, FirebaseUser currentUser) {
         // Update Name
+        String displayName;
         if (name != null && !name.isEmpty()) {
-            profileName.setText(name);
+            displayName = name;
         } else if (currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
-            profileName.setText(currentUser.getDisplayName());
+            displayName = currentUser.getDisplayName();
         } else {
-            profileName.setText("Gym Member");
+            displayName = "Gym Member";
         }
+
+        profileName.setText(displayName);
+
+        // ✅ SAVE TO CACHE
+        cachedUserName = displayName;
+        getSharedPreferences("Profile_cache", MODE_PRIVATE)
+                .edit()
+                .putString("cached_name", displayName)
+                .apply();
 
         // Update Email
         if (email != null && !email.isEmpty()) {

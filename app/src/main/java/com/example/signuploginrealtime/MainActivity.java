@@ -74,6 +74,7 @@
         private static List<String> cachedExerciseNames = null;
         private static List<String> cachedExerciseGifs = null;
         private static String cachedPromoImageUrl = null;
+        private ListenerRegistration expirationListener;
 
         TextView greetingText;
         TextView membershipStatus;
@@ -179,10 +180,11 @@
             loadUserDataFromFirestore();
             updateStreakDisplay();
             setupWorkoutListener();
+            setupExpirationListener();
 
 
             new android.os.Handler().postDelayed(() -> {
-                checkAndHandleMembershipExpiration();
+                //checkAndHandleMembershipExpiration();
                 checkAndSendWorkoutReminder();
             }, 800);
 
@@ -825,52 +827,51 @@
                                     cachedExpiryDate = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate);
                                     expiryDate.setText(cachedExpiryDate);
 
-                                    long diffInMillis = expDate.getTime() - new Date().getTime();
-                                    long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                                    long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+                                    // ✅ FIX: Use server time for accurate comparison instead of system time
+                                    Map<String, Object> serverTimeData = new HashMap<>();
+                                    serverTimeData.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
 
-                                    if (diffInMillis < 0) {
-                                        // EXPIRED
-                                        cachedMembershipStatus = "EXPIRED";
-                                        cachedStatusColor = getColor(R.color.red); // ✅ CACHE COLOR
-                                        membershipStatus.setText("EXPIRED");
-                                        membershipStatus.setTextColor(cachedStatusColor);
-                                        cachedPlanType = displayName + " (Expired)";
-                                        planType.setText(displayName + " (Expired)");
+                                    dbFirestore.collection("server_time").document("current")
+                                            .set(serverTimeData)
+                                            .addOnSuccessListener(aVoid -> {
+                                                dbFirestore.collection("server_time").document("current")
+                                                        .get()
+                                                        .addOnSuccessListener(serverDoc -> {
+                                                            Timestamp serverTimestamp = serverDoc.getTimestamp("timestamp");
+                                                            Date currentDate = (serverTimestamp != null) ? serverTimestamp.toDate() : new Date();
 
-                                    } else if (diffInHours <= 6) {
-                                        // EXPIRING SOON - only in last 6 hours
-                                        cachedMembershipStatus = "EXPIRING SOON";
-                                        cachedStatusColor = getColor(R.color.orange); // ✅ CACHE COLOR
-                                        membershipStatus.setText("EXPIRING SOON");
-                                        membershipStatus.setTextColor(cachedStatusColor);
-                                        if (diffInHours > 0) {
-                                            cachedPlanType = displayName + " (Expires in " + diffInHours + "h)";
-                                            planType.setText(displayName + " (Expires in " + diffInHours + "h)");
-                                        } else {
-                                            long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
-                                            cachedPlanType = displayName + " (Expires in " + diffInMinutes + "m)";
-                                            planType.setText(displayName + " (Expires in " + diffInMinutes + "m)");
-                                        }
+                                                            long diffInMillis = expDate.getTime() - currentDate.getTime();
+                                                            long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                                            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
-                                    } else if (diffInDays >= 1 && diffInDays <= 3) {
-                                        // EXPIRING SOON - 1 to 3 days
-                                        cachedMembershipStatus = "EXPIRING SOON";
-                                        cachedStatusColor = getColor(R.color.orange); // ✅ CACHE COLOR
-                                        membershipStatus.setText("EXPIRING SOON");
-                                        membershipStatus.setTextColor(cachedStatusColor);
-                                        cachedPlanType = displayName + " (" + diffInDays + " day(s) left)";
-                                        planType.setText(displayName + " (" + diffInDays + " day(s) left)");
+                                                            Log.d(TAG, "🕐 Membership time check (server time):");
+                                                            Log.d(TAG, "   Server Date: " + currentDate);
+                                                            Log.d(TAG, "   Expiration: " + expDate);
+                                                            Log.d(TAG, "   Diff (days): " + diffInDays);
 
-                                    } else {
-                                        // ACTIVE - more than 6 hours or more than 3 days
-                                        cachedMembershipStatus = "ACTIVE";
-                                        cachedStatusColor = getColor(R.color.green); // ✅ CACHE COLOR
-                                        membershipStatus.setText("ACTIVE");
-                                        membershipStatus.setTextColor(cachedStatusColor);
-                                        cachedPlanType = displayName;
-                                        planType.setText(displayName);
-                                    }
+                                                            updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                                        })
+                                                        .addOnFailureListener(serverError -> {
+                                                            // Fallback to system time
+                                                            Date currentDate = new Date();
+                                                            long diffInMillis = expDate.getTime() - currentDate.getTime();
+                                                            long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                                            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+
+                                                            Log.d(TAG, "⚠️ Using system time fallback for membership status");
+                                                            updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                                        });
+                                            })
+                                            .addOnFailureListener(setError -> {
+                                                // Fallback to system time
+                                                Date currentDate = new Date();
+                                                long diffInMillis = expDate.getTime() - currentDate.getTime();
+                                                long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                                long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+
+                                                Log.d(TAG, "⚠️ Using system time fallback for membership status");
+                                                updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                            });
                                 } else {
                                     cachedMembershipStatus = "INACTIVE";
                                     cachedStatusColor = getColor(R.color.red); // ✅ CACHE COLOR
@@ -980,6 +981,49 @@
             return type;
         }
 
+        // ✅ Helper for updating membership status in UI (called after time fetched)
+        private void updateMembershipStatusBasedOnTime(long diffInMillis, long diffInDays, long diffInHours, String displayName) {
+            if (diffInMillis < 0) {
+                // EXPIRED
+                cachedMembershipStatus = "EXPIRED";
+                cachedStatusColor = getColor(R.color.red);
+                membershipStatus.setText("EXPIRED");
+                membershipStatus.setTextColor(cachedStatusColor);
+                cachedPlanType = displayName + " (Expired)";
+                planType.setText(displayName + " (Expired)");
+            } else if (diffInHours <= 6) {
+                // EXPIRING SOON - only in last 6 hours
+                cachedMembershipStatus = "EXPIRING SOON";
+                cachedStatusColor = getColor(R.color.orange);
+                membershipStatus.setText("EXPIRING SOON");
+                membershipStatus.setTextColor(cachedStatusColor);
+                if (diffInHours > 0) {
+                    cachedPlanType = displayName + " (Expires in " + diffInHours + "h)";
+                    planType.setText(displayName + " (Expires in " + diffInHours + "h)");
+                } else {
+                    long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                    cachedPlanType = displayName + " (Expires in " + diffInMinutes + "m)";
+                    planType.setText(displayName + " (Expires in " + diffInMinutes + "m)");
+                }
+            } else if (diffInDays >= 1 && diffInDays <= 3) {
+                // EXPIRING SOON - 1 to 3 days
+                cachedMembershipStatus = "EXPIRING SOON";
+                cachedStatusColor = getColor(R.color.orange);
+                membershipStatus.setText("EXPIRING SOON");
+                membershipStatus.setTextColor(cachedStatusColor);
+                cachedPlanType = displayName + " (" + diffInDays + " day(s) left)";
+                planType.setText(displayName + " (" + diffInDays + " day(s) left)");
+            } else {
+                // ACTIVE - more than 6 hours or more than 3 days
+                cachedMembershipStatus = "ACTIVE";
+                cachedStatusColor = getColor(R.color.green);
+                membershipStatus.setText("ACTIVE");
+                membershipStatus.setTextColor(cachedStatusColor);
+                cachedPlanType = displayName;
+                planType.setText(displayName);
+            }
+        }
+
 
         private String extractPlanName(String planLabel) {
             if (planLabel != null) {
@@ -1080,7 +1124,12 @@
             if (coachNameListener != null) {
                 coachNameListener.remove();
             }
+            if (expirationListener != null) {  // ✅ ADD THESE 3 LINES
+                expirationListener.remove();
+                Log.d(TAG, "🧹 Expiration listener removed");
+            }
         }
+
 
         private void showAccountDeletedDialog() {
             new AlertDialog.Builder(this)
@@ -1181,6 +1230,218 @@
                         }
                     })
                     .addOnFailureListener(e -> Log.e(TAG, "Error checking expiration", e));
+        }
+
+        private void setupExpirationListener() {
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) return;
+
+            // ✅ Prevent duplicate listeners
+            if (expirationListener != null) {
+                Log.d(TAG, "Expiration listener already active");
+                return;
+            }
+
+            Log.d(TAG, "🔄 Setting up real-time expiration check");
+
+            // ✅ Use addSnapshotListener for REAL-TIME monitoring
+            expirationListener = dbFirestore.collection("memberships")
+                    .document(user.getUid())
+                    .addSnapshotListener((doc, error) -> {
+                        if (error != null) {
+                            Log.e(TAG, "Error listening to expiration", error);
+                            return;
+                        }
+
+                        if (doc == null || !doc.exists()) {
+                            Log.d(TAG, "No membership document found");
+                            return;
+                        }
+
+                        String status = doc.getString("membershipStatus");
+                        String planType = doc.getString("membershipPlanType");
+                        Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
+
+                        // ✅ Check if plan is actually active (not "None")
+                        if ("active".equals(status) && expirationTimestamp != null &&
+                                planType != null && !planType.isEmpty() && !planType.equals("None")) {
+
+                            Date expirationDate = expirationTimestamp.toDate();
+
+                            // ✅ FIX: Use server timestamp instead of system date to prevent manual date changes
+                            // Get server timestamp from Firestore to compare
+                            Map<String, Object> serverTimeData = new HashMap<>();
+                            serverTimeData.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
+
+                            dbFirestore.collection("server_time").document("current")
+                                    .set(serverTimeData)
+                                    .addOnSuccessListener(aVoid -> {
+                                        // Now get the server timestamp we just set
+                                        dbFirestore.collection("server_time").document("current")
+                                                .get()
+                                                .addOnSuccessListener(serverDoc -> {
+                                                    Timestamp serverTimestamp = serverDoc.getTimestamp("timestamp");
+                                                    Date currentDate = (serverTimestamp != null) ? serverTimestamp.toDate() : new Date();
+
+                                                    Log.d(TAG, "📅 Checking expiration (using server time):");
+                                                    Log.d(TAG, "   Server Date: " + currentDate);
+                                                    Log.d(TAG, "   Expiration Date: " + expirationDate);
+                                                    Log.d(TAG, "   Is Expired? " + currentDate.after(expirationDate));
+
+                                                    // Check if expired using server time
+                                                    if (currentDate.after(expirationDate)) {
+                                                        Log.d(TAG, "⏰ Membership has EXPIRED (confirmed with server time)! Resetting...");
+                                                        handleExpiredMembership(doc);
+                                                    } else {
+                                                        Log.d(TAG, "✅ Membership is still active (confirmed with server time)");
+                                                    }
+                                                })
+                                                .addOnFailureListener(e -> {
+                                                    Log.e(TAG, "❌ Failed to get server time, using system time as fallback", e);
+                                                    // Fallback to system time if server time fails
+                                                    Date currentDate = new Date();
+                                                    if (currentDate.after(expirationDate)) {
+                                                        Log.d(TAG, "⏰ Membership has EXPIRED (fallback to system time)! Resetting...");
+                                                        handleExpiredMembership(doc);
+                                                    }
+                                                });
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ Failed to set server timestamp, using system time as fallback", e);
+                                        // Fallback to system time if server timestamp fails
+                                        Date currentDate = new Date();
+                                        if (currentDate.after(expirationDate)) {
+                                            Log.d(TAG, "⏰ Membership has EXPIRED (fallback to system time)! Resetting...");
+                                            handleExpiredMembership(doc);
+                                        }
+                                    });
+
+                        } else if ("inactive".equals(status) || "None".equals(planType)) {
+                            Log.d(TAG, "Membership already inactive or is 'None'");
+                        }
+                    });
+        }
+
+        // ✅ ADD THIS METHOD TOO ⬇️
+        private void handleExpiredMembership(DocumentSnapshot doc) {
+            FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
+            if (user == null) return;
+
+            String userId = user.getUid();
+
+            // ✅ Get current membership data before resetting
+            String expiredPlanType = doc.getString("membershipPlanType");
+            Long expiredSessions = doc.getLong("sessions");
+            String expiredCoachId = doc.getString("coachId");
+
+            Log.d(TAG, "⏰ Handling expired membership:");
+            Log.d(TAG, "   Plan Type: " + expiredPlanType);
+            Log.d(TAG, "   Sessions: " + expiredSessions);
+            Log.d(TAG, "   Coach ID: " + expiredCoachId);
+
+            // Reset to inactive
+            Map<String, Object> membershipUpdates = new HashMap<>();
+            membershipUpdates.put("membershipStatus", "inactive");
+            membershipUpdates.put("membershipPlanType", "None");
+            membershipUpdates.put("months", 0);
+            membershipUpdates.put("sessions", 0);
+            membershipUpdates.put("price", 0);
+            membershipUpdates.put("membershipStartDate", null);
+            membershipUpdates.put("membershipExpirationDate", null);
+            membershipUpdates.put("lastUpdated", Timestamp.now());
+            membershipUpdates.put("coachId", null);  // ✅ RESET COACH ID
+            membershipUpdates.put("coachName", "No coach assigned");
+            membershipUpdates.put("email", null);
+
+            dbFirestore.collection("memberships").document(userId)
+                    .update(membershipUpdates)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ Membership reset to inactive");
+
+                        // ✅ CRITICAL: Also update users collection
+                        Map<String, Object> userUpdates = new HashMap<>();
+                        userUpdates.put("membershipStatus", "inactive");
+                        userUpdates.put("membershipActive", false);
+                        userUpdates.put("membershipPlanType", "None");
+                        userUpdates.put("membershipExpirationDate", null);
+                        userUpdates.put("months", 0);
+                        userUpdates.put("sessions", 0);
+                        userUpdates.put("coachId", null);  // ✅ THIS IS THE KEY FIX - RESET COACH ID IN USERS TOO
+
+                        dbFirestore.collection("users").document(userId)
+                                .update(userUpdates)
+                                .addOnSuccessListener(v -> {
+                                    Log.d(TAG, "✅ User document updated - coachId reset to null");
+
+                                    // ✅ Archive the expired membership to history
+                                    if (expiredPlanType != null && !expiredPlanType.equals("None")) {
+                                        archiveExpiredMembershipToHistory(userId, doc);
+                                    }
+
+                                    showExpirationPopup("Your membership has expired.");
+                                    saveNotificationToFirestore("membership_expired", 0);
+
+                                    // ✅ Update UI immediately
+                                    runOnUiThread(() -> {
+                                        // Clear cached values
+                                        cachedMembershipStatus = null;
+                                        cachedPlanType = null;
+                                        cachedExpiryDate = null;
+                                        cachedStatusColor = null;
+                                        cachedCoachName = null;
+
+                                        // Clear coach cache
+                                        if (coachCache != null) {
+                                            coachCache.edit().remove("cached_coach_name").apply();
+                                        }
+
+                                        setDefaultMembershipValues();
+                                        hideCoachName();
+
+                                        Log.d(TAG, "🎯 UI updated - Coach name hidden, membership reset");
+                                    });
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Failed to update user document", e);
+                                    e.printStackTrace();
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Failed to update membership", e);
+                        e.printStackTrace();
+                    });
+        }
+
+        // ✅ ADD THIS NEW METHOD TO ARCHIVE EXPIRED MEMBERSHIPS
+        private void archiveExpiredMembershipToHistory(String userId, DocumentSnapshot membershipDoc) {
+            try {
+                Map<String, Object> historyData = new HashMap<>();
+                historyData.put("userId", userId);
+                historyData.put("fullname", membershipDoc.getString("fullname"));
+                historyData.put("email", membershipDoc.getString("email"));
+                historyData.put("membershipPlanType", membershipDoc.getString("membershipPlanType"));
+                historyData.put("months", membershipDoc.getLong("months"));
+                historyData.put("sessions", membershipDoc.getLong("sessions"));
+                historyData.put("price", membershipDoc.getDouble("price"));
+                historyData.put("coachId", membershipDoc.getString("coachId"));
+                historyData.put("coachName", membershipDoc.getString("coachName"));
+                historyData.put("startDate", membershipDoc.getTimestamp("membershipStartDate"));
+                historyData.put("expirationDate", membershipDoc.getTimestamp("membershipExpirationDate"));
+                historyData.put("status", "expired");
+                historyData.put("timestamp", Timestamp.now());
+                historyData.put("paymentMethod", "auto-expired");
+
+                dbFirestore.collection("history")
+                        .add(historyData)
+                        .addOnSuccessListener(docRef -> {
+                            Log.d(TAG, "📜 Expired membership archived to history: " + docRef.getId());
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e(TAG, "❌ Failed to archive expired membership", e);
+                        });
+            } catch (Exception e) {
+                Log.e(TAG, "❌ Error archiving expired membership", e);
+            }
         }
 
 
@@ -1525,6 +1786,8 @@
                     showNoPromoState(promoCard, testImage, promoLayout);
                 }
             }
+
+
 
     }
 

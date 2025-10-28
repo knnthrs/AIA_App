@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
@@ -27,7 +28,6 @@
             android:layout_marginStart="16dp"
             android:layout_marginEnd="16dp" />
 
-
         <TextView
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -37,17 +37,25 @@
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#333333" />
-        <View
+
+        <ImageView
+            android:id="@+id/btn_select_mode"
             android:layout_width="30dp"
             android:layout_height="30dp"
-            android:visibility="invisible" />
-
+            android:src="@drawable/ic_check_circle"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:padding="4dp"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp" />
     </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewPaymentHistory"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:layout_marginTop="30dp"
         android:visibility="visible" />
 
@@ -60,4 +68,21 @@
         android:textColor="#999999"
         android:padding="24dp"
         android:visibility="gone" />
+
+    <!-- Delete Button (appears when in selection mode) -->
+    <Button
+        android:id="@+id/btn_delete_selected"
+        android:layout_width="200dp"
+        android:layout_height="50dp"
+        android:layout_marginTop="16dp"
+        android:text="Delete"
+        android:textAllCaps="false"
+        android:layout_gravity="center"
+        android:backgroundTint="#F44336"
+        android:textColor="@android:color/white"
+        android:padding="12dp"
+        android:textSize="16sp"
+        android:enabled="false"
+        android:visibility="gone" />
+
 </LinearLayout>

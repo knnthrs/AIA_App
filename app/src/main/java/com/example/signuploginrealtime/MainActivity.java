@@ -214,18 +214,27 @@
             activitiesContainer = findViewById(R.id.activities_horizontal_container);
             notificationBadge = findViewById(R.id.notification_badge);
         }
-    
-        private void showExitDialog() {
-            new AlertDialog.Builder(MainActivity.this)
-                    .setTitle("Exit App?")
-                    .setMessage("Do you want to exit?")
-                    .setPositiveButton("Yes", (dialog, which) -> {
-                        finishAffinity(); // closes all activities and exits app
-                    })
-                    .setNegativeButton("No", null)
-                    .show();
-        }
 
+        private void showExitDialog() {
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this, R.style.RoundedAlertDialog);
+            builder.setTitle("Exit App?");
+            builder.setMessage("Do you want to exit?");
+            builder.setPositiveButton("Yes", (d, which) -> {
+                finishAffinity(); // closes all activities and exits app
+            });
+            builder.setNegativeButton("No", null);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            // ✅ Force button colors to be visible
+            if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(0xFFF44336); // Red
+            }
+            if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(0xFF333333); // Dark gray
+            }
+        }
         private void setupPromoListener() {
             CardView promoCard = findViewById(R.id.promo_card);
             ImageView testImage = findViewById(R.id.testImage);

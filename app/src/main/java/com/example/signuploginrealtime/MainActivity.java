@@ -64,6 +64,7 @@
         private ListenerRegistration membershipListener;
         private ListenerRegistration coachNameListener;
         private static String cachedCoachName = null;
+        private SharedPreferences membershipCache;
         private static String lastCoachId = null;
         private SharedPreferences coachCache;
         private static String cachedMembershipStatus = null;
@@ -75,6 +76,7 @@
         private static List<String> cachedExerciseGifs = null;
         private static String cachedPromoImageUrl = null;
         private ListenerRegistration expirationListener;
+
 
         TextView greetingText;
         TextView membershipStatus;
@@ -735,6 +737,7 @@
                         Log.d(TAG, "User data complete in Firestore. Updating UI.");
                         updateGreeting(firestoreSnapshot);
 
+                        loadAndDisplayCache();
                         // ✅ Only setup membership listener once
                         if (membershipListener == null) {
                             setupMembershipListener();
@@ -765,6 +768,49 @@
             startActivity(intent); finish();
         }
 
+        private void loadAndDisplayCache() {
+            if (membershipCache == null) {
+                membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+            }
+
+            // Load from cache
+            cachedMembershipStatus = membershipCache.getString("cached_status", null);
+            cachedPlanType = membershipCache.getString("cached_plan", null);
+            cachedExpiryDate = membershipCache.getString("cached_expiry", null);
+            int colorValue = membershipCache.getInt("cached_color", 0);
+            if (colorValue != 0) {
+                cachedStatusColor = colorValue;
+            }
+
+            // Display cached data IMMEDIATELY
+            if (cachedMembershipStatus != null && !cachedMembershipStatus.isEmpty()) {
+                membershipStatus.setText(cachedMembershipStatus);
+                if (cachedStatusColor != null) {
+                    membershipStatus.setTextColor(cachedStatusColor);
+                }
+                Log.d(TAG, "✅ Displayed cached status: " + cachedMembershipStatus);
+            } else {
+                // No cache yet - show default without flicker
+                membershipStatus.setText("LOADING...");
+                membershipStatus.setTextColor(getColor(R.color.gray));
+            }
+
+            if (cachedPlanType != null && !cachedPlanType.isEmpty()) {
+                planType.setText(cachedPlanType);
+                Log.d(TAG, "✅ Displayed cached plan: " + cachedPlanType);
+            } else {
+                planType.setText("Loading...");
+            }
+
+            if (cachedExpiryDate != null && !cachedExpiryDate.isEmpty()) {
+                expiryDate.setText(cachedExpiryDate);
+                Log.d(TAG, "✅ Displayed cached expiry: " + cachedExpiryDate);
+            } else {
+                expiryDate.setText("—");
+            }
+        }
+
+
         @SuppressLint("SetTextI18n")
         private void updateGreeting(DocumentSnapshot firestoreSnapshot) {
             String name = firestoreSnapshot.getString("fullname");
@@ -779,24 +825,13 @@
             FirebaseUser user = FirebaseAuth.getInstance().getCurrentUser();
             if (user == null) return;
 
-            // ✅ SHOW CACHED DATA IMMEDIATELY - NO FLICKER
-            if (cachedMembershipStatus != null) {
-                membershipStatus.setText(cachedMembershipStatus);
-                if (cachedStatusColor != null) {
-                    membershipStatus.setTextColor(cachedStatusColor);
-                }
-            }
-            if (cachedPlanType != null) planType.setText(cachedPlanType);
-            if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
-            if (cachedCoachName != null) displayCoachName(cachedCoachName);
-
             // ✅ Prevent duplicate listeners
             if (membershipListener != null) {
                 Log.d(TAG, "Membership listener already active");
                 return;
             }
-            Log.d(TAG, "🔄 Attaching membership listener (one-time setup)");
 
+            Log.d(TAG, "🔄 Attaching membership listener (one-time setup)");
 
             // Set up real-time membership listener
             membershipListener = dbFirestore.collection("memberships")
@@ -804,7 +839,6 @@
                     .addSnapshotListener((documentSnapshot, e) -> {
                         if (e != null) {
                             Log.e(TAG, "Failed to listen to membership", e);
-                            setDefaultMembershipValues();
                             return;
                         }
 
@@ -824,10 +858,9 @@
 
                                 if (expirationTimestamp != null) {
                                     Date expDate = expirationTimestamp.toDate();
-                                    cachedExpiryDate = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate);
-                                    expiryDate.setText(cachedExpiryDate);
+                                    String newExpiryDate = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate);
 
-                                    // ✅ FIX: Use server time for accurate comparison instead of system time
+                                    // ✅ Use server time for accurate comparison
                                     Map<String, Object> serverTimeData = new HashMap<>();
                                     serverTimeData.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
 
@@ -844,55 +877,180 @@
                                                             long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
                                                             long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
-                                                            Log.d(TAG, "🕐 Membership time check (server time):");
-                                                            Log.d(TAG, "   Server Date: " + currentDate);
-                                                            Log.d(TAG, "   Expiration: " + expDate);
-                                                            Log.d(TAG, "   Diff (days): " + diffInDays);
+                                                            // ✅ Calculate new status
+                                                            String newStatus;
+                                                            int newColor;
+                                                            String newPlanText;
 
-                                                            updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                                            if (diffInMillis < 0) {
+                                                                newStatus = "EXPIRED";
+                                                                newColor = getColor(R.color.red);
+                                                                newPlanText = displayName + " (Expired)";
+                                                            } else if (diffInHours <= 6) {
+                                                                newStatus = "EXPIRING SOON";
+                                                                newColor = getColor(R.color.orange);
+                                                                if (diffInHours > 0) {
+                                                                    newPlanText = displayName + " (Expires in " + diffInHours + "h)";
+                                                                } else {
+                                                                    long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                                                                    newPlanText = displayName + " (Expires in " + diffInMinutes + "m)";
+                                                                }
+                                                            } else if (diffInDays >= 1 && diffInDays <= 3) {
+                                                                newStatus = "EXPIRING SOON";
+                                                                newColor = getColor(R.color.orange);
+                                                                newPlanText = displayName + " (" + diffInDays + " day(s) left)";
+                                                            } else {
+                                                                newStatus = "ACTIVE";
+                                                                newColor = getColor(R.color.green);
+                                                                newPlanText = displayName;
+                                                            }
+
+                                                            // ✅ ONLY UPDATE IF DATA CHANGED
+                                                            boolean statusChanged = !newStatus.equals(cachedMembershipStatus);
+                                                            boolean planChanged = !newPlanText.equals(cachedPlanType);
+                                                            boolean expiryChanged = !newExpiryDate.equals(cachedExpiryDate);
+
+                                                            if (statusChanged || planChanged || expiryChanged) {
+                                                                Log.d(TAG, "📊 Membership data changed, updating UI");
+
+                                                                // Update cache
+                                                                cachedMembershipStatus = newStatus;
+                                                                cachedStatusColor = newColor;
+                                                                cachedPlanType = newPlanText;
+                                                                cachedExpiryDate = newExpiryDate;
+
+                                                                // Save to SharedPreferences
+                                                                if (membershipCache == null) {
+                                                                    membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                                                                }
+                                                                membershipCache.edit()
+                                                                        .putString("cached_status", newStatus)
+                                                                        .putString("cached_plan", newPlanText)
+                                                                        .putString("cached_expiry", newExpiryDate)
+                                                                        .putInt("cached_color", newColor)
+                                                                        .apply();
+
+                                                                // Update UI
+                                                                membershipStatus.setText(newStatus);
+                                                                membershipStatus.setTextColor(newColor);
+                                                                planType.setText(newPlanText);
+                                                                expiryDate.setText(newExpiryDate);
+                                                            } else {
+                                                                Log.d(TAG, "📊 Membership data unchanged, skipping UI update");
+                                                            }
                                                         })
                                                         .addOnFailureListener(serverError -> {
                                                             // Fallback to system time
-                                                            Date currentDate = new Date();
-                                                            long diffInMillis = expDate.getTime() - currentDate.getTime();
-                                                            long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                                                            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
-
-                                                            Log.d(TAG, "⚠️ Using system time fallback for membership status");
-                                                            updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                                            updateMembershipUI(displayName, newExpiryDate, expDate, new Date());
                                                         });
                                             })
                                             .addOnFailureListener(setError -> {
                                                 // Fallback to system time
-                                                Date currentDate = new Date();
-                                                long diffInMillis = expDate.getTime() - currentDate.getTime();
-                                                long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                                                long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
-
-                                                Log.d(TAG, "⚠️ Using system time fallback for membership status");
-                                                updateMembershipStatusBasedOnTime(diffInMillis, diffInDays, diffInHours, displayName);
+                                                updateMembershipUI(displayName, newExpiryDate, expDate, new Date());
                                             });
                                 } else {
-                                    cachedMembershipStatus = "INACTIVE";
-                                    cachedStatusColor = getColor(R.color.red); // ✅ CACHE COLOR
-                                    membershipStatus.setText("INACTIVE");
-                                    membershipStatus.setTextColor(cachedStatusColor);
-                                    cachedExpiryDate = "—";
-                                    expiryDate.setText("—");
-                                    cachedPlanType = "No plan";
-                                    planType.setText("No plan");
+                                    updateMembershipToInactive();
                                 }
                             } else {
-                                // Plan is "None" or invalid - treat as no membership
+                                // Plan is "None" or invalid
                                 Log.d(TAG, "Plan is 'None' or invalid - showing inactive");
-                                setDefaultMembershipValues();
+                                updateMembershipToInactive();
+                                hideCoachName();
                             }
                         } else {
                             Log.d(TAG, "No active membership found");
-                            setDefaultMembershipValues();
+                            updateMembershipToInactive();
                             hideCoachName();
                         }
                     });
+        }
+        private void updateMembershipUI(String displayName, String newExpiryDate, Date expDate, Date currentDate) {
+            long diffInMillis = expDate.getTime() - currentDate.getTime();
+            long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+
+            String newStatus;
+            int newColor;
+            String newPlanText;
+
+            if (diffInMillis < 0) {
+                newStatus = "EXPIRED";
+                newColor = getColor(R.color.red);
+                newPlanText = displayName + " (Expired)";
+            } else if (diffInHours <= 6) {
+                newStatus = "EXPIRING SOON";
+                newColor = getColor(R.color.orange);
+                if (diffInHours > 0) {
+                    newPlanText = displayName + " (Expires in " + diffInHours + "h)";
+                } else {
+                    long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                    newPlanText = displayName + " (Expires in " + diffInMinutes + "m)";
+                }
+            } else if (diffInDays >= 1 && diffInDays <= 3) {
+                newStatus = "EXPIRING SOON";
+                newColor = getColor(R.color.orange);
+                newPlanText = displayName + " (" + diffInDays + " day(s) left)";
+            } else {
+                newStatus = "ACTIVE";
+                newColor = getColor(R.color.green);
+                newPlanText = displayName;
+            }
+
+            // Only update if changed
+            if (!newStatus.equals(cachedMembershipStatus) ||
+                    !newPlanText.equals(cachedPlanType) ||
+                    !newExpiryDate.equals(cachedExpiryDate)) {
+
+                cachedMembershipStatus = newStatus;
+                cachedStatusColor = newColor;
+                cachedPlanType = newPlanText;
+                cachedExpiryDate = newExpiryDate;
+
+                if (membershipCache == null) {
+                    membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                }
+                membershipCache.edit()
+                        .putString("cached_status", newStatus)
+                        .putString("cached_plan", newPlanText)
+                        .putString("cached_expiry", newExpiryDate)
+                        .putInt("cached_color", newColor)
+                        .apply();
+
+                membershipStatus.setText(newStatus);
+                membershipStatus.setTextColor(newColor);
+                planType.setText(newPlanText);
+                expiryDate.setText(newExpiryDate);
+            }
+        }
+
+        private void updateMembershipToInactive() {
+            String newStatus = "INACTIVE";
+            int newColor = getColor(R.color.red);
+            String newPlanText = "No plan selected";
+            String newExpiryDate = "—";
+
+            // Only update if changed
+            if (!newStatus.equals(cachedMembershipStatus)) {
+                cachedMembershipStatus = newStatus;
+                cachedStatusColor = newColor;
+                cachedPlanType = newPlanText;
+                cachedExpiryDate = newExpiryDate;
+
+                if (membershipCache == null) {
+                    membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                }
+                membershipCache.edit()
+                        .putString("cached_status", newStatus)
+                        .putString("cached_plan", newPlanText)
+                        .putString("cached_expiry", newExpiryDate)
+                        .putInt("cached_color", newColor)
+                        .apply();
+
+                membershipStatus.setText(newStatus);
+                membershipStatus.setTextColor(newColor);
+                planType.setText(newPlanText);
+                expiryDate.setText(newExpiryDate);
+            }
         }
 
         private void setupCoachNameListener(String userId) {
@@ -1726,14 +1884,37 @@
                 greetingText.setText("Hi, " + cachedUserName);
             }
 
-            if (cachedMembershipStatus != null) {
+            // ✅ Display cached MEMBERSHIP DATA (STATUS, PLAN, EXPIRY)
+            if (membershipCache == null) {
+                membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+            }
+
+            cachedMembershipStatus = membershipCache.getString("cached_status", null);
+            cachedPlanType = membershipCache.getString("cached_plan", null);
+            cachedExpiryDate = membershipCache.getString("cached_expiry", null);
+            int colorValue = membershipCache.getInt("cached_color", 0);
+            if (colorValue != 0) {
+                cachedStatusColor = colorValue;
+            }
+
+            // Display membership status
+            if (cachedMembershipStatus != null && !cachedMembershipStatus.isEmpty()) {
                 membershipStatus.setText(cachedMembershipStatus);
                 if (cachedStatusColor != null) {
                     membershipStatus.setTextColor(cachedStatusColor);
                 }
             }
-            if (cachedPlanType != null) planType.setText(cachedPlanType);
-            if (cachedExpiryDate != null) expiryDate.setText(cachedExpiryDate);
+
+            // Display plan type
+            if (cachedPlanType != null && !cachedPlanType.isEmpty()) {
+                planType.setText(cachedPlanType);
+            }
+
+            // Display expiry date
+            if (cachedExpiryDate != null && !cachedExpiryDate.isEmpty()) {
+                expiryDate.setText(cachedExpiryDate);
+            }
+
             // ✅ Load coach name from prefs
             if (coachCache == null) {
                 coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
@@ -1756,12 +1937,10 @@
             ImageView testImage = findViewById(R.id.testImage);
             LinearLayout promoLayout = findViewById(R.id.promoLayout);
 
-            // ✅ Add null checks
             if (promoCard != null && promoLayout != null) {
                 if (cachedPromoImageUrl != null && !cachedPromoImageUrl.isEmpty()) {
-                    // ✅ Has promo - show image, hide "no promo" layout
                     promoLayout.removeAllViews();
-                    promoLayout.setVisibility(View.GONE); // ✅ HIDE IT
+                    promoLayout.setVisibility(View.GONE);
 
                     if (testImage != null) {
                         testImage.setVisibility(View.VISIBLE);
@@ -1774,21 +1953,16 @@
 
                     promoCard.setCardBackgroundColor(getColor(android.R.color.black));
 
-                    // ✅ Set click on CARD
                     promoCard.setOnClickListener(v -> {
                         Intent intent = new Intent(MainActivity.this, Promo.class);
                         intent.putExtra("promoUrl", cachedPromoImageUrl);
                         startActivity(intent);
                     });
-
                 } else {
-                    // ✅ No promo - show "no promo" state
                     showNoPromoState(promoCard, testImage, promoLayout);
                 }
             }
+        }
 
 
-
-    }
-
-    } // ← Closing brace ng MainActivity class
+    }// ← Closing brace ng MainActivity class

@@ -2,19 +2,18 @@ package com.example.signuploginrealtime;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+import java.lang.reflect.Type;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
 import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.ProgressBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -32,7 +31,6 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.firestore.DocumentSnapshot;
 import com.google.firebase.firestore.FirebaseFirestore;
 import com.google.firebase.firestore.QueryDocumentSnapshot;
 
@@ -48,26 +46,28 @@ public class coach_clients extends AppCompatActivity {
     private static final String KEY_ROLE = "role";
     private static final String KEY_UID = "uid";
     private static final String KEY_COACH_LOGGED_IN = "isCoachLoggedIn";
+    private static final String CACHE_PREFS = "CoachClientsCache";
+    private static final String CACHE_CLIENTS_LIST = "cached_clients_list";
+    private static final String CACHE_COACH_NAME = "cached_coach_name";
+    private static final String CACHE_COACH_EMAIL = "cached_coach_email";
 
     // UI Components
     private DrawerLayout drawerLayout;
     private ImageView coachProfileIcon;
     private TextView assignedUsersCount;
     private EditText searchClientsEditText;
-    private Button searchButton, clearFilterButton, refreshClientsButton;
-    private Spinner filterSpinner;
+    private Button searchButton, clearSearchButton;
     private RecyclerView assignedClientsRecyclerView;
     private LinearLayout loadingLayout, emptyStateLayout;
 
     // Sidebar menu items
-    private LinearLayout menuClients, menuArchive, menuLogout;
+    private LinearLayout menuArchive, menuLogout;
     private TextView sidebarCoachName, sidebarCoachEmail;
 
     // Data
     private List<Client> clientsList;
     private List<Client> filteredClientsList;
     private ClientsAdapter clientsAdapter;
-    private String[] filterOptions = {"All Clients", "Active", "Inactive", "New"};
 
     private FirebaseFirestore firestore;
     private FirebaseUser currentUser;
@@ -89,39 +89,81 @@ public class coach_clients extends AppCompatActivity {
 
         initializeViews();
         setupRecyclerView();
-        setupSpinner();
+        loadCachedData();
         setupListeners();
         loadClients();
         loadCoachInfo();
     }
 
     private void initializeViews() {
-        // Initialize Firebase components first
         firestore = FirebaseFirestore.getInstance();
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        // Main UI components
         drawerLayout = findViewById(R.id.drawer_layout);
         coachProfileIcon = findViewById(R.id.coach_profile_icon);
         assignedUsersCount = findViewById(R.id.assigned_users_count);
         searchClientsEditText = findViewById(R.id.search_clients_edittext);
         searchButton = findViewById(R.id.search_button);
-        clearFilterButton = findViewById(R.id.clear_filter_button);
-        refreshClientsButton = findViewById(R.id.refresh_clients_button);
-        filterSpinner = findViewById(R.id.filter_spinner);
+        clearSearchButton = findViewById(R.id.clear_search_button);
         assignedClientsRecyclerView = findViewById(R.id.assigned_clients_recycler_view);
         loadingLayout = findViewById(R.id.loading_layout);
         emptyStateLayout = findViewById(R.id.empty_state_layout);
 
-        // Sidebar components
         menuArchive = findViewById(R.id.menu_archive);
         menuLogout = findViewById(R.id.menu_logout);
         sidebarCoachName = findViewById(R.id.sidebar_coach_name);
         sidebarCoachEmail = findViewById(R.id.sidebar_coach_email);
 
-        // Initialize data lists
         clientsList = new ArrayList<>();
         filteredClientsList = new ArrayList<>();
+    }
+
+    private void loadCachedData() {
+        SharedPreferences cache = getSharedPreferences(CACHE_PREFS, MODE_PRIVATE);
+
+        String cachedName = cache.getString(CACHE_COACH_NAME, null);
+        String cachedEmail = cache.getString(CACHE_COACH_EMAIL, null);
+
+        if (cachedName != null) {
+            sidebarCoachName.setText(cachedName);
+            String firstName = cachedName.split("\\s+")[0];
+            TextView welcomeText = findViewById(R.id.welcome_coach_text);
+            if (welcomeText != null) {
+                welcomeText.setText("Welcome Coach " + firstName + "!");
+            }
+        }
+
+        if (cachedEmail != null) {
+            sidebarCoachEmail.setText(cachedEmail);
+        }
+
+        String cachedClientsJson = cache.getString(CACHE_CLIENTS_LIST, null);
+        if (cachedClientsJson != null && !cachedClientsJson.isEmpty()) {
+            try {
+                Gson gson = new Gson();
+                Type listType = new TypeToken<List<Client>>(){}.getType();
+                List<Client> cachedClients = gson.fromJson(cachedClientsJson, listType);
+
+                if (cachedClients != null && !cachedClients.isEmpty()) {
+                    clientsList.clear();
+                    clientsList.addAll(cachedClients);
+
+                    filteredClientsList.clear();
+                    filteredClientsList.addAll(cachedClients);
+
+                    if (clientsAdapter != null) {
+                        clientsAdapter.notifyDataSetChanged();
+                        updateUI();
+                    } else {
+                        Log.w("Cache", "⚠️ Adapter is null, skipping cache display");
+                    }
+
+                    Log.d("Cache", "✅ Loaded " + cachedClients.size() + " clients from cache");
+                }
+            } catch (Exception e) {
+                Log.e("Cache", "Error loading cached clients", e);
+            }
+        }
     }
 
     private void setupRecyclerView() {
@@ -134,18 +176,8 @@ public class coach_clients extends AppCompatActivity {
         assignedClientsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
         assignedClientsRecyclerView.setAdapter(clientsAdapter);
     }
-    private void setupSpinner() {
-        ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                this,
-                android.R.layout.simple_spinner_item,
-                filterOptions
-        );
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        filterSpinner.setAdapter(spinnerAdapter);
-    }
 
     private void setupListeners() {
-        // Profile icon click - open drawer
         coachProfileIcon.setOnClickListener(v -> {
             if (drawerLayout.isDrawerOpen(GravityCompat.END)) {
                 drawerLayout.closeDrawer(GravityCompat.END);
@@ -154,7 +186,6 @@ public class coach_clients extends AppCompatActivity {
             }
         });
 
-        // Search functionality
         searchButton.setOnClickListener(v -> performSearch());
 
         searchClientsEditText.addTextChangedListener(new TextWatcher() {
@@ -164,7 +195,7 @@ public class coach_clients extends AppCompatActivity {
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s.length() == 0) {
-                    applyFilter(filterSpinner.getSelectedItemPosition());
+                    showAllClients();
                 }
             }
 
@@ -172,36 +203,15 @@ public class coach_clients extends AppCompatActivity {
             public void afterTextChanged(Editable s) {}
         });
 
-        // Filter spinner
-        filterSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                applyFilter(position);
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
-        });
-
-        // Clear filter button
-        clearFilterButton.setOnClickListener(v -> {
+        clearSearchButton.setOnClickListener(v -> {
             searchClientsEditText.setText("");
-            filterSpinner.setSelection(0);
-            applyFilter(0);
+            showAllClients();
         });
 
-        // Refresh button
-        refreshClientsButton.setOnClickListener(v -> {
-            loadClients();
-            Toast.makeText(this, "Refreshing clients...", Toast.LENGTH_SHORT).show();
-        });
-
-        // Sidebar menu listeners
         setupSidebarListeners();
     }
 
     private void setupSidebarListeners() {
-
         findViewById(R.id.menu_archive).setOnClickListener(v -> {
             Intent intent = new Intent(coach_clients.this, CoachArchiveActivity.class);
             startActivity(intent);
@@ -223,7 +233,7 @@ public class coach_clients extends AppCompatActivity {
         String searchQuery = searchClientsEditText.getText().toString().trim().toLowerCase();
 
         if (searchQuery.isEmpty()) {
-            applyFilter(filterSpinner.getSelectedItemPosition());
+            showAllClients();
             return;
         }
 
@@ -240,42 +250,17 @@ public class coach_clients extends AppCompatActivity {
         updateUI();
     }
 
-    private void applyFilter(int filterPosition) {
+    private void showAllClients() {
         filteredClientsList.clear();
-
-        switch (filterPosition) {
-            case 0: // All Clients
-                filteredClientsList.addAll(clientsList);
-                break;
-            case 1: // Active
-                for (Client client : clientsList) {
-                    if ("Active".equals(client.getStatus())) {
-                        filteredClientsList.add(client);
-                    }
-                }
-                break;
-            case 2: // Inactive
-                for (Client client : clientsList) {
-                    if ("Inactive".equals(client.getStatus())) {
-                        filteredClientsList.add(client);
-                    }
-                }
-                break;
-            case 3: // New
-                for (Client client : clientsList) {
-                    if ("New".equals(client.getStatus())) {
-                        filteredClientsList.add(client);
-                    }
-                }
-                break;
-        }
-
+        filteredClientsList.addAll(clientsList);
         clientsAdapter.notifyDataSetChanged();
         updateUI();
     }
 
     private void loadClients() {
-        showLoading(true);
+        if (clientsList.isEmpty()) {
+            showLoading(true);
+        }
 
         if (currentUser == null) {
             Toast.makeText(this, "No authenticated user found", Toast.LENGTH_SHORT).show();
@@ -296,13 +281,11 @@ public class coach_clients extends AppCompatActivity {
                     currentCoachId = coachQuerySnapshot.getDocuments().get(0).getId();
                     Log.d("CoachLoad", "Found coach ID: " + currentCoachId);
 
-                    // ✅ Remove old users listener if it exists
                     if (usersListener != null) {
                         usersListener.remove();
                         usersListener = null;
                     }
 
-                    // ✅ Real-time listener for users collection
                     usersListener = firestore.collection("users")
                             .whereEqualTo("coachId", currentCoachId)
                             .addSnapshotListener((queryDocumentSnapshots, e) -> {
@@ -318,7 +301,6 @@ public class coach_clients extends AppCompatActivity {
                                     return;
                                 }
 
-                                // ✅ Use document changes to handle add/modify/remove in real-time
                                 for (com.google.firebase.firestore.DocumentChange dc : queryDocumentSnapshots.getDocumentChanges()) {
                                     QueryDocumentSnapshot document = dc.getDocument();
                                     String userId = document.getId();
@@ -326,36 +308,39 @@ public class coach_clients extends AppCompatActivity {
                                     switch (dc.getType()) {
                                         case ADDED:
                                         case MODIFIED:
-                                            // ✅ Process new or modified client
                                             try {
-                                                // Auto-unarchive if admin reassigned this coach
                                                 Boolean isArchived = document.getBoolean("isArchived");
                                                 if (isArchived != null && isArchived) {
                                                     autoUnarchiveClient(userId);
                                                     break;
                                                 }
 
-                                                // Check if coachId still matches
                                                 String assignedCoachId = document.getString("coachId");
                                                 if (assignedCoachId == null || !assignedCoachId.equals(currentCoachId)) {
                                                     Log.d("CoachRemoved", "Client no longer assigned: " + userId);
-                                                    // Remove from list if it exists
                                                     removeClientFromList(userId);
                                                     break;
                                                 }
 
-                                                // ✅ Check if client already exists in list
                                                 Client existingClient = findClientById(userId);
 
                                                 if (existingClient != null) {
-                                                    // Update existing client
                                                     Log.d("ClientUpdate", "Updating existing client: " + userId);
+
+                                                    String newProfilePicUrl = document.getString("profilePictureUrl");
+                                                    if (newProfilePicUrl != null && !newProfilePicUrl.equals(existingClient.getProfilePictureUrl())) {
+                                                        existingClient.setProfilePictureUrl(newProfilePicUrl);
+                                                        int index = filteredClientsList.indexOf(existingClient);
+                                                        if (index >= 0) {
+                                                            clientsAdapter.notifyItemChanged(index);
+                                                        }
+                                                    }
                                                 } else {
-                                                    // Add new client
                                                     String name = document.getString("fullname");
                                                     String email = document.getString("email");
                                                     String fitnessGoal = document.getString("fitnessGoal");
                                                     String fitnessLevel = document.getString("fitnessLevel");
+                                                    String profilePictureUrl = document.getString("profilePictureUrl");
 
                                                     Long currentStreak = document.getLong("currentStreak");
                                                     Long workoutsCompleted = document.getLong("workoutsCompleted");
@@ -370,13 +355,15 @@ public class coach_clients extends AppCompatActivity {
                                                     fitnessGoal = fitnessGoal != null ? fitnessGoal : "General Fitness";
                                                     fitnessLevel = fitnessLevel != null ? fitnessLevel : "Beginner";
 
-                                                    Client client = new Client(name, email, "Checking...", weightStr, heightStr, fitnessGoal, fitnessLevel);
+                                                    String initialStatus = "Active";
+                                                    Client client = new Client(name, email, initialStatus, weightStr, heightStr, fitnessGoal, fitnessLevel);
                                                     client.setUid(userId);
+                                                    client.setProfilePictureUrl(profilePictureUrl);
+
                                                     clientsList.add(client);
 
                                                     Log.d("ClientAdd", "Added new client: " + name);
 
-                                                    // Set up membership listener
                                                     setupMembershipListener(client, currentStreak, workoutsCompleted);
                                                 }
 
@@ -386,15 +373,14 @@ public class coach_clients extends AppCompatActivity {
                                             break;
 
                                         case REMOVED:
-                                            // ✅ Handle removal in real-time
                                             Log.d("ClientRemove", "Client removed from query: " + userId);
                                             removeClientFromList(userId);
                                             break;
                                     }
                                 }
 
-                                // ✅ Update UI after processing all changes
-                                applyFilter(filterSpinner.getSelectedItemPosition());
+                                saveCachedClients();
+                                showAllClients();
                                 showLoading(false);
                             });
 
@@ -406,17 +392,29 @@ public class coach_clients extends AppCompatActivity {
                 });
     }
 
+    private void saveCachedClients() {
+        try {
+            Gson gson = new Gson();
+            String clientsJson = gson.toJson(clientsList);
 
+            SharedPreferences cache = getSharedPreferences(CACHE_PREFS, MODE_PRIVATE);
+            cache.edit()
+                    .putString(CACHE_CLIENTS_LIST, clientsJson)
+                    .apply();
+
+            Log.d("Cache", "✅ Saved " + clientsList.size() + " clients to cache");
+        } catch (Exception e) {
+            Log.e("Cache", "Error saving clients to cache", e);
+        }
+    }
 
     private void setupMembershipListener(Client client, Long currentStreak, Long workoutsCompleted) {
         String userId = client.getUid();
 
-        // Remove old listener if exists
         if (membershipListeners.containsKey(userId)) {
             membershipListeners.get(userId).remove();
         }
 
-        // ✅ Set up new real-time listener
         com.google.firebase.firestore.ListenerRegistration registration = firestore.collection("memberships")
                 .whereEqualTo("userId", userId)
                 .addSnapshotListener((querySnapshot, error) -> {
@@ -439,22 +437,15 @@ public class coach_clients extends AppCompatActivity {
                         }
                     }
 
-                    // ✅ Auto-archive if no active membership
                     if (!hasActiveMembership) {
+                        Log.d("Membership", "❌ No active membership found for: " + client.getName());
                         autoArchiveClient(client);
-                        return; // Don't update status, client will be removed by snapshot listener
+                        return;
                     }
 
-                    String status = determineUserStatusWithMembership(
-                            currentStreak,
-                            workoutsCompleted,
-                            hasActiveMembership
-                    );
+                    Log.d("Membership", "✅ Active membership confirmed for: " + client.getName());
+                    client.setStatus("Active");
 
-                    // ✅ Update client status in real-time
-                    client.setStatus(status);
-
-                    // ✅ Find client in filtered list and update
                     int index = filteredClientsList.indexOf(client);
                     if (index >= 0) {
                         clientsAdapter.notifyItemChanged(index);
@@ -463,39 +454,8 @@ public class coach_clients extends AppCompatActivity {
                     updateUI();
                 });
 
-        // Store the listener so we can remove it later
         membershipListeners.put(userId, registration);
     }
-
-
-
-    // ✅ NEW METHOD: Updated status determination with membership check
-    private String determineUserStatusWithMembership(Long currentStreak, Long workoutsCompleted, boolean hasActiveMembership) {
-        try {
-            // This method should only be called for users WITH active membership
-            // Users without membership are auto-archived
-
-            // Default values if null
-            if (currentStreak == null) currentStreak = 0L;
-            if (workoutsCompleted == null) workoutsCompleted = 0L;
-
-            // Determine status based on activity
-            if (workoutsCompleted == 0 && currentStreak == 0) {
-                return "New";
-            } else if (currentStreak >= 1 || workoutsCompleted >= 1) {
-                return "Active";
-            } else {
-                return "New"; // Has membership but hasn't started
-            }
-
-        } catch (Exception e) {
-            Log.e("StatusDetermination", "Error determining user status: " + e.getMessage(), e);
-            return "New";
-        }
-    }
-
-
-
 
     private void showLoading(boolean show) {
         if (show) {
@@ -522,7 +482,6 @@ public class coach_clients extends AppCompatActivity {
 
     private void loadCoachInfo() {
         if (currentUser != null) {
-            // Use email-based query instead of UID-based document lookup
             firestore.collection("coaches")
                     .whereEqualTo("email", currentUser.getEmail())
                     .get()
@@ -531,18 +490,21 @@ public class coach_clients extends AppCompatActivity {
                             String fullName = querySnapshot.getDocuments().get(0).getString("fullname");
                             String email = querySnapshot.getDocuments().get(0).getString("email");
 
-                            // Set full name in sidebar
+                            SharedPreferences cache = getSharedPreferences(CACHE_PREFS, MODE_PRIVATE);
+                            cache.edit()
+                                    .putString(CACHE_COACH_NAME, fullName)
+                                    .putString(CACHE_COACH_EMAIL, email)
+                                    .apply();
+
                             sidebarCoachName.setText(fullName != null ? fullName : "Coach");
                             sidebarCoachEmail.setText(email != null ? email : "");
 
-                            // Extract first name for welcome message
                             String firstName = "Coach";
                             if (fullName != null && !fullName.isEmpty()) {
                                 String[] nameParts = fullName.trim().split("\\s+");
                                 firstName = nameParts[0];
                             }
 
-                            // Update welcome text
                             TextView welcomeText = findViewById(R.id.welcome_coach_text);
                             if (welcomeText != null) {
                                 welcomeText.setText("Welcome Coach " + firstName + "!");
@@ -550,21 +512,22 @@ public class coach_clients extends AppCompatActivity {
                         }
                     })
                     .addOnFailureListener(e -> {
-                        android.util.Log.e("LoadCoachInfo", "Error loading coach info: " + e.getMessage(), e);
+                        Log.e("LoadCoachInfo", "Error loading coach info: " + e.getMessage(), e);
                     });
         }
     }
 
-
     private void logoutCoach() {
         FirebaseAuth.getInstance().signOut();
 
-        // Clear session data using consistent SharedPreferences name and keys
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
         prefs.edit()
                 .remove(KEY_ROLE)
                 .remove(KEY_UID)
                 .apply();
+
+        SharedPreferences cache = getSharedPreferences(CACHE_PREFS, MODE_PRIVATE);
+        cache.edit().clear().apply();
 
         Intent intent = new Intent(coach_clients.this, LoginActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -593,17 +556,17 @@ public class coach_clients extends AppCompatActivity {
         archiveData.put("isArchived", true);
         archiveData.put("archivedBy", currentCoachId);
         archiveData.put("archivedAt", com.google.firebase.Timestamp.now());
-        archiveData.put("coachId", null); // ✅ Remove coach assignment
+        archiveData.put("coachId", null);
+        archiveData.put("archiveReason", "Manually archived by coach");
 
         firestore.collection("users")
                 .document(client.getUid())
                 .update(archiveData)
                 .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(this, client.getName() + " has been archived and unassigned", Toast.LENGTH_SHORT).show();
-                    // Snapshot listener will handle the removal automatically
+                    Toast.makeText(this, client.getName() + " has been archived", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to archive client: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "Failed to archive: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     Log.e("ArchiveClient", "Error: " + e.getMessage(), e);
                 });
     }
@@ -613,24 +576,23 @@ public class coach_clients extends AppCompatActivity {
             return;
         }
 
-        Log.d("AutoArchive", "Auto-archiving client due to no active membership: " + client.getName());
+        Log.d("AutoArchive", "🗄️ Auto-archiving client (no active membership): " + client.getName());
 
         Map<String, Object> archiveData = new HashMap<>();
         archiveData.put("isArchived", true);
-        archiveData.put("archivedBy", "system"); // System archived (no membership)
+        archiveData.put("archivedBy", "system");
         archiveData.put("archivedAt", com.google.firebase.Timestamp.now());
-        archiveData.put("coachId", null); // ✅ Remove coach assignment
+        archiveData.put("coachId", null);
         archiveData.put("archiveReason", "No active membership");
 
         firestore.collection("users")
                 .document(client.getUid())
                 .update(archiveData)
                 .addOnSuccessListener(aVoid -> {
-                    Log.d("AutoArchive", "Client auto-archived successfully: " + client.getName());
-                    // Snapshot listener will handle the removal automatically
+                    Log.d("AutoArchive", "✅ Client auto-archived successfully: " + client.getName());
                 })
                 .addOnFailureListener(e -> {
-                    Log.e("AutoArchive", "Failed to auto-archive client: " + e.getMessage(), e);
+                    Log.e("AutoArchive", "❌ Failed to auto-archive client: " + e.getMessage(), e);
                 });
     }
 
@@ -665,43 +627,35 @@ public class coach_clients extends AppCompatActivity {
     }
 
     private void removeClientFromList(String userId) {
-        // Remove from clientsList
         Client toRemove = findClientById(userId);
         if (toRemove != null) {
             clientsList.remove(toRemove);
             Log.d("RemoveClient", "Removed client from list: " + userId);
 
-            // Clean up membership listener
             if (membershipListeners.containsKey(userId)) {
                 membershipListeners.get(userId).remove();
                 membershipListeners.remove(userId);
                 Log.d("RemoveClient", "Cleaned up membership listener for: " + userId);
             }
 
-            // Reapply filter to update UI
-            applyFilter(filterSpinner.getSelectedItemPosition());
+            showAllClients();
         }
     }
-
-
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
 
-        // ✅ Clean up users listener
         if (usersListener != null) {
             usersListener.remove();
             usersListener = null;
         }
 
-        // ✅ Clean up all membership listeners
         for (com.google.firebase.firestore.ListenerRegistration listener : membershipListeners.values()) {
             listener.remove();
         }
         membershipListeners.clear();
     }
-
 
     @Override
     public void onBackPressed() {
@@ -713,21 +667,19 @@ public class coach_clients extends AppCompatActivity {
                 .show();
     }
 
-    // Client data model
     public static class Client {
         private String uid;
         private String name;
         private String email;
-        private String status;  // Keep this private
+        private String status;
         private String weight;
         private String height;
         private String goal;
         private String activityLevel;
+        private String profilePictureUrl;
 
-        // Empty constructor (required if you use Firebase)
         public Client() {}
 
-        // Constructor with all fields
         public Client(String name, String email, String status, String weight, String height, String goal, String activityLevel) {
             this.name = name;
             this.email = email;
@@ -738,7 +690,6 @@ public class coach_clients extends AppCompatActivity {
             this.activityLevel = activityLevel;
         }
 
-        // Getters
         public String getUid() { return uid; }
         public String getName() { return name; }
         public String getEmail() { return email; }
@@ -747,16 +698,10 @@ public class coach_clients extends AppCompatActivity {
         public String getHeight() { return height; }
         public String getGoal() { return goal; }
         public String getActivityLevel() { return activityLevel; }
+        public String getProfilePictureUrl() { return profilePictureUrl; }
 
-        // ✅ ADD THIS SETTER
-        public void setUid(String uid) {
-            this.uid = uid;
-        }
-
-        // ✅ ADD THIS SETTER - CRITICAL!
-        public void setStatus(String status) {
-            this.status = status;
-        }
+        public void setUid(String uid) { this.uid = uid; }
+        public void setStatus(String status) { this.status = status; }
+        public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
     }
-
 }

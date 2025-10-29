@@ -3,10 +3,13 @@ package com.example.signuploginrealtime;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
+import com.bumptech.glide.Glide;
+import android.widget.ImageView;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
@@ -20,18 +23,15 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
     private List<coach_clients.Client> clientsList;
     private OnClientLongClickListener longClickListener;
 
-    // Interface for long click callback
     public interface OnClientLongClickListener {
         void onClientLongClick(coach_clients.Client client);
     }
 
-    // Original constructor (for backward compatibility)
     public ClientsAdapter(Context context, List<coach_clients.Client> clientsList) {
         this.context = context;
         this.clientsList = clientsList;
     }
 
-    // New constructor with long click listener
     public ClientsAdapter(Context context, List<coach_clients.Client> clientsList, OnClientLongClickListener longClickListener) {
         this.context = context;
         this.clientsList = clientsList;
@@ -53,48 +53,49 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         holder.clientEmail.setText(client.getEmail());
         holder.clientStatus.setText(client.getStatus());
 
-        // Set avatar with first letter of name
-        if (client.getName() != null && !client.getName().isEmpty()) {
-            holder.clientAvatar.setText(String.valueOf(client.getName().charAt(0)).toUpperCase());
+        String profilePictureUrl = client.getProfilePictureUrl();
+
+        if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
+            holder.clientProfileImage.setVisibility(View.VISIBLE);
+            holder.clientAvatar.setVisibility(View.GONE);
+
+            Glide.with(context)
+                    .load(profilePictureUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(holder.clientProfileImage);
+        } else {
+            holder.clientProfileImage.setVisibility(View.GONE);
+            holder.clientAvatar.setVisibility(View.VISIBLE);
+
+            if (client.getName() != null && !client.getName().isEmpty()) {
+                holder.clientAvatar.setText(String.valueOf(client.getName().charAt(0)).toUpperCase());
+            }
         }
 
-        // Set status background based on client status
+        // ✅ SIMPLIFIED: Only "Active" status exists (green badge)
         String status = client.getStatus();
-        if (status != null) {
-            switch (status) {
-                case "Active":
-                    holder.clientStatus.setBackgroundResource(R.drawable.status_active);
-                    break;
-                case "Inactive":
-                    holder.clientStatus.setBackgroundResource(R.drawable.status_inactive);
-                    break;
-                case "New":
-                    holder.clientStatus.setBackgroundResource(R.drawable.status_new);
-                    break;
-                default:
-                    holder.clientStatus.setBackgroundResource(R.drawable.status_unknown);
-                    break;
-            }
+        if (status != null && status.equals("Active")) {
+            holder.clientStatus.setBackgroundResource(R.drawable.status_active);
         } else {
+            // Fallback (shouldn't happen since all clients with membership are active)
             holder.clientStatus.setBackgroundResource(R.drawable.status_unknown);
         }
 
-        // Regular click - Navigate to Client_workouts_details
         holder.clientCard.setOnClickListener(v -> {
             Intent intent = new Intent(context, Client_workouts_details.class);
             intent.putExtra("client_uid", client.getUid());
-
             if (!(context instanceof Activity)) {
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             }
             context.startActivity(intent);
         });
 
-        // Long press - Archive client
         holder.clientCard.setOnLongClickListener(v -> {
             if (longClickListener != null) {
                 longClickListener.onClientLongClick(client);
-                return true; // Consume the long click event
+                return true;
             }
             return false;
         });
@@ -108,6 +109,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
     public static class ClientViewHolder extends RecyclerView.ViewHolder {
         CardView clientCard;
         TextView clientName, clientEmail, clientStatus, clientAvatar;
+        ImageView clientProfileImage;
 
         public ClientViewHolder(@NonNull View itemView) {
             super(itemView);
@@ -116,7 +118,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientEmail = itemView.findViewById(R.id.client_email);
             clientStatus = itemView.findViewById(R.id.client_status);
             clientAvatar = itemView.findViewById(R.id.client_avatar);
+            clientProfileImage = itemView.findViewById(R.id.client_profile_image);
         }
     }
-
 }

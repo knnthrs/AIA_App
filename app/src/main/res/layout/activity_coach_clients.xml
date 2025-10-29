@@ -104,80 +104,37 @@
                         android:textColor="@color/black"
                         android:layout_marginEnd="8dp"/>
 
-                    <!-- FIXED: MaterialButton -->
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/search_button"
+                    <LinearLayout
                         android:layout_width="wrap_content"
-                        android:layout_height="45dp"
-                        android:text="Search"
-                        android:textColor="@color/white"
-                        android:backgroundTint="@color/black"
-                        app:cornerRadius="10dp"/>
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/search_button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="45dp"
+                            android:text="Search"
+                            android:textColor="@color/white"
+                            android:backgroundTint="@color/black"
+                            app:cornerRadius="10dp"
+                            android:layout_marginEnd="4dp"/>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/clear_search_button"
+                            android:layout_width="wrap_content"
+                            android:layout_height="45dp"
+                            android:text="Clear"
+                            android:textColor="@color/white"
+                            android:backgroundTint="#757575"
+                            app:cornerRadius="10dp"/>
+                    </LinearLayout>
                 </LinearLayout>
 
             </LinearLayout>
 
         </androidx.cardview.widget.CardView>
 
-        <!-- Filter and Actions -->
-        <androidx.cardview.widget.CardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginEnd="16dp"
-            android:layout_marginBottom="8dp"
-            app:cardCornerRadius="15dp"
-            android:elevation="5dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:padding="12dp"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Filter:"
-                    android:textColor="@color/black"
-                    android:textStyle="bold"
-                    android:layout_marginEnd="12dp"/>
-
-                <Spinner
-                    android:id="@+id/filter_spinner"
-                    android:layout_width="0dp"
-                    android:layout_height="35dp"
-                    android:layout_weight="1"
-                    android:background="@drawable/grey_boarder"
-                    android:layout_marginEnd="8dp"/>
-
-                <Button
-                    android:id="@+id/clear_filter_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="35dp"
-                    android:text="Clear"
-                    android:textSize="12sp"
-                    android:textColor="@color/black"
-                    android:backgroundTint="@android:color/transparent"
-                    android:minHeight="0dp"
-                    android:padding="8dp"/>
-
-                <!-- FIXED: MaterialButton -->
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/refresh_clients_button"
-                    android:layout_width="wrap_content"
-                    android:layout_height="35dp"
-                    android:text="Refresh"
-                    android:textSize="12sp"
-                    android:textColor="@color/white"
-                    android:backgroundTint="@color/black"
-                    android:minHeight="0dp"
-                    android:padding="8dp"
-                    app:cornerRadius="8dp"/>
-            </LinearLayout>
-
-        </androidx.cardview.widget.CardView>
+        <!-- ✅ REMOVED: Filter and Actions CardView -->
 
         <!-- Assigned Clients List -->
         <androidx.recyclerview.widget.RecyclerView

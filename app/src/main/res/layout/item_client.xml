@@ -19,25 +19,27 @@
         android:padding="16dp"
         android:gravity="center_vertical">
 
-        <!-- Client Avatar Placeholder -->
-        <androidx.cardview.widget.CardView
+        <!-- Profile Picture -->
+        <ImageView
+            android:id="@+id/client_profile_image"
             android:layout_width="50dp"
             android:layout_height="50dp"
-            app:cardCornerRadius="25dp"
             android:layout_marginEnd="16dp"
-            app:cardBackgroundColor="@color/yellow">
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_profile"/>
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:textColor="@color/white"
-                android:textSize="18sp"
-                android:textStyle="bold"
-                android:id="@+id/client_avatar"
-                android:text="A"/>
-
-        </androidx.cardview.widget.CardView>
+        <!-- Text Avatar (fallback) -->
+        <TextView
+            android:id="@+id/client_avatar"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_marginEnd="16dp"
+            android:gravity="center"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:background="@color/yellow"
+            android:visibility="gone"/>
 
         <!-- Client Information -->
         <LinearLayout
@@ -83,14 +85,6 @@
                 android:paddingHorizontal="8dp"
                 android:paddingVertical="4dp"
                 android:textColor="@color/white" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Last active: 2 hours ago"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="10sp"
-                android:layout_marginTop="4dp" />
 
         </LinearLayout>
 

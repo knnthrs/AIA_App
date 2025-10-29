@@ -64,8 +64,8 @@ public class QR extends AppCompatActivity {
     private DocumentReference userDocRef;
     private ListenerRegistration userDataListener;
     private ListenerRegistration attendanceListener;
-    private LinearLayout noMembershipContainer;  // ← ADD THIS
-    private android.widget.Button btnGetMembership;  // ← ADD THIS
+    private LinearLayout noMembershipContainer;
+    private android.widget.Button btnGetMembership;
     private ListenerRegistration membershipListener;
 
     private boolean isDeleteMode = false;
@@ -86,13 +86,12 @@ public class QR extends AppCompatActivity {
             return insets;
         });
 
-        // ✅ Initialize Firestore FIRST - BEFORE any other method calls
         firestore = FirebaseFirestore.getInstance();
 
         initializeViews();
         setupClickListeners();
         setupRecyclerView();
-        ensureDefaultMembershipRecord(); // ← Now firestore is initialized
+        ensureDefaultMembershipRecord();
         loadUserData();
         loadMembershipData();
         loadAttendanceHistory();
@@ -116,7 +115,6 @@ public class QR extends AppCompatActivity {
         noMembershipContainer = findViewById(R.id.no_membership_container);
         btnGetMembership = findViewById(R.id.btn_get_membership);
 
-        // Delete toolbar views
         deleteToolbar = findViewById(R.id.delete_toolbar);
         tvDeleteCount = findViewById(R.id.tv_delete_count);
         btnDeleteSelected = findViewById(R.id.btn_delete_selected);
@@ -131,11 +129,10 @@ public class QR extends AppCompatActivity {
         btnCancelDelete.setOnClickListener(v -> exitDeleteMode());
     }
 
-
     private void setupClickListeners() {
         backButton.setOnClickListener(v -> {
             finish();
-            overridePendingTransition(0, 0); // ✅ No animation on exit
+            overridePendingTransition(0, 0);
         });
 
         attendanceHeader.setOnClickListener(v -> toggleAttendanceHistory());
@@ -144,7 +141,7 @@ public class QR extends AppCompatActivity {
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(0, 0); // ✅ No animation on any finish
+        overridePendingTransition(0, 0);
     }
 
     @Override
@@ -153,12 +150,10 @@ public class QR extends AppCompatActivity {
             exitDeleteMode();
         } else {
             super.onBackPressed();
-            overridePendingTransition(0, 0); // ✅ No animation on back press
+            overridePendingTransition(0, 0);
         }
     }
 
-
-    // Modify your setupRecyclerView() method
     private void setupRecyclerView() {
         attendanceAdapter = new AttendanceAdapter(attendanceRecords);
         attendanceRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -179,7 +174,6 @@ public class QR extends AppCompatActivity {
         });
     }
 
-
     private void toggleAttendanceHistory() {
         isAttendanceExpanded = !isAttendanceExpanded;
 
@@ -192,7 +186,6 @@ public class QR extends AppCompatActivity {
         }
     }
 
-    // Modified loadAttendanceHistory() method - replace the existing one
     private void loadAttendanceHistory() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser != null) {
@@ -223,9 +216,8 @@ public class QR extends AppCompatActivity {
                                     long timeOut = timeOutTimestamp != null ? timeOutTimestamp : 0;
                                     String status = timeOut > 0 ? "completed" : "active";
 
-                                    // Store document ID with the record
                                     AttendanceRecord record = new AttendanceRecord(timeIn, timeOut, status);
-                                    record.setDocumentId(doc.getId()); // Add this method to AttendanceRecord class
+                                    record.setDocumentId(doc.getId());
                                     attendanceRecords.add(record);
 
                                     if (isThisMonth(timeIn)) {
@@ -260,7 +252,6 @@ public class QR extends AppCompatActivity {
                 .get()
                 .addOnSuccessListener(doc -> {
                     if (!doc.exists()) {
-                        // No membership record exists - create default inactive one
                         Map<String, Object> defaultMembership = new HashMap<>();
                         defaultMembership.put("userId", currentUser.getUid());
                         defaultMembership.put("membershipStatus", "inactive");
@@ -272,7 +263,6 @@ public class QR extends AppCompatActivity {
                                 .addOnSuccessListener(v -> {
                                     Log.d("QR", "Default membership record created");
 
-                                    // ✅ ALSO update users collection
                                     firestore.collection("users")
                                             .document(currentUser.getUid())
                                             .update("membershipStatus", "inactive")
@@ -293,8 +283,6 @@ public class QR extends AppCompatActivity {
                 });
     }
 
-
-
     private boolean isThisMonth(long timestamp) {
         SimpleDateFormat monthFormat = new SimpleDateFormat("MM-yyyy", Locale.getDefault());
         String recordMonth = monthFormat.format(new Date(timestamp));
@@ -302,17 +290,14 @@ public class QR extends AppCompatActivity {
         return recordMonth.equals(currentMonth);
     }
 
-
     private void loadMembershipData() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) return;
 
-        // Remove previous listener if any
         if (membershipListener != null) {
             membershipListener.remove();
         }
 
-        // Listen to memberships collection in real-time
         membershipListener = firestore.collection("memberships")
                 .document(currentUser.getUid())
                 .addSnapshotListener((snapshot, error) -> {
@@ -325,7 +310,6 @@ public class QR extends AppCompatActivity {
                     }
 
                     if (snapshot != null && snapshot.exists() && "active".equals(snapshot.getString("membershipStatus"))) {
-                        // Has active membership
                         String planLabel = snapshot.getString("membershipPlanLabel");
 
                         if (planLabel != null && !planLabel.isEmpty()) {
@@ -336,7 +320,6 @@ public class QR extends AppCompatActivity {
                             isActive = true;
                         }
                     } else {
-                        // No active membership
                         membershipStatusText = "NO PLAN SELECTED";
                         isActive = false;
                     }
@@ -345,7 +328,6 @@ public class QR extends AppCompatActivity {
                     ensurePermanentQRCode();
                 });
     }
-
 
     private void loadUserData() {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
@@ -486,93 +468,21 @@ public class QR extends AppCompatActivity {
         FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
         if (currentUser == null) return;
 
-        // ✅ Don't generate QR if userName is still loading
-        if (userName == null || userName.equals("Loading...")) {
-            Log.d("QR", "Waiting for userName to load...");
-            return;
-        }
+        String qrData = currentUser.getUid(); // Only UID
 
-        // ✅ First, check if user has active membership
-        firestore.collection("memberships")
-                .document(currentUser.getUid())
-                .get()
-                .addOnSuccessListener(membershipDoc -> {
-                    boolean hasActiveMembership = false;
-                    String membershipTypeForQR = "NoMembership"; // Default
-
-                    if (membershipDoc.exists()) {
-                        String status = membershipDoc.getString("membershipStatus");
-                        hasActiveMembership = "active".equals(status);
-
-                        // Get membership type for QR
-                        if (hasActiveMembership) {
-                            String planLabel = membershipDoc.getString("membershipPlanLabel");
-                            if (planLabel != null) {
-                                membershipTypeForQR = formatMembershipTypeForQR(planLabel);
-                            } else {
-                                membershipTypeForQR = "Standard";
-                            }
-                        }
-                    }
-
-                    if (!hasActiveMembership) {
-                        // ❌ No active membership - show message and hide QR
-                        showNoMembershipMessage();
-                        return;
-                    }
-
-                    // ✅ Has active membership - generate QR code with membership type
-                    String finalMembershipType = membershipTypeForQR;
-
-                    if (userDocRef != null) {
-                        userDocRef.get().addOnCompleteListener(task -> {
-                            if (task.isSuccessful()) {
-                                DocumentSnapshot snapshot = task.getResult();
-                                String savedQr = snapshot != null ? snapshot.getString("qrCode") : null;
-
-                                // ✅ Get user email
-                                String userEmail = currentUser.getEmail();
-                                if (userEmail == null || userEmail.isEmpty()) {
-                                    Toast.makeText(this, "Email not found", Toast.LENGTH_SHORT).show();
-                                    return;
-                                }
-
-                                // ✅ NEW FORMAT: userName_membershipType_email
-                                String qrData = String.format("%s_%s_%s",
-                                        userName.replaceAll("[\\s\\W]", ""),
-                                        finalMembershipType,
-                                        userEmail);  // ✅ Changed from UID to email
-
-                                if (savedQr == null || !savedQr.equals(qrData)) {
-                                    // Update QR code in database
-                                    userDocRef.update("qrCode", qrData)
-                                            .addOnSuccessListener(v -> {
-                                                generateQRCode(qrData);
-                                                showQRCode();
-                                            })
-                                            .addOnFailureListener(e -> {
-                                                generateQRCode(qrData);
-                                                showQRCode();
-                                            });
-                                } else {
-                                    generateQRCode(qrData);
-                                    showQRCode();
-                                }
-                            } else {
-                                Toast.makeText(this, "Failed to load QR", Toast.LENGTH_SHORT).show();
-                            }
-                        });
-                    }
+        if (userDocRef != null) {
+            userDocRef.update("qrCode", qrData)
+                .addOnSuccessListener(v -> {
+                    generateQRCode(qrData);
+                    showQRCode();
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Failed to check membership status", Toast.LENGTH_SHORT).show();
-                    showNoMembershipMessage();
+                    generateQRCode(qrData);
+                    showQRCode();
                 });
+        }
     }
 
-
-
-    // ✅ Add this helper method to format membership type for QR
     private String formatMembershipTypeForQR(String planLabel) {
         if (planLabel == null || planLabel.isEmpty()) {
             return "Standard";
@@ -596,7 +506,6 @@ public class QR extends AppCompatActivity {
             return "Standard";
         }
     }
-
 
     private void showNoMembershipMessage() {
         CardView qrCodeCard = findViewById(R.id.qr_code_card);
@@ -638,7 +547,7 @@ public class QR extends AppCompatActivity {
         if (attendanceListener != null) {
             attendanceListener.remove();
         }
-        if (membershipListener != null) {  // ← ADD THIS
+        if (membershipListener != null) {
             membershipListener.remove();
         }
     }
@@ -652,7 +561,7 @@ public class QR extends AppCompatActivity {
         if (attendanceListener != null) {
             attendanceListener.remove();
         }
-        if (membershipListener != null) {  // ← ADD THIS
+        if (membershipListener != null) {
             membershipListener.remove();
         }
     }
@@ -707,15 +616,11 @@ public class QR extends AppCompatActivity {
         }
 
         loadMembershipData();
-
-        // Reload attendance history
         loadAttendanceHistory();
     }
 
-    // Helper Firestore user profile class
     private static class UserProfileFirestore {
         public String fullname, email, phone, dateOfBirth;
-        // REMOVED: membershipStatus field completely
 
         public UserProfileFirestore(String fullname, String email) {
             this.fullname = fullname;
@@ -732,7 +637,6 @@ public class QR extends AppCompatActivity {
         deleteToolbar.setVisibility(View.VISIBLE);
     }
 
-
     private void exitDeleteMode() {
         isDeleteMode = false;
         selectedAttendanceIds.clear();
@@ -740,7 +644,6 @@ public class QR extends AppCompatActivity {
         attendanceAdapter.clearSelections();
         deleteToolbar.setVisibility(View.GONE);
     }
-
 
     private void toggleSelection(int position) {
         AttendanceRecord record = attendanceRecords.get(position);
@@ -761,7 +664,6 @@ public class QR extends AppCompatActivity {
         }
     }
 
-    // Method to delete selected items
     private void deleteSelectedAttendance() {
         if (selectedAttendanceIds.isEmpty()) {
             Toast.makeText(this, "No items selected", Toast.LENGTH_SHORT).show();
@@ -802,5 +704,4 @@ public class QR extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
-
 }

@@ -23,12 +23,32 @@
             android:gravity="center_vertical"
             android:layout_marginBottom="12dp">
 
-            <ImageView
+            <!-- ✅ UPDATED: Profile Picture Section -->
+            <FrameLayout
                 android:layout_width="50dp"
-                android:layout_height="50dp"
-                android:padding="10dp"
-                android:src="@drawable/ic_profile"
-                app:tint="@color/black" />
+                android:layout_height="50dp">
+
+                <!-- Profile Picture (ImageView) -->
+                <ImageView
+                    android:id="@+id/archived_client_profile_image"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:scaleType="centerCrop"
+                    android:visibility="gone"/>
+
+                <!-- Text Avatar (Fallback) -->
+                <TextView
+                    android:id="@+id/archived_client_avatar"
+                    android:layout_width="50dp"
+                    android:layout_height="50dp"
+                    android:background="@drawable/circle_background"
+                    android:gravity="center"
+                    android:text="A"
+                    android:textColor="@color/white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:visibility="visible"/>
+            </FrameLayout>
 
             <LinearLayout
                 android:layout_width="0dp"

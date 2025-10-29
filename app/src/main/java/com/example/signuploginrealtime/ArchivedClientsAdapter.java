@@ -5,11 +5,14 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.cardview.widget.CardView;
 import androidx.recyclerview.widget.RecyclerView;
+
+import com.bumptech.glide.Glide;
 
 import java.util.List;
 
@@ -46,6 +49,30 @@ public class ArchivedClientsAdapter extends RecyclerView.Adapter<ArchivedClients
         holder.clientGoal.setText("Goal: " + client.getGoal());
         holder.clientLevel.setText("Level: " + client.getActivityLevel());
 
+        // ✅ ADDED: Profile Picture Handling
+        String profilePictureUrl = client.getProfilePictureUrl();
+
+        if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
+            // Show profile picture
+            holder.clientProfileImage.setVisibility(View.VISIBLE);
+            holder.clientAvatar.setVisibility(View.GONE);
+
+            Glide.with(context)
+                    .load(profilePictureUrl)
+                    .circleCrop()
+                    .placeholder(R.drawable.ic_profile)
+                    .error(R.drawable.ic_profile)
+                    .into(holder.clientProfileImage);
+        } else {
+            // Show text avatar
+            holder.clientProfileImage.setVisibility(View.GONE);
+            holder.clientAvatar.setVisibility(View.VISIBLE);
+
+            if (client.getName() != null && !client.getName().isEmpty()) {
+                holder.clientAvatar.setText(String.valueOf(client.getName().charAt(0)).toUpperCase());
+            }
+        }
+
         holder.restoreButton.setOnClickListener(v -> {
             if (clickListener != null) {
                 clickListener.onRestoreClick(client);
@@ -66,7 +93,8 @@ public class ArchivedClientsAdapter extends RecyclerView.Adapter<ArchivedClients
 
     static class ArchivedClientViewHolder extends RecyclerView.ViewHolder {
         CardView cardView;
-        TextView clientName, clientEmail, clientGoal, clientLevel;
+        TextView clientName, clientEmail, clientGoal, clientLevel, clientAvatar;
+        ImageView clientProfileImage;  // ✅ ADDED
         Button restoreButton, deleteButton;
 
         public ArchivedClientViewHolder(@NonNull View itemView) {
@@ -76,6 +104,8 @@ public class ArchivedClientsAdapter extends RecyclerView.Adapter<ArchivedClients
             clientEmail = itemView.findViewById(R.id.archived_client_email);
             clientGoal = itemView.findViewById(R.id.archived_client_goal);
             clientLevel = itemView.findViewById(R.id.archived_client_level);
+            clientAvatar = itemView.findViewById(R.id.archived_client_avatar);  // ✅ ADDED
+            clientProfileImage = itemView.findViewById(R.id.archived_client_profile_image);  // ✅ ADDED
             restoreButton = itemView.findViewById(R.id.restore_button);
             deleteButton = itemView.findViewById(R.id.delete_button);
         }

@@ -40,7 +40,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
     private FirebaseUser currentUser;
     private String currentCoachId;
 
-    // ✅ Add listener for real-time updates
     private ListenerRegistration archiveListener;
 
     @Override
@@ -99,13 +98,11 @@ public class CoachArchiveActivity extends AppCompatActivity {
             return;
         }
 
-        // ✅ Remove old listener if exists
         if (archiveListener != null) {
             archiveListener.remove();
             archiveListener = null;
         }
 
-        // Find coach ID first
         firestore.collection("coaches")
                 .whereEqualTo("email", currentUser.getEmail())
                 .get()
@@ -133,7 +130,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                     return;
                                 }
 
-                                // ✅ Clear and reload everything
                                 archivedClientsList.clear();
 
                                 for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
@@ -146,17 +142,13 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                         com.google.firebase.Timestamp archivedAt = document.getTimestamp("archivedAt");
                                         com.google.firebase.Timestamp deletedAt = document.getTimestamp("deletedAt");
 
-                                        // ✅ DEBUG: Log all values
                                         Log.d("ArchiveDebug", "=== Checking client: " + userId + " ===");
                                         Log.d("ArchiveDebug", "currentCoachId: " + currentCoachId);
                                         Log.d("ArchiveDebug", "archivedBy: " + archivedBy);
                                         Log.d("ArchiveDebug", "assignedCoachId: " + assignedCoachId);
                                         Log.d("ArchiveDebug", "isArchived: " + isArchived);
                                         Log.d("ArchiveDebug", "isDeleted: " + isDeleted);
-                                        Log.d("ArchiveDebug", "archivedAt: " + archivedAt);
-                                        Log.d("ArchiveDebug", "deletedAt: " + deletedAt);
 
-                                        // ✅ Skip if deleted AFTER being archived (check timestamps)
                                         boolean deletedAfterArchived = false;
                                         if (isDeleted != null && isDeleted && deletedAt != null && archivedAt != null) {
                                             deletedAfterArchived = deletedAt.toDate().after(archivedAt.toDate());
@@ -168,7 +160,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                             continue;
                                         }
 
-                                        // Only show if: archived by this coach, not reassigned back
                                         if (currentCoachId.equals(archivedBy) &&
                                                 (isArchived != null && isArchived) &&
                                                 (assignedCoachId == null || !assignedCoachId.equals(currentCoachId))) {
@@ -180,6 +171,7 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                             String fitnessGoal = document.getString("fitnessGoal");
                                             String fitnessLevel = document.getString("fitnessLevel");
                                             String archiveReason = document.getString("archiveReason");
+                                            String profilePictureUrl = document.getString("profilePictureUrl");  // ✅ ADDED
 
                                             Long height = document.getLong("height");
                                             Long weight = document.getLong("weight");
@@ -201,6 +193,7 @@ public class CoachArchiveActivity extends AppCompatActivity {
                                                     name, email, statusText, weightStr, heightStr, fitnessGoal, fitnessLevel
                                             );
                                             client.setUid(userId);
+                                            client.setProfilePictureUrl(profilePictureUrl);  // ✅ ADDED
                                             archivedClientsList.add(client);
                                         }
                                     } catch (Exception ex) {
@@ -248,19 +241,15 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .show();
     }
 
-
-
     private void restoreClient(coach_clients.Client client) {
-        // ✅ IMMEDIATELY remove from UI first
         removeArchivedClientFromList(client.getUid());
 
-        // ✅ Restore client: reassign coach + unarchive
         Map<String, Object> restoreData = new HashMap<>();
         restoreData.put("isArchived", false);
         restoreData.put("archivedBy", null);
         restoreData.put("archivedAt", null);
         restoreData.put("archiveReason", null);
-        restoreData.put("coachId", currentCoachId); // ✅ Reassign coach
+        restoreData.put("coachId", currentCoachId);
 
         firestore.collection("users")
                 .document(client.getUid())
@@ -271,12 +260,9 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to restore client: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e("RestoreClient", "Error: " + e.getMessage(), e);
-
-                    // ✅ If restore failed, reload the list
                     loadArchivedClients();
                 });
     }
-
 
     private void showDeleteDialog(coach_clients.Client client) {
         new AlertDialog.Builder(this)
@@ -288,15 +274,13 @@ public class CoachArchiveActivity extends AppCompatActivity {
     }
 
     private void deleteClient(coach_clients.Client client) {
-        // ✅ IMMEDIATELY remove from UI first
         removeArchivedClientFromList(client.getUid());
 
-        // ✅ Soft delete - mark as deleted AND unarchive
         Map<String, Object> deleteData = new HashMap<>();
         deleteData.put("isDeleted", true);
         deleteData.put("deletedAt", com.google.firebase.Timestamp.now());
         deleteData.put("deletedBy", currentCoachId);
-        deleteData.put("isArchived", false); // ✅ Also unarchive so it doesn't show in archive query
+        deleteData.put("isArchived", false);
         deleteData.put("archivedBy", null);
         deleteData.put("archivedAt", null);
         deleteData.put("archiveReason", null);
@@ -310,8 +294,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to delete client: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e("DeleteClient", "Error: " + e.getMessage(), e);
-
-                    // ✅ If delete failed, reload the list
                     loadArchivedClients();
                 });
     }
@@ -343,7 +325,6 @@ public class CoachArchiveActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
 
-        // ✅ Clean up listener
         if (archiveListener != null) {
             archiveListener.remove();
             archiveListener = null;

@@ -48,6 +48,7 @@ public class Notification extends AppCompatActivity {
 
         adapter = new NotificationAdapter(notificationList, notification -> {
             markNotificationAsRead(notification);
+            routeToActivity(notification);
         });
         recyclerView.setAdapter(adapter);
 
@@ -110,7 +111,13 @@ public class Notification extends AppCompatActivity {
         if (!notification.isRead()) {
             db.collection("notifications")
                     .document(notification.getId())
-                    .update("read", true);
+                    .update("read", true)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d("NotificationActivity", "Marked notification as read: " + notification.getId());
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e("NotificationActivity", "Failed to mark notification as read", e);
+                    });
             notification.setRead(true);
 
             // Only update this item in RecyclerView instead of all
@@ -118,6 +125,52 @@ public class Notification extends AppCompatActivity {
             if (index != -1) {
                 adapter.notifyItemChanged(index);
             }
+        }
+    }
+
+    private void routeToActivity(NotificationItem notification) {
+        String type = notification.getType();
+        if (type == null) type = "";
+
+        android.content.Intent intent = null;
+
+        switch (type) {
+            case "promo":
+                intent = new android.content.Intent(this, Promo.class);
+                // Pass the promo image URL so Promo activity can load it
+                String promoUrl = notification.getPromoImageUrl();
+                if (promoUrl != null && !promoUrl.isEmpty()) {
+                    intent.putExtra("promoUrl", promoUrl);
+                    Log.d("NotificationActivity", "Opening promo with URL: " + promoUrl);
+                } else {
+                    Log.w("NotificationActivity", "Promo notification missing promoImageUrl");
+                }
+                break;
+
+            case "achievement":
+                intent = new android.content.Intent(this, Achievement.class);
+                break;
+
+            case "workout_reminder":
+            case "workout":
+                intent = new android.content.Intent(this, WorkoutList.class);
+                break;
+
+            case "membership_expired":
+            case "expiring_soon":
+            case "membership":
+                intent = new android.content.Intent(this, SelectMembership.class);
+                break;
+
+            default:
+                // Unknown type, don't route
+                Log.d("NotificationActivity", "Unknown notification type: " + type);
+                return;
+        }
+
+        if (intent != null) {
+            startActivity(intent);
+            overridePendingTransition(0, 0);
         }
     }
 

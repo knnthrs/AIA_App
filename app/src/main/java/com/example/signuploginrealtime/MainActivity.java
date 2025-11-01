@@ -1,5 +1,5 @@
     package com.example.signuploginrealtime;
-    
+
     import android.Manifest;
     import android.annotation.SuppressLint;
     import android.content.Intent;

@@ -327,14 +327,37 @@ public class activity_workout_complete extends AppCompatActivity {
     private void sendWeeklyGoalNotification(int weekOfYear) {
         String weekKey = "weekly_goal_notified_" + weekOfYear;
 
-        if (!workoutPrefs.getBoolean(weekKey, false)) {
-            NotificationHelper.showNotification(
-                    this,
-                    "Weekly Goal Achieved 🎉",
-                    "Awesome job! You’ve completed your weekly workout goal!"
-            );
+        if (!workoutPrefs.getBoolean(weekKey, false) && mAuth.getCurrentUser() != null) {
+            String userId = mAuth.getCurrentUser().getUid();
+            String title = "Weekly Goal Achieved 🎉";
+            String message = "Awesome job! You've completed your weekly workout goal!";
 
-            workoutPrefs.edit().putBoolean(weekKey, true).apply();
+            // Create notification in Firestore
+            NotificationItem notification = new NotificationItem();
+            notification.setUserId(userId);
+            notification.setTitle(title);
+            notification.setMessage(message);
+            notification.setType("achievement");
+            notification.setTimestamp(System.currentTimeMillis());
+            notification.setRead(false);
+
+            db.collection("notifications")
+                    .add(notification.toMap())
+                    .addOnSuccessListener(documentReference -> {
+                        Log.d(TAG, "Weekly goal notification created: " + documentReference.getId());
+
+                        // Show system notification
+                        NotificationHelper.showNotification(
+                                this,
+                                title,
+                                message
+                        );
+
+                        workoutPrefs.edit().putBoolean(weekKey, true).apply();
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Failed to create weekly goal notification", e);
+                    });
         }
     }
 
@@ -401,6 +424,9 @@ public class activity_workout_complete extends AppCompatActivity {
                     runOnUiThread(() -> {
                         Toast.makeText(this, title, Toast.LENGTH_LONG).show();
                     });
+
+                    // Show system notification
+                    NotificationHelper.showNotification(this, title, message);
                 })
                 .addOnFailureListener(e -> {
                     Log.e(TAG, "Failed to create achievement notification", e);

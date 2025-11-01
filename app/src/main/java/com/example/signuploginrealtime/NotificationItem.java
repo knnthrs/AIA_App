@@ -13,6 +13,7 @@ public class NotificationItem {
     private long timestamp;
     private boolean isRead;
     private String userId;
+    private String promoImageUrl; // For promo notifications
 
     // Default constructor for Firestore
     public NotificationItem() {}
@@ -43,6 +44,7 @@ public class NotificationItem {
     public long getTimestamp() { return timestamp; }
     public boolean isRead() { return isRead; }
     public String getUserId() { return userId; }
+    public String getPromoImageUrl() { return promoImageUrl; }
 
     // Setters
     public void setId(String id) { this.id = id; }
@@ -52,6 +54,7 @@ public class NotificationItem {
     public void setTimestamp(long timestamp) { this.timestamp = timestamp; }
     public void setRead(boolean read) { isRead = read; }
     public void setUserId(String userId) { this.userId = userId; }
+    public void setPromoImageUrl(String promoImageUrl) { this.promoImageUrl = promoImageUrl; }
 
     // Convert to Map for Firestore
     public Map<String, Object> toMap() {

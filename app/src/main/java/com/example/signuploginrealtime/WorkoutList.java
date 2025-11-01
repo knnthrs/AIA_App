@@ -72,7 +72,10 @@ public class WorkoutList extends AppCompatActivity {
         startWorkoutButton = findViewById(R.id.start_button);
 
         ImageButton btnBack = findViewById(R.id.btn_back);
-        btnBack.setOnClickListener(v -> onBackPressed());
+        btnBack.setOnClickListener(v -> {
+            finish();
+            overridePendingTransition(0, 0);
+        });
         ImageButton btnRegenerate = findViewById(R.id.btn_regenerate);
         btnRegenerate.setOnClickListener(v -> showRegenerateDialog());
         overridePendingTransition(0, 0);
@@ -1052,3 +1055,4 @@ public class WorkoutList extends AppCompatActivity {
 
 
 }
+

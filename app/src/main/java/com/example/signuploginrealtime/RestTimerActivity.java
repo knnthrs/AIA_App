@@ -96,6 +96,14 @@ public class RestTimerActivity extends AppCompatActivity {
             if (timer != null) timer.cancel();
             startTimer();
         });
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showExitWorkoutDialog();
+            }
+        });
     }
 
     private void displayNextExerciseInfo() {
@@ -249,10 +257,6 @@ public class RestTimerActivity extends AppCompatActivity {
         if (timer != null) timer.cancel();
     }
 
-    @Override
-    public void onBackPressed() {
-        showExitWorkoutDialog();
-    }
 
     private void showExitWorkoutDialog() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);

@@ -90,6 +90,15 @@ public class Promo extends AppCompatActivity {
 
         backButton.setOnClickListener(v -> finish());
         setupZoom();
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finish();
+                overridePendingTransition(0, 0);
+            }
+        });
     }
 
     private void initializeImageMatrix() {
@@ -249,11 +258,6 @@ public class Promo extends AppCompatActivity {
         }
     }
 
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        overridePendingTransition(0, 0);
-    }
 
     @Override
     public void finish() {

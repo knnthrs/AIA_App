@@ -5,6 +5,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -32,7 +33,7 @@ public class PaymentHistoryActivity extends AppCompatActivity {
     private boolean isSelectionMode = false;
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
+    protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_payment_history);
         overridePendingTransition(0, 0);
@@ -84,6 +85,19 @@ public class PaymentHistoryActivity extends AppCompatActivity {
                     .setNegativeButton("Cancel", null)
                     .create();
             dialog.show();
+        });
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (isSelectionMode) {
+                    exitSelectionMode();
+                } else {
+                    finish();
+                    overridePendingTransition(0, 0);
+                }
+            }
         });
     }
 
@@ -217,15 +231,6 @@ public class PaymentHistoryActivity extends AppCompatActivity {
         return type;
     }
 
-    @Override
-    public void onBackPressed() {
-        if (isSelectionMode) {
-            exitSelectionMode();
-        } else {
-            super.onBackPressed();
-            overridePendingTransition(0, 0);
-        }
-    }
 
     @Override
     public void finish() {

@@ -225,6 +225,18 @@ public class Client_workouts_details extends AppCompatActivity {
 
         // --- 4) Save changes button ---
         saveButton.setOnClickListener(v -> saveWorkoutToFirestore());
+
+        // Handle back press to clear search if visible
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (searchResultsRecycler.getVisibility() == View.VISIBLE) {
+                    clearSearch();
+                } else {
+                    finish();
+                }
+            }
+        });
     }
 
     // ✅ NEW: Method to handle clearing search when user taps elsewhere or wants to dismiss
@@ -237,16 +249,6 @@ public class Client_workouts_details extends AppCompatActivity {
         searchWorkouts.clearFocus();
     }
 
-    // ✅ NEW: Override back button to clear search first
-    @Override
-    public void onBackPressed() {
-        // If search results are visible, clear them first
-        if (searchResultsRecycler.getVisibility() == View.VISIBLE) {
-            clearSearch();
-        } else {
-            super.onBackPressed();
-        }
-    }
 
     // ✅ Add new exercise locally
     private void addExerciseToList(Map<String, Object> exercise) {

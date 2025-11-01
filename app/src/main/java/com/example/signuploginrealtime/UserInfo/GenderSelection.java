@@ -73,22 +73,25 @@ public class GenderSelection extends AppCompatActivity {
                 startActivity(intent);
             }
         });
-    }
 
-    @Override
-    public void onBackPressed() {
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle("Exit Setup?")
-                .setMessage("Your profile setup is not complete. Do you want to exit to login?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    FirebaseAuth.getInstance().signOut();
-                    Intent intent = new Intent(GenderSelection.this, LoginActivity.class);
-                    intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-                    startActivity(intent);
-                    finish();
-                })
-                .setNegativeButton("No", null)
-                .show();
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                new androidx.appcompat.app.AlertDialog.Builder(GenderSelection.this)
+                        .setTitle("Exit Setup?")
+                        .setMessage("Your profile setup is not complete. Do you want to exit to login?")
+                        .setPositiveButton("Yes", (dialog, which) -> {
+                            FirebaseAuth.getInstance().signOut();
+                            Intent intent = new Intent(GenderSelection.this, LoginActivity.class);
+                            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                            startActivity(intent);
+                            finish();
+                        })
+                        .setNegativeButton("No", null)
+                        .show();
+            }
+        });
     }
 
     private void updateCardSelection() {

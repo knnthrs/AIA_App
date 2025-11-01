@@ -1716,10 +1716,4 @@ public class SelectMembership extends AppCompatActivity {
         super.finish();
         overridePendingTransition(0, 0); // ✅ No animation on any finish
     }
-
-    @Override
-    public void onBackPressed() {
-        super.onBackPressed();
-        overridePendingTransition(0, 0); // ✅ No animation on back press
-    }
 }

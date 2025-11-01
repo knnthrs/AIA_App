@@ -10,6 +10,7 @@ import android.webkit.WebViewClient;
 import android.widget.ProgressBar;
 import android.widget.Toast;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -59,6 +60,24 @@ public class PayMongoPaymentActivity extends AppCompatActivity {
 
         setupWebView();
         webView.loadUrl(paymentUrl);
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                new AlertDialog.Builder(PayMongoPaymentActivity.this)
+                        .setTitle("Cancel Payment?")
+                        .setMessage("Are you sure you want to cancel this payment?")
+                        .setPositiveButton("Yes", (dialog, which) -> {
+                            Intent resultIntent = new Intent();
+                            resultIntent.putExtra("paymentSuccess", false);
+                            setResult(RESULT_CANCELED, resultIntent);
+                            finish();
+                        })
+                        .setNegativeButton("No", null)
+                        .show();
+            }
+        });
     }
 
     private void setupWebView() {
@@ -133,22 +152,5 @@ public class PayMongoPaymentActivity extends AppCompatActivity {
                 })
                 .show();
     }
-
-
-    @Override
-    public void onBackPressed() {
-        new AlertDialog.Builder(this)
-                .setTitle("Cancel Payment?")
-                .setMessage("Are you sure you want to cancel this payment?")
-                .setPositiveButton("Yes", (dialog, which) -> {
-                    Intent resultIntent = new Intent();
-                    resultIntent.putExtra("paymentSuccess", false);
-                    setResult(RESULT_CANCELED, resultIntent);
-                    finish();
-                })
-                .setNegativeButton("No", null)
-                .show();
-    }
-
 
 }

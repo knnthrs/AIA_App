@@ -18,6 +18,7 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.firestore.DocumentReference;
@@ -95,6 +96,19 @@ public class QR extends AppCompatActivity {
         loadUserData();
         loadMembershipData();
         loadAttendanceHistory();
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                if (isDeleteMode) {
+                    exitDeleteMode();
+                } else {
+                    finish();
+                    overridePendingTransition(0, 0);
+                }
+            }
+        });
     }
 
     private void initializeViews() {
@@ -138,21 +152,6 @@ public class QR extends AppCompatActivity {
         attendanceHeader.setOnClickListener(v -> toggleAttendanceHistory());
     }
 
-    @Override
-    public void finish() {
-        super.finish();
-        overridePendingTransition(0, 0);
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (isDeleteMode) {
-            exitDeleteMode();
-        } else {
-            super.onBackPressed();
-            overridePendingTransition(0, 0);
-        }
-    }
 
     private void setupRecyclerView() {
         attendanceAdapter = new AttendanceAdapter(attendanceRecords);
@@ -191,6 +190,10 @@ public class QR extends AppCompatActivity {
         if (currentUser != null) {
             firestore = FirebaseFirestore.getInstance();
 
+            if (attendanceListener != null) {
+                attendanceListener.remove();
+            }
+
             attendanceListener = firestore.collection("users")
                     .document(currentUser.getUid())
                     .collection("attendanceHistory")
@@ -208,12 +211,15 @@ public class QR extends AppCompatActivity {
                             int thisMonthCount = 0;
 
                             for (QueryDocumentSnapshot doc : snapshots) {
-                                Long timeInTimestamp = doc.getLong("timeInTimestamp");
-                                Long timeOutTimestamp = doc.getLong("timeOutTimestamp");
+                                try {
+                                    long timeIn = readMillis(doc, "timeInTimestamp", "timeIn", "timelnTimestamp", "time_in");
+                                    long timeOut = readMillis(doc, "timeOutTimestamp", "timeOut", "timeoutTimestamp", "time_out");
 
-                                if (timeInTimestamp != null) {
-                                    long timeIn = timeInTimestamp;
-                                    long timeOut = timeOutTimestamp != null ? timeOutTimestamp : 0;
+                                    if (timeIn <= 0L) {
+                                        // Skip malformed document
+                                        continue;
+                                    }
+
                                     String status = timeOut > 0 ? "completed" : "active";
 
                                     AttendanceRecord record = new AttendanceRecord(timeIn, timeOut, status);
@@ -223,6 +229,8 @@ public class QR extends AppCompatActivity {
                                     if (isThisMonth(timeIn)) {
                                         thisMonthCount++;
                                     }
+                                } catch (Exception ex) {
+                                    Log.w("QR", "Skipping malformed attendance doc: " + doc.getId(), ex);
                                 }
                             }
 
@@ -241,6 +249,37 @@ public class QR extends AppCompatActivity {
                         }
                     });
         }
+    }
+
+    // Helper: read a timestamp-like field from Firestore as milliseconds
+    private long readMillis(DocumentSnapshot doc, String primaryKey, String... alternateKeys) {
+        Object value = doc.get(primaryKey);
+        if (value == null) {
+            for (String k : alternateKeys) {
+                value = doc.get(k);
+                if (value != null) break;
+            }
+        }
+        if (value == null) return 0L;
+
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        if (value instanceof Timestamp) {
+            Date d = ((Timestamp) value).toDate();
+            return d != null ? d.getTime() : 0L;
+        }
+        if (value instanceof Date) {
+            return ((Date) value).getTime();
+        }
+        if (value instanceof String) {
+            try {
+                return Long.parseLong((String) value);
+            } catch (NumberFormatException ignored) {
+                return 0L; // Unknown format, skip
+            }
+        }
+        return 0L;
     }
 
     private void ensureDefaultMembershipRecord() {
@@ -470,16 +509,14 @@ public class QR extends AppCompatActivity {
 
         String qrData = currentUser.getUid(); // Only UID
 
+        // Always render immediately so UI never blocks on Firestore
+        generateQRCode(qrData);
+        showQRCode();
+
+        // Best-effort persist to Firestore
         if (userDocRef != null) {
             userDocRef.update("qrCode", qrData)
-                .addOnSuccessListener(v -> {
-                    generateQRCode(qrData);
-                    showQRCode();
-                })
-                .addOnFailureListener(e -> {
-                    generateQRCode(qrData);
-                    showQRCode();
-                });
+                .addOnFailureListener(e -> Log.w("QR", "Failed to persist qrCode", e));
         }
     }
 
@@ -704,4 +741,10 @@ public class QR extends AppCompatActivity {
                 .setNegativeButton("Cancel", null)
                 .show();
     }
+
+    // XML onClick wrapper (if layout uses android:onClick)
+    public void deleteSelectedAttendance(View v) {
+        deleteSelectedAttendance();
+    }
 }
+

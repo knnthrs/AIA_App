@@ -47,6 +47,14 @@ public class Achievement extends AppCompatActivity {
         setupBottomNavigation();
         initializeViews();
         listenUserProgress();
+
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                finish();
+                overridePendingTransition(0, 0);
+            }
+        });
     }
 
     private void initializeViews() {
@@ -213,11 +221,5 @@ public class Achievement extends AppCompatActivity {
             scaleX.start();
             scaleY.start();
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        finish();  // ✅ Just finish, go back to previous activity
-        overridePendingTransition(0, 0);
     }
 }

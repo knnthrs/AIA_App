@@ -18,6 +18,8 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
+import androidx.activity.OnBackPressedCallback;
+import androidx.activity.OnBackPressedDispatcher;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.graphics.Insets;
@@ -93,6 +95,19 @@ public class coach_clients extends AppCompatActivity {
         setupListeners();
         loadClients();
         loadCoachInfo();
+
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                new android.app.AlertDialog.Builder(coach_clients.this)
+                        .setTitle("Exit App?")
+                        .setMessage("Do you want to exit?")
+                        .setPositiveButton("Yes", (dialog, which) -> finishAffinity())
+                        .setNegativeButton("No", null)
+                        .show();
+            }
+        });
     }
 
     private void initializeViews() {
@@ -657,15 +672,6 @@ public class coach_clients extends AppCompatActivity {
         membershipListeners.clear();
     }
 
-    @Override
-    public void onBackPressed() {
-        new AlertDialog.Builder(this)
-                .setTitle("Exit App?")
-                .setMessage("Do you want to exit?")
-                .setPositiveButton("Yes", (dialog, which) -> finishAffinity())
-                .setNegativeButton("No", null)
-                .show();
-    }
 
     public static class Client {
         private String uid;

@@ -235,6 +235,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             }
         });
 
+        // Migrate back handling to OnBackPressedDispatcher
+        getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showExitWorkoutDialog();
+            }
+        });
     }
     // MODIFIED: Added status parameter
     private void recordAndLogExercisePerformance(int actualRepsAchieved, int actualDurationAchievedSeconds, String status) {
@@ -1558,11 +1565,6 @@ private void fetchAnyAlternativeExercise() {
                 totalSetsPerExercise.add(totalSets);
             }
         }
-    }
-
-    @Override
-    public void onBackPressed() {
-        showExitWorkoutDialog();
     }
 
     private void showExitWorkoutDialog() {

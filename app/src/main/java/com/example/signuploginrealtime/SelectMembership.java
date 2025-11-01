@@ -50,6 +50,7 @@ public class SelectMembership extends AppCompatActivity {
     private View backButton;
     private CardView confirmButtonCard;
     private ProgressBar loadingProgress;
+    private android.widget.CheckBox termsCheckbox;
 
     // Containers for dynamic cards
     private LinearLayout dailyContainer;
@@ -105,6 +106,7 @@ public class SelectMembership extends AppCompatActivity {
         backButton = findViewById(R.id.back_button);
         confirmButtonCard = findViewById(R.id.confirm_membership_button);
         loadingProgress = findViewById(R.id.loading_progress);
+        termsCheckbox = findViewById(R.id.terms_checkbox);
 
         dailyContainer = findViewById(R.id.daily_container);
         standardContainer = findViewById(R.id.standard_container);
@@ -116,6 +118,10 @@ public class SelectMembership extends AppCompatActivity {
         });
 
         confirmButtonCard.setVisibility(View.GONE);
+        termsCheckbox.setVisibility(View.GONE);
+
+        // Make "Terms and Conditions" text clickable
+        setupTermsCheckbox();
 
         // ✅ Display cached packages immediately
         List<Map<String, Object>> cachedPackages = loadPackageDataFromCache();
@@ -150,12 +156,47 @@ public class SelectMembership extends AppCompatActivity {
                 return;
             }
 
+            // Validate terms checkbox
+            if (!termsCheckbox.isChecked()) {
+                Toast.makeText(this, "Please agree to the Terms and Conditions", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
             if (selectedSessions > 0) {
                 showCoachSelectionDialog();
             } else {
                 initiatePayMongoPayment();
             }
         });
+    }
+
+    /**
+     * Setup clickable Terms and Conditions text in checkbox
+     */
+    private void setupTermsCheckbox() {
+        String checkboxText = "I agree to the Terms and Conditions";
+        android.text.SpannableString spannableString = new android.text.SpannableString(checkboxText);
+
+        int start = checkboxText.indexOf("Terms and Conditions");
+        int end = start + "Terms and Conditions".length();
+
+        android.text.style.ClickableSpan clickableSpan = new android.text.style.ClickableSpan() {
+            @Override
+            public void onClick(View widget) {
+                showFullTermsAndConditions();
+            }
+
+            @Override
+            public void updateDrawState(android.text.TextPaint ds) {
+                super.updateDrawState(ds);
+                ds.setColor(Color.parseColor("#2196F3")); // Blue
+                ds.setUnderlineText(true);
+            }
+        };
+
+        spannableString.setSpan(clickableSpan, start, end, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        termsCheckbox.setText(spannableString);
+        termsCheckbox.setMovementMethod(android.text.method.LinkMovementMethod.getInstance());
     }
 
     private void checkExistingMembershipOnce() {
@@ -719,57 +760,62 @@ public class SelectMembership extends AppCompatActivity {
 
         card.addView(mainLayout);
 
-        // Set click listener
+        // Set click listener - Select package and show checkbox
         card.setOnClickListener(v -> {
-            if (hasActiveMembership) {
-                showMembershipChangeConfirmation(card, packageId, type, months, durationDays, sessions, price);
-            } else {
-                selectPackage(card, packageId, type, months, durationDays, sessions, price);
-            }
+            selectPackage(card, packageId, type, months, durationDays, sessions, price);
         });
 
         allCards.add(card);
         return card;
     }
 
-    private void showMembershipChangeConfirmation(CardView card, String packageId,
-                                                  String type, int months, int durationDays,
-                                                  int sessions, double price) {
-        // ✅ Don't show confirmation if current plan is "None"
-        if (currentMembershipPlan == null || currentMembershipPlan.equals("None") || currentMembershipPlan.isEmpty()) {
-            selectPackage(card, packageId, type, months, durationDays, sessions, price);
-            return;
-        }
-
+    /**
+     * Show full Terms and Conditions in a separate scrollable dialog
+     */
+    private void showFullTermsAndConditions() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
-        builder.setTitle("⚠️ Change Membership?");
+        builder.setTitle("Terms and Conditions");
 
-        String expirationInfo = "";
-        if (currentExpirationDate != null) {
-            expirationInfo = "\n\nYour current plan expires on: " +
-                    android.text.format.DateFormat.format("MMM dd, yyyy", currentExpirationDate);
-        }
+        // Create ScrollView for long content
+        android.widget.ScrollView scrollView = new android.widget.ScrollView(this);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        scrollView.setPadding(padding, padding, padding, padding);
 
-        String newPlanDisplay = generateTitleText(type, months, durationDays, sessions);
+        TextView termsText = new TextView(this);
+        termsText.setText("TERMS AND CONDITIONS\n\n" +
+                "1. PAYMENT & SUBSCRIPTION\n" +
+                "• All payments are processed securely through PayMongo\n" +
+                "• Membership becomes active immediately upon successful payment\n" +
+                "• Subscription is valid for the purchased duration only\n\n" +
+                "2. MEMBERSHIP CHANGES\n" +
+                "• Changing or upgrading plans will replace your current membership\n" +
+                "• No refunds will be provided for unused time on previous plans\n" +
+                "• New membership starts immediately upon confirmation\n\n" +
+                "3. CANCELLATION & REFUNDS\n" +
+                "• All sales are final and non-refundable\n" +
+                "• Memberships cannot be transferred to another person\n" +
+                "• You may cancel auto-renewal at any time before expiration\n\n" +
+                "4. GYM ACCESS & USAGE\n" +
+                "• Membership is non-transferable and for personal use only\n" +
+                "• Gym rules and regulations must be followed at all times\n\n" +
+                "5. LIABILITY\n" +
+                "• The gym is not responsible for lost or stolen items\n" +
+                "• Members use facilities at their own risk\n" +
+                "• Medical clearance may be required for certain activities\n\n" +
+                "6. CONDUCT\n" +
+                "• Members must follow all gym rules and staff instructions\n" +
+                "• Inappropriate behavior may result in membership termination\n" +
+                "• Equipment must be used properly and returned after use\n\n" +
+                "By agreeing to these terms, you acknowledge that you have read, understood, and accept all conditions.");
 
-        builder.setMessage("You currently have an active membership:\n\n" +
-                "Current Plan: " + currentMembershipPlan + expirationInfo +
-                "\n\nNew Plan: " + newPlanDisplay +
-                "\n\n⚠️ WARNING: If you proceed with this change, you will:\n" +
-                "• Lose access to your current membership\n" +
-                "• Forfeit any remaining time on your current plan\n" +
-                "• Not receive a refund for the previous payment\n\n" +
-                "Are you sure you want to continue?");
+        termsText.setTextColor(Color.parseColor("#333333"));
+        termsText.setTextSize(14);
+        termsText.setLineSpacing(4, 1.2f);
 
-        builder.setPositiveButton("Yes, Change Membership", (dialog, which) -> {
-            selectPackage(card, packageId, type, months, durationDays, sessions, price);
-            dialog.dismiss();
-        });
+        scrollView.addView(termsText);
+        builder.setView(scrollView);
 
-        builder.setNegativeButton("Cancel", (dialog, which) -> {
-            dialog.dismiss();
-        });
-
+        builder.setPositiveButton("Close", (dialog, which) -> dialog.dismiss());
         builder.setCancelable(true);
 
         AlertDialog dialog = builder.create();
@@ -781,9 +827,8 @@ public class SelectMembership extends AppCompatActivity {
 
         dialog.show();
 
-        // Style the buttons
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#D32F2F"));
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#666666"));
+        // Style the button
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#2196F3")); // Blue
     }
 
 
@@ -894,6 +939,12 @@ public class SelectMembership extends AppCompatActivity {
 
     private void selectPackage(CardView card, String packageId, String type,
                                int months, int durationDays, int sessions, double price) {
+        // Double-click to unselect
+        if (currentlySelectedCard == card && packageId.equals(selectedPackageId)) {
+            unselectPackage();
+            return;
+        }
+
         selectedPackageId = packageId;
         selectedPlanType = type;
         selectedMonths = months;
@@ -903,16 +954,54 @@ public class SelectMembership extends AppCompatActivity {
 
         resetAllCards();
         enlargeCard(card);
+        blackoutOtherCards(card);
         currentlySelectedCard = card;
 
         if (confirmButtonCard.getVisibility() != View.VISIBLE) {
             confirmButtonCard.setVisibility(View.VISIBLE);
+            termsCheckbox.setVisibility(View.VISIBLE);
         }
+    }
+
+    private void unselectPackage() {
+        selectedPackageId = null;
+        selectedPlanType = null;
+        selectedMonths = 0;
+        selectedDurationDays = 0;
+        selectedSessions = 0;
+        selectedPrice = 0;
+        currentlySelectedCard = null;
+
+        resetAllCards();
+        enableAllCards();
+
+        confirmButtonCard.setVisibility(View.GONE);
+        termsCheckbox.setVisibility(View.GONE);
+        termsCheckbox.setChecked(false);
     }
 
     private void resetAllCards() {
         for (CardView card : allCards) {
             card.animate().scaleX(1f).scaleY(1f).setDuration(200).start();
+        }
+    }
+
+    private void blackoutOtherCards(CardView selectedCard) {
+        for (CardView card : allCards) {
+            if (card != selectedCard) {
+                card.setAlpha(0.4f);
+                card.setEnabled(false);
+            } else {
+                card.setAlpha(1f);
+                card.setEnabled(true);
+            }
+        }
+    }
+
+    private void enableAllCards() {
+        for (CardView card : allCards) {
+            card.setAlpha(1f);
+            card.setEnabled(true);
         }
     }
 

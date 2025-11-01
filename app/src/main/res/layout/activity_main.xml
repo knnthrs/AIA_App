@@ -150,12 +150,14 @@
                         app:cardElevation="0dp"
                         android:clickable="true"
                         android:focusable="true"
+                        android:clipChildren="false"
                         android:foreground="?attr/selectableItemBackground">
 
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical"
+                            android:clipChildren="false"
                             android:padding="16dp">
 
                             <!-- Top Row: Title + Status -->
@@ -270,6 +272,54 @@
                                     android:textColor="@color/white"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
+
+                            </LinearLayout>
+
+
+                            <!-- Call-to-Action: Tap to activate membership (shown only when INACTIVE) -->
+                            <LinearLayout
+                                android:id="@+id/membership_cta_container"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:layout_marginStart="40dp"
+                                android:layout_marginEnd="40dp"
+                                android:paddingTop="10dp"
+                                android:paddingBottom="10dp"
+                                android:paddingStart="12dp"
+                                android:paddingEnd="12dp"
+                                android:background="@drawable/rounded_cta_bg"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:visibility="gone">
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:layout_marginEnd="10dp"
+                                    android:src="@drawable/ic_add_circle"
+                                    android:tint="@color/white"
+                                    android:contentDescription="Add membership" />
+
+                                <TextView
+                                    android:id="@+id/membership_cta_text"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Tap to activate membership"
+                                    android:textColor="@color/white"
+                                    android:textStyle="bold"
+                                    android:textSize="13sp"
+                                    android:maxLines="1"
+                                    android:ellipsize="end" />
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:layout_marginStart="10dp"
+                                    android:src="@drawable/ic_chevron_right"
+                                    android:tint="@color/white"
+                                    android:contentDescription="Open" />
 
                             </LinearLayout>
 

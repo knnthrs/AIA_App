@@ -83,7 +83,7 @@
                 android:textSize="22sp"
                 android:textStyle="bold"
                 android:layout_marginTop="30dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginBottom="8dp"
                 android:layout_marginStart="20dp" />
 
             <HorizontalScrollView
@@ -101,7 +101,7 @@
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
-                    android:paddingTop="30dp"
+                    android:paddingTop="10dp"
                     android:paddingBottom="30dp"
                     android:clipChildren="false"
                     android:clipToPadding="false">
@@ -118,8 +118,8 @@
                 android:textColor="#333333"
                 android:textSize="22sp"
                 android:textStyle="bold"
-                android:layout_marginTop="30dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="8dp"
                 android:layout_marginStart="20dp" />
 
             <HorizontalScrollView
@@ -137,7 +137,7 @@
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
-                    android:paddingTop="30dp"
+                    android:paddingTop="10dp"
                     android:paddingBottom="30dp"
                     android:clipChildren="false"
                     android:clipToPadding="false">
@@ -154,8 +154,8 @@
                 android:textColor="#333333"
                 android:textSize="22sp"
                 android:textStyle="bold"
-                android:layout_marginTop="30dp"
-                android:layout_marginBottom="16dp"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="8dp"
                 android:layout_marginStart="20dp" />
 
             <HorizontalScrollView
@@ -173,7 +173,7 @@
                     android:orientation="horizontal"
                     android:paddingStart="20dp"
                     android:paddingEnd="20dp"
-                    android:paddingTop="30dp"
+                    android:paddingTop="10dp"
                     android:paddingBottom="30dp"
                     android:clipChildren="false"
                     android:clipToPadding="false">
@@ -183,6 +183,20 @@
 
         </LinearLayout>
     </ScrollView>
+
+    <!-- Terms and Conditions Checkbox (Above Confirm Button) -->
+    <CheckBox
+        android:id="@+id/terms_checkbox"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="95dp"
+        android:text="I agree to the Terms and Conditions"
+        android:textColor="#666666"
+        android:textSize="14sp"
+        android:visibility="gone" />
 
     <!-- Fixed Confirm Button at Bottom -->
     <androidx.cardview.widget.CardView

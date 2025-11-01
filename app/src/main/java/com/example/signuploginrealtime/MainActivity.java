@@ -201,6 +201,9 @@
     
         }
     
+        private CardView membershipCardView;
+        private LinearLayout membershipCtaContainer;
+
         private void initializeViews() {
             fab = findViewById(R.id.fab);
             greetingText = findViewById(R.id.greeting_text);
@@ -213,6 +216,10 @@
             activitiesCard = findViewById(R.id.activities_card);
             activitiesContainer = findViewById(R.id.activities_horizontal_container);
             notificationBadge = findViewById(R.id.notification_badge);
+
+            // Initialize membership CTA views
+            membershipCardView = findViewById(R.id.membershipCard);
+            membershipCtaContainer = findViewById(R.id.membership_cta_container);
         }
 
         private void showExitDialog() {
@@ -235,6 +242,48 @@
                 dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(0xFF333333); // Dark gray
             }
         }
+
+        /**
+         * Show warning dialog when user with active membership tries to change plan
+         * Uses the EXACT same warning message from SelectMembership
+         */
+        private void showChangeMembershipWarningDialog() {
+            // Get current membership plan name and expiry
+            String currentPlan = cachedPlanType != null ? cachedPlanType : "Unknown Plan";
+            String expirationInfo = "";
+            if (cachedExpiryDate != null && !cachedExpiryDate.isEmpty() && !cachedExpiryDate.equals("—")) {
+                expirationInfo = "\n\nYour current plan expires on: " + cachedExpiryDate;
+            }
+
+            AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this, R.style.RoundedAlertDialog);
+            builder.setTitle("⚠️ Change Membership?");
+            builder.setMessage("You currently have an active membership:\n\n" +
+                    "Current Plan: " + currentPlan + expirationInfo +
+                    "\n\n⚠️ WARNING: If you proceed to change your membership, you will:\n" +
+                    "• Lose access to your current membership\n" +
+                    "• Forfeit any remaining time on your current plan\n" +
+                    "• Not receive a refund for the previous payment\n\n" +
+                    "Do you want to continue to select a new plan?");
+
+            builder.setPositiveButton("Yes, Continue", (d, which) -> {
+                Intent intent = new Intent(MainActivity.this, SelectMembership.class);
+                startActivity(intent);
+                overridePendingTransition(0, 0);
+            });
+            builder.setNegativeButton("Cancel", null);
+
+            AlertDialog dialog = builder.create();
+            dialog.show();
+
+            // Force button colors to be visible - use RED for warning (same as SelectMembership)
+            if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(0xFFD32F2F); // Red (same as SelectMembership)
+            }
+            if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+                dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(0xFF666666); // Gray
+            }
+        }
+
         private void setupPromoListener() {
             CardView promoCard = findViewById(R.id.promo_card);
             ImageView testImage = findViewById(R.id.testImage);
@@ -403,10 +452,25 @@
 
         private void setupClickListeners() {
             findViewById(R.id.membershipCard).setOnClickListener(v -> {
-                Intent intent = new Intent(MainActivity.this, SelectMembership.class);
-                startActivity(intent);
-                overridePendingTransition(0, 0);
+                // Show warning if user already has ACTIVE or EXPIRING membership
+                if ("ACTIVE".equals(cachedMembershipStatus) || "EXPIRING SOON".equals(cachedMembershipStatus)) {
+                    showChangeMembershipWarningDialog();
+                } else {
+                    // For INACTIVE/EXPIRED, directly open SelectMembership
+                    Intent intent = new Intent(MainActivity.this, SelectMembership.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                }
             });
+
+            // CTA container click listener (for INACTIVE users)
+            if (membershipCtaContainer != null) {
+                membershipCtaContainer.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, SelectMembership.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
 
             if (streakCard != null) {
                 streakCard.setOnClickListener(v -> {
@@ -472,6 +536,53 @@
             setupUnreadNotificationListener();
         }
 
+        /**
+         * Show membership CTA with pulse animation when membership is INACTIVE
+         */
+        private void showMembershipCta() {
+            if (membershipCtaContainer != null) {
+                membershipCtaContainer.setVisibility(View.VISIBLE);
+                startPulseAnimation(membershipCtaContainer);
+                Log.d(TAG, "✅ Membership CTA shown with pulse animation");
+            }
+        }
+
+        /**
+         * Hide membership CTA and stop animation when membership becomes ACTIVE
+         */
+        private void hideMembershipCta() {
+            if (membershipCtaContainer != null) {
+                membershipCtaContainer.setVisibility(View.GONE);
+                stopPulseAnimation(membershipCtaContainer);
+                Log.d(TAG, "✅ Membership CTA hidden");
+            }
+        }
+
+        /**
+         * Start pulse animation on a view
+         */
+        private void startPulseAnimation(View view) {
+            if (view == null) return;
+
+            android.view.animation.ScaleAnimation pulse = new android.view.animation.ScaleAnimation(
+                    1f, 1.05f, 1f, 1.05f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+
+            pulse.setDuration(1000);
+            pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+            pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+
+            view.startAnimation(pulse);
+        }
+
+        /**
+         * Stop pulse animation on a view
+         */
+        private void stopPulseAnimation(View view) {
+            if (view == null) return;
+            view.clearAnimation();
+        }
 
         // Helper method to get current week's workout progress
         private void updateGoalsProgressDisplay(DocumentSnapshot firestoreSnapshot) {
@@ -944,6 +1055,11 @@
                                                                 membershipStatus.setTextColor(newColor);
                                                                 planType.setText(newPlanText);
                                                                 expiryDate.setText(newExpiryDate);
+
+                                                                // Hide CTA when membership is not inactive
+                                                                if (!"INACTIVE".equals(newStatus)) {
+                                                                    hideMembershipCta();
+                                                                }
                                                             } else {
                                                                 Log.d(TAG, "📊 Membership data unchanged, skipping UI update");
                                                             }
@@ -1029,6 +1145,11 @@
                 membershipStatus.setTextColor(newColor);
                 planType.setText(newPlanText);
                 expiryDate.setText(newExpiryDate);
+
+                // Hide CTA when membership is not inactive
+                if (!"INACTIVE".equals(newStatus)) {
+                    hideMembershipCta();
+                }
             }
         }
 
@@ -1059,6 +1180,9 @@
                 membershipStatus.setTextColor(newColor);
                 planType.setText(newPlanText);
                 expiryDate.setText(newExpiryDate);
+
+                // Show CTA when membership is inactive
+                showMembershipCta();
             }
         }
 
@@ -1911,6 +2035,11 @@
                 membershipStatus.setText(cachedMembershipStatus);
                 if (cachedStatusColor != null) {
                     membershipStatus.setTextColor(cachedStatusColor);
+                }
+
+                // Show CTA if membership is INACTIVE
+                if ("INACTIVE".equals(cachedMembershipStatus)) {
+                    showMembershipCta();
                 }
             }
 

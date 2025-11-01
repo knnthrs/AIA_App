@@ -114,7 +114,7 @@
                         <!-- ✅ Use FrameLayout to layer image and "no promo" content -->
                         <FrameLayout
                             android:layout_width="match_parent"
-                            android:layout_height="200dp">
+                            android:layout_height="160dp">
 
                             <!-- ✅ Image View (shown when promo exists) -->
                             <ImageView
@@ -136,6 +136,37 @@
                                 android:clickable="true"
                                 android:focusable="true" />
 
+                            <!-- ✅ Clickable hint text overlay (shown when promo exists) -->
+                            <LinearLayout
+                                android:id="@+id/promo_hint_container"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_gravity="bottom"
+                                android:background="#99000000"
+                                android:orientation="horizontal"
+                                android:gravity="center"
+                                android:paddingTop="8dp"
+                                android:paddingBottom="8dp"
+                                android:visibility="gone">
+
+                                <ImageView
+                                    android:layout_width="16dp"
+                                    android:layout_height="16dp"
+                                    android:src="@drawable/ic_info"
+                                    android:layout_marginEnd="6dp"
+                                    android:tint="@color/white"
+                                    android:contentDescription="Info icon" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Tap to view full promo"
+                                    android:textColor="@color/white"
+                                    android:textSize="12sp"
+                                    android:textStyle="bold" />
+
+                            </LinearLayout>
+
                         </FrameLayout>
 
                     </androidx.cardview.widget.CardView>
@@ -147,7 +178,7 @@
                         android:layout_marginBottom="5dp"
                         android:backgroundTint="#2b2b2b"
                         app:cardCornerRadius="24dp"
-                        app:cardElevation="0dp"
+                        app:cardElevation="4dp"
                         android:clickable="true"
                         android:focusable="true"
                         android:clipChildren="false"
@@ -186,6 +217,14 @@
                                     android:textColor="#F44336"
                                     android:textSize="14sp"
                                     android:textStyle="bold" />
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:layout_marginStart="8dp"
+                                    android:src="@drawable/ic_chevron_right"
+                                    android:tint="#888888"
+                                    android:contentDescription="Manage membership" />
 
                             </LinearLayout>
 
@@ -348,17 +387,32 @@
                             android:layout_height="wrap_content"
                             android:orientation="vertical">
 
-                            <TextView
-                                android:id="@+id/tv_activity_status"
+                            <!-- Header with title and chevron -->
+                            <FrameLayout
                                 android:layout_width="match_parent"
-                                android:layout_height="match_parent"
-                                android:layout_marginTop="1dp"
-                                android:gravity="center"
-                                android:text="YOUR WORKOUTS"
-                                android:textColor="@color/black"
-                                android:textSize="20sp"
-                                android:textStyle="bold" />
+                                android:layout_height="wrap_content"
+                                android:paddingTop="1dp">
 
+                                <TextView
+                                    android:id="@+id/tv_activity_status"
+                                    android:layout_width="match_parent"
+                                    android:layout_height="wrap_content"
+                                    android:gravity="center"
+                                    android:text="YOUR WORKOUTS"
+                                    android:textColor="@color/black"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold" />
+
+                                <ImageView
+                                    android:layout_width="20dp"
+                                    android:layout_height="20dp"
+                                    android:layout_gravity="end|center_vertical"
+                                    android:layout_marginEnd="16dp"
+                                    android:src="@drawable/ic_chevron_right"
+                                    android:tint="#666666"
+                                    android:contentDescription="View workouts" />
+
+                            </FrameLayout>
 
                             <!-- Horizontal ScrollView for Dynamic Activities -->
                             <HorizontalScrollView
@@ -401,9 +455,8 @@
                             android:backgroundTint="#2b2b2b"
                             app:cardCornerRadius="24dp"
                             app:cardElevation="0dp"
-                            android:clickable="true"
-                            android:focusable="true"
-                            android:foreground="?attr/selectableItemBackground">
+                            android:clickable="false"
+                            android:focusable="false">
 
                             <LinearLayout
                                 android:layout_width="match_parent"
@@ -451,25 +504,29 @@
                             android:layout_weight="1"
                             android:backgroundTint="#2b2b2b"
                             app:cardCornerRadius="24dp"
-                            app:cardElevation="0dp"
+                            app:cardElevation="4dp"
                             android:clickable="true"
                             android:focusable="true"
                             android:foreground="?attr/selectableItemBackground">
 
-                            <LinearLayout
-                                android:layout_width="177dp"
-                                android:layout_height="match_parent"
-                                android:gravity="center"
-                                android:orientation="vertical"
-                                android:padding="16dp">
+                            <FrameLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="match_parent">
 
-                                <TextView
-                                    android:layout_width="wrap_content"
-                                    android:layout_height="wrap_content"
-                                    android:layout_marginBottom="4dp"
-                                    android:text="Streak"
-                                    android:textColor="@color/white"
-                                    android:textSize="12sp" />
+                                <LinearLayout
+                                    android:layout_width="match_parent"
+                                    android:layout_height="match_parent"
+                                    android:gravity="center"
+                                    android:orientation="vertical"
+                                    android:padding="16dp">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:layout_marginBottom="4dp"
+                                        android:text="Streak"
+                                        android:textColor="@color/white"
+                                        android:textSize="12sp" />
 
                                 <LinearLayout
                                     android:layout_width="wrap_content"
@@ -503,6 +560,18 @@
                                     android:textSize="10sp" />
 
                             </LinearLayout>
+
+                            <!-- Chevron icon indicator -->
+                            <ImageView
+                                android:layout_width="16dp"
+                                android:layout_height="16dp"
+                                android:layout_gravity="top|end"
+                                android:layout_margin="12dp"
+                                android:src="@drawable/ic_chevron_right"
+                                android:tint="#888888"
+                                android:contentDescription="View streak" />
+
+                        </FrameLayout>
 
                         </androidx.cardview.widget.CardView>
 

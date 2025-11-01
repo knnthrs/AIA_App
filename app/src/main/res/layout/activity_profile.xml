@@ -844,6 +844,13 @@
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
 
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="#999999"
+                                android:contentDescription="View payment history" />
+
                         </LinearLayout>
 
                         <!-- Feedback -->
@@ -872,6 +879,13 @@
                                 android:text="Send Feedback"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
+
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="#999999"
+                                android:contentDescription="Send feedback" />
 
                         </LinearLayout>
 
@@ -902,6 +916,12 @@
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
 
+                            <ImageView
+                                android:layout_width="20dp"
+                                android:layout_height="20dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="#999999"
+                                android:contentDescription="Contact us" />
 
                         </LinearLayout>
 

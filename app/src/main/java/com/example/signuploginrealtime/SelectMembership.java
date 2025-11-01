@@ -1198,10 +1198,12 @@ public class SelectMembership extends AppCompatActivity {
 
             String description = generateTitleText(selectedPlanType, selectedMonths, selectedDurationDays, selectedSessions);
             attributes.put("amount", amountInCents);
-            attributes.put("description", description);  // ← UPDATED NA TO
-            attributes.put("remarks", "Membership: " + description);  // ← UPDATED NA TO
+            attributes.put("description", description);
+            attributes.put("remarks", "Membership: " + description);
 
-            data.put("data", new JSONObject().put("attributes", attributes));  // ← CORRECT YANG FORMAT NA YAN
+            data.put("data", new JSONObject().put("attributes", attributes));
+
+            Log.d(TAG, "PayMongo Request: " + data.toString());
 
             OutputStream os = conn.getOutputStream();
             os.write(data.toString().getBytes());

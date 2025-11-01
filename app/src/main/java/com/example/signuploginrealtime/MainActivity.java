@@ -288,6 +288,7 @@
             CardView promoCard = findViewById(R.id.promo_card);
             ImageView testImage = findViewById(R.id.testImage);
             LinearLayout promoLayout = findViewById(R.id.promoLayout);
+            LinearLayout promoHintContainer = findViewById(R.id.promo_hint_container);
 
             // ✅ Add null checks before proceeding
             if (promoCard == null || promoLayout == null) {
@@ -305,6 +306,11 @@
                             .into(testImage);
                 }
 
+                // Show hint that promo is clickable
+                if (promoHintContainer != null) {
+                    promoHintContainer.setVisibility(View.VISIBLE);
+                }
+
                 promoLayout.setOnClickListener(v -> {
                     Intent intent = new Intent(MainActivity.this, Promo.class);
                     intent.putExtra("promoUrl", cachedPromoImageUrl);
@@ -314,6 +320,9 @@
             } else {
                 // Show "No Promo" state
                 showNoPromoState(promoCard, testImage, promoLayout);
+                if (promoHintContainer != null) {
+                    promoHintContainer.setVisibility(View.GONE);
+                }
             }
 
             // Real-time listener
@@ -346,6 +355,11 @@
                                     .placeholder(R.drawable.no_image_placeholder)
                                     .error(R.drawable.no_image_placeholder)
                                     .into(testImage);
+                        }
+
+                        // ✅ Show hint that promo is clickable
+                        if (promoHintContainer != null) {
+                            promoHintContainer.setVisibility(View.VISIBLE);
                         }
 
                         // ✅ Set click listener on the CARD, not just the layout
@@ -389,6 +403,12 @@
 
             if (testImage != null) {
                 testImage.setVisibility(View.GONE);
+            }
+
+            // Hide the hint container when there's no promo
+            LinearLayout promoHintContainer = findViewById(R.id.promo_hint_container);
+            if (promoHintContainer != null) {
+                promoHintContainer.setVisibility(View.GONE);
             }
 
             promoLayout.removeAllViews();

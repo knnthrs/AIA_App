@@ -1689,7 +1689,7 @@ public class SelectMembership extends AppCompatActivity {
                                             "Your membership has expired",
                                             Toast.LENGTH_SHORT).show();
 
-                                   // checkExistingMembership();
+                                    // checkExistingMembership();
                                 });
                             })
                             .addOnFailureListener(e -> {

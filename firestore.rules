@@ -1,0 +1,261 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAdmin() {
+      let userEmail = request.auth.token.email;
+      return request.auth != null &&
+             userEmail != null &&
+             exists(/databases/$(database)/documents/admin/admins) &&
+             userEmail == get(/databases/$(database)/documents/admin/admins).data.email &&
+             get(/databases/$(database)/documents/admin/admins).data.userType == "admin";
+    }
+
+    function isStaff() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/staff/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/staff/$(request.auth.uid)).data.userType == "staff";
+    }
+
+    function isCoach() {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/coaches/$(request.auth.uid));
+    }
+
+    // Helper to check if coach owns the client whose membership this is
+    function isCoachOfClient(membershipId) {
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(membershipId)) &&
+             get(/databases/$(database)/documents/users/$(membershipId)).data.coachId == request.auth.uid;
+    }
+
+    // Helper to check if only sessions field is being updated
+    function onlyUpdatingSessions() {
+      let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+      return affectedKeys.hasOnly(['sessions']);
+    }
+
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Admin
+    match /admin/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Staff
+    match /staff/{docId} {
+      allow read, write: if isAdmin() || request.auth.uid == docId;
+    }
+
+    // Users
+    match /users/{userId} {
+      allow list: if request.auth == null || request.auth != null; // effectively true
+      allow create: if request.auth != null && (
+        request.auth.uid == userId || isAdmin()
+      );
+      allow read: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid == resource.data.coachId ||
+        resource.data.archivedBy == "system" && isCoach() ||
+        isAdmin() ||
+        isStaff() // allow staff to read user docs for scanning
+      );
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.auth.uid == resource.data.coachId ||
+        (isCoachOfArchivedClient() && onlyUpdatingArchiveFields()) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+
+      // Helpers (scoped to users)
+      function isCoachOfArchivedClient() {
+        return request.auth.uid == resource.data.archivedBy ||
+               (resource.data.archivedBy == "system" &&
+                request.resource.data.coachId == request.auth.uid);
+      }
+
+      function onlyUpdatingArchiveFields() {
+        let affectedKeys = request.resource.data.diff(resource.data).affectedKeys();
+        return affectedKeys.hasOnly([
+          'isArchived', 'archivedBy', 'archivedAt', 'coachId',
+          'archiveReason', 'isDeleted', 'deletedAt', 'deletedBy'
+        ]);
+      }
+
+      // Allow staff/admin to write attendance subcollection under users
+      match /attendance/{dateDoc} {
+        allow write: if isStaff() || isAdmin();
+        allow read: if request.auth != null && (
+          request.auth.uid == userId || isAdmin() || isStaff()
+        );
+      }
+
+      // NEW: Allow scanner to mirror into users/{userId}/attendanceHistory
+      match /attendanceHistory/{historyId} {
+        // Scanner needs to query by date (list) and read
+        allow read: if request.auth != null && (
+          request.auth.uid == userId || isAdmin() || isStaff()
+        );
+        // Scanner writes on check-in (create) and check-out (update)
+        allow create, update: if isAdmin() || isStaff();
+        // Only admins can delete history entries
+        allow delete: if isAdmin();
+      }
+
+      // Other user subcollections
+      match /{subCollection}/{docId} {
+        allow read, write: if request.auth != null && (
+          request.auth.uid == userId ||
+          request.auth.uid == get(/databases/$(database)/documents/users/$(userId)).data.coachId ||
+          isAdmin()
+        );
+
+        match /{nestedCollection}/{nestedDocId} {
+          allow read, write: if request.auth != null && (
+            request.auth.uid == userId ||
+            request.auth.uid == get(/databases/$(database)/documents/users/$(userId)).data.coachId ||
+            isAdmin()
+          );
+        }
+      }
+    }
+
+    // Coaches
+    match /coaches/{coachId} {
+      allow list: if request.auth == null || request.auth != null;
+      allow read, write: if request.auth != null && (
+        request.auth.uid == coachId || isAdmin()
+      );
+      allow read: if request.auth != null;
+
+      match /{subCollection}/{docId} {
+        allow read, write: if request.auth != null && (
+          request.auth.uid == coachId || isAdmin()
+        );
+
+        match /{nestedCollection}/{nestedDocId} {
+          allow read, write: if request.auth != null && (
+            request.auth.uid == coachId || isAdmin()
+          );
+        }
+      }
+    }
+
+    // Top-level attendance
+    match /attendance/{docId} {
+      allow read: if request.auth != null;
+      allow write: if isStaff() || isAdmin();
+    }
+
+    // Packages
+    match /packages/{packageId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Promotions
+    match /promotions/{promoId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Exercises
+    match /exercises/{exerciseId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Notifications
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow write: if request.auth != null && (
+        request.auth.uid == request.resource.data.userId || isAdmin()
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+    }
+
+    // Feedback
+    match /feedback/{feedbackId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow read, write: if isAdmin();
+    }
+
+    // Memberships - UPDATED TO ALLOW COACH SESSION MANAGEMENT
+    match /memberships/{membershipId} {
+      allow create: if request.auth != null && (
+        request.auth.uid == membershipId || isAdmin()
+      );
+      allow read: if request.auth != null && (
+        request.auth.uid == membershipId ||
+        isCoachOfClient(membershipId) ||
+        isAdmin() ||
+        isStaff()
+      );
+      // ✅ UPDATED: Allow coaches to update sessions field
+      allow update: if request.auth != null && (
+        request.auth.uid == membershipId ||
+        isAdmin() ||
+        isStaff() ||
+        (isCoachOfClient(membershipId) && onlyUpdatingSessions())
+      );
+      allow delete: if isAdmin();
+    }
+
+    // History
+    match /history/{historyId} {
+      allow create: if request.auth != null && (
+        request.auth.uid == request.resource.data.userId || isAdmin() || isStaff()
+      );
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || isAdmin() || isStaff()
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    // Archives
+    match /userArchives/{userId} {
+      allow read, write, delete: if isAdmin();
+
+      match /{subCollection}/{docId} {
+        allow read, write, delete: if isAdmin();
+      }
+    }
+
+    match /coachArchives/{coachId} {
+      allow read, write, delete: if isAdmin();
+
+      match /{subCollection}/{docId} {
+        allow read, write, delete: if isAdmin();
+      }
+    }
+
+    match /membershipArchives/{membershipId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    match /paymentArchives/{paymentId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    // App Config
+    match /appConfig/{configId} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Password Resets
+    match /password_resets/{email} {
+      allow create: if true;
+      allow read, update: if resource.data.email == email;
+      allow read, write, delete: if isAdmin();
+    }
+  }
+}
+

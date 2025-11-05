@@ -51,7 +51,8 @@
             android:exported="false" />
         <activity
             android:name=".Client_workouts_details"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
         <activity
             android:name=".UserInfo.activity_select_workout_frequency"
             android:exported="false" />

@@ -1,11 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:id="@+id/main"
-    android:background="@drawable/yellowbackg"
+    android:background="@drawable/yellowbackg">
+
+<!-- Main Content Container -->
+<LinearLayout
+    android:id="@+id/main_content"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="vertical">
 
     <!-- top Spacing -->
@@ -46,15 +52,17 @@
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="15dp"
-        android:elevation="8dp">
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="12dp"
+        android:elevation="4dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="20dp">
+            android:padding="12dp">
 
             <!-- Client Name -->
             <TextView
@@ -63,16 +71,16 @@
                 android:layout_height="wrap_content"
                 android:text="John Doe"
                 android:textColor="@color/black"
-                android:textSize="24sp"
+                android:textSize="20sp"
                 android:textStyle="bold"
-                android:layout_marginBottom="16dp" />
+                android:layout_marginBottom="8dp" />
 
             <!-- Weight and Height -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
+                android:layout_marginBottom="8dp">
 
                 <LinearLayout
                     android:layout_width="0dp"
@@ -85,7 +93,7 @@
                         android:layout_height="wrap_content"
                         android:text="Weight"
                         android:textColor="@android:color/darker_gray"
-                        android:textSize="14sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/client_weight"
@@ -93,9 +101,9 @@
                         android:layout_height="wrap_content"
                         android:text="75 kg"
                         android:textColor="@color/black"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="4dp" />
+                        android:layout_marginTop="2dp" />
 
                 </LinearLayout>
 
@@ -110,7 +118,7 @@
                         android:layout_height="wrap_content"
                         android:text="Height"
                         android:textColor="@android:color/darker_gray"
-                        android:textSize="14sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/client_height"
@@ -118,9 +126,9 @@
                         android:layout_height="wrap_content"
                         android:text="180 cm"
                         android:textColor="@color/black"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="4dp" />
+                        android:layout_marginTop="2dp" />
 
                 </LinearLayout>
 
@@ -143,7 +151,7 @@
                         android:layout_height="wrap_content"
                         android:text="Goal"
                         android:textColor="@android:color/darker_gray"
-                        android:textSize="14sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/client_goal"
@@ -151,9 +159,9 @@
                         android:layout_height="wrap_content"
                         android:text="Weight Loss"
                         android:textColor="@color/black"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="4dp" />
+                        android:layout_marginTop="2dp" />
 
                 </LinearLayout>
 
@@ -168,7 +176,7 @@
                         android:layout_height="wrap_content"
                         android:text="Activity Level"
                         android:textColor="@android:color/darker_gray"
-                        android:textSize="14sp" />
+                        android:textSize="12sp" />
 
                     <TextView
                         android:id="@+id/workout_frequency"
@@ -176,13 +184,79 @@
                         android:layout_height="wrap_content"
                         android:text="Sedentary"
                         android:textColor="@color/black"
-                        android:textSize="18sp"
+                        android:textSize="16sp"
                         android:textStyle="bold"
-                        android:layout_marginTop="4dp" />
+                        android:layout_marginTop="2dp" />
 
                 </LinearLayout>
 
             </LinearLayout>
+
+        </LinearLayout>
+
+    </androidx.cardview.widget.CardView>
+
+    <!-- PT Sessions Card -->
+    <androidx.cardview.widget.CardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="8dp"
+        app:cardCornerRadius="12dp"
+        android:elevation="4dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PT Sessions"
+                android:textColor="@color/black"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="6dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Remaining Sessions:"
+                    android:textColor="@android:color/darker_gray"
+                    android:textSize="14sp" />
+
+                <TextView
+                    android:id="@+id/client_remaining_sessions"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="10"
+                    android:textColor="@color/black"
+                    android:textSize="20sp"
+                    android:textStyle="bold" />
+
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_mark_session_complete"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Mark Session Complete"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:backgroundTint="@color/yellow"
+                android:layout_marginTop="8dp"
+                android:padding="8dp" />
 
         </LinearLayout>
 
@@ -200,34 +274,30 @@
         android:layout_marginTop="8dp"
         android:layout_marginBottom="8dp" />
 
-    <!-- Search Bar -->
-    <EditText
-        android:id="@+id/search_workouts"
-        android:layout_width="350dp"
+    <!-- Search Trigger Field (placeholder in main content) -->
+    <TextView
+        android:id="@+id/search_trigger"
+        android:layout_width="match_parent"
         android:layout_height="40dp"
         android:layout_marginHorizontal="16dp"
         android:layout_marginBottom="12dp"
         android:hint="🔍︎ Search to add workouts"
         android:textStyle="italic"
         android:paddingStart="20dp"
-        android:textColor="@color/black"
+        android:gravity="center_vertical"
+        android:textColor="@android:color/darker_gray"
         android:background="@drawable/search_background"
-        android:drawablePadding="12dp"
-        android:inputType="text" />
-
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/search_results_recycler"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="8dp"
-        android:visibility="gone"/>
+        android:clickable="true"
+        android:focusable="true" />
 
     <!-- Scrollable Section with RecyclerView and Bottom Content -->
     <LinearLayout
+        android:id="@+id/workouts_section"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:visibility="visible">
 
         <!-- Workouts RecyclerView - This will be the scrollable part -->
         <androidx.recyclerview.widget.RecyclerView
@@ -237,6 +307,7 @@
             android:layout_weight="1"
             android:layout_marginHorizontal="8dp"
             android:orientation="vertical"
+            android:nestedScrollingEnabled="false"
             tools:itemCount="4"
             tools:listitem="@layout/item_editable_exercise" />
 
@@ -299,3 +370,69 @@
         android:layout_height="24dp" />
 
 </LinearLayout>
+<!-- End Main Content -->
+
+<!-- Floating Search Overlay - Appears at top when active -->
+<LinearLayout
+    android:id="@+id/search_overlay_container"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/yellowbackg"
+    android:visibility="gone">
+
+    <!-- Search Bar with Back Button -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingHorizontal="10dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:background="@drawable/yellowbackg"
+        android:elevation="8dp">
+
+        <ImageView
+            android:id="@+id/search_back_button"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:src="@drawable/ic_arrow_back"
+            android:padding="2dp"
+            android:layout_marginEnd="6dp"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackgroundBorderless" />
+
+        <EditText
+            android:id="@+id/search_workouts"
+            android:layout_width="0dp"
+            android:layout_height="34dp"
+            android:layout_weight="1"
+            android:hint="🔍︎ Search to add workouts"
+            android:textStyle="italic"
+            android:textSize="14sp"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:gravity="center_vertical"
+            android:textColor="@color/black"
+            android:background="@drawable/search_background"
+            android:inputType="text" />
+
+    </LinearLayout>
+
+    <!-- Search Results -->
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/search_results_recycler"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:paddingHorizontal="8dp"
+        android:paddingTop="0dp"
+        android:paddingBottom="8dp"
+        android:clipToPadding="false"
+        android:scrollbars="vertical" />
+
+</LinearLayout>
+
+</FrameLayout>
+

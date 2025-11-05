@@ -53,6 +53,9 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         holder.clientEmail.setText(client.getEmail());
         holder.clientStatus.setText(client.getStatus());
 
+        // PT sessions info is shown in Client Workout Details, so hide it here
+        holder.clientSessions.setVisibility(View.GONE);
+
         String profilePictureUrl = client.getProfilePictureUrl();
 
         if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
@@ -108,7 +111,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
 
     public static class ClientViewHolder extends RecyclerView.ViewHolder {
         CardView clientCard;
-        TextView clientName, clientEmail, clientStatus, clientAvatar;
+        TextView clientName, clientEmail, clientStatus, clientAvatar, clientSessions;
         ImageView clientProfileImage;
 
         public ClientViewHolder(@NonNull View itemView) {
@@ -119,6 +122,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientStatus = itemView.findViewById(R.id.client_status);
             clientAvatar = itemView.findViewById(R.id.client_avatar);
             clientProfileImage = itemView.findViewById(R.id.client_profile_image);
+            clientSessions = itemView.findViewById(R.id.client_sessions);
         }
     }
 }

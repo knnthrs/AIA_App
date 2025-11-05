@@ -431,23 +431,26 @@ public class coach_clients extends AppCompatActivity {
         }
 
         com.google.firebase.firestore.ListenerRegistration registration = firestore.collection("memberships")
-                .whereEqualTo("userId", userId)
-                .addSnapshotListener((querySnapshot, error) -> {
+                .document(userId)
+                .addSnapshotListener((documentSnapshot, error) -> {
                     if (error != null) {
                         Log.e("Membership", "Error listening for membership updates", error);
                         return;
                     }
 
                     boolean hasActiveMembership = false;
-                    if (querySnapshot != null && !querySnapshot.isEmpty()) {
-                        for (QueryDocumentSnapshot document : querySnapshot) {
-                            String statusField = document.getString("membershipStatus");
-                            if (statusField != null && statusField.equalsIgnoreCase("active")) {
-                                Timestamp expirationTimestamp = document.getTimestamp("membershipExpirationDate");
-                                if (expirationTimestamp != null && expirationTimestamp.toDate().after(new Date())) {
-                                    hasActiveMembership = true;
-                                    break;
-                                }
+                    int sessionsCount = 0;
+
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        String statusField = documentSnapshot.getString("membershipStatus");
+                        if (statusField != null && statusField.equalsIgnoreCase("active")) {
+                            Timestamp expirationTimestamp = documentSnapshot.getTimestamp("membershipExpirationDate");
+                            if (expirationTimestamp != null && expirationTimestamp.toDate().after(new Date())) {
+                                hasActiveMembership = true;
+
+                                // Get sessions count
+                                Long sessions = documentSnapshot.getLong("sessions");
+                                sessionsCount = sessions != null ? sessions.intValue() : 0;
                             }
                         }
                     }
@@ -458,8 +461,9 @@ public class coach_clients extends AppCompatActivity {
                         return;
                     }
 
-                    Log.d("Membership", "✅ Active membership confirmed for: " + client.getName());
+                    Log.d("Membership", "✅ Active membership confirmed for: " + client.getName() + " with " + sessionsCount + " sessions");
                     client.setStatus("Active");
+                    client.setSessions(sessionsCount);
 
                     int index = filteredClientsList.indexOf(client);
                     if (index >= 0) {
@@ -683,6 +687,7 @@ public class coach_clients extends AppCompatActivity {
         private String goal;
         private String activityLevel;
         private String profilePictureUrl;
+        private int sessions;
 
         public Client() {}
 
@@ -694,6 +699,7 @@ public class coach_clients extends AppCompatActivity {
             this.height = height;
             this.goal = goal;
             this.activityLevel = activityLevel;
+            this.sessions = 0;
         }
 
         public String getUid() { return uid; }
@@ -705,9 +711,11 @@ public class coach_clients extends AppCompatActivity {
         public String getGoal() { return goal; }
         public String getActivityLevel() { return activityLevel; }
         public String getProfilePictureUrl() { return profilePictureUrl; }
+        public int getSessions() { return sessions; }
 
         public void setUid(String uid) { this.uid = uid; }
         public void setStatus(String status) { this.status = status; }
         public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
+        public void setSessions(int sessions) { this.sessions = sessions; }
     }
 }

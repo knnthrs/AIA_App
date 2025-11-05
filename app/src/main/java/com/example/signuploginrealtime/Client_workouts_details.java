@@ -39,11 +39,19 @@ import java.util.Set;
 
 public class Client_workouts_details extends AppCompatActivity {
 
+    private static final String TAG = "ClientWorkoutDetails";
+
     private TextView clientName, clientWeight, clientHeight, clientGoal, workoutFrequency;
+    private TextView clientRemainingSessions;
+    private Button markSessionCompleteButton;
     private Set<String> alreadyAddedNames = new HashSet<>();
     private SearchResultsAdapter searchAdapter;
     private EditText searchWorkouts;
     private RecyclerView searchResultsRecycler;
+    private ImageView searchBackButton;
+    private View workoutsSection;
+    private View searchOverlayContainer;
+    private View mainContent;
 
     private WorkoutExerciseAdapter workoutAdapter;
     private List<WorkoutExercise> workoutExercises = new ArrayList<>();
@@ -51,6 +59,8 @@ public class Client_workouts_details extends AppCompatActivity {
     private String clientUid;
     private DocumentReference workoutRef;
     private Button saveButton;
+    private int currentSessions = 0;
+    private boolean hasChanges = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -73,6 +83,8 @@ public class Client_workouts_details extends AppCompatActivity {
         clientHeight = findViewById(R.id.client_height);
         clientGoal = findViewById(R.id.client_goal);
         workoutFrequency = findViewById(R.id.workout_frequency);
+        clientRemainingSessions = findViewById(R.id.client_remaining_sessions);
+        markSessionCompleteButton = findViewById(R.id.btn_mark_session_complete);
         saveButton = findViewById(R.id.btn_save_changes);
         saveButton.setVisibility(View.GONE);
 
@@ -87,6 +99,24 @@ public class Client_workouts_details extends AppCompatActivity {
             finish();
             return;
         }
+
+        // Setup mark session button click listener
+        markSessionCompleteButton.setOnClickListener(v -> markSessionComplete(db));
+
+        // Initialize search overlay and main content
+        searchOverlayContainer = findViewById(R.id.search_overlay_container);
+        mainContent = findViewById(R.id.main_content);
+
+        // Initialize search trigger in main content
+        View searchTrigger = findViewById(R.id.search_trigger);
+        searchTrigger.setOnClickListener(v -> showSearchOverlay());
+
+        // Initialize search back button
+        searchBackButton = findViewById(R.id.search_back_button);
+        searchBackButton.setOnClickListener(v -> clearSearch());
+
+        // Initialize workouts section
+        workoutsSection = findViewById(R.id.workouts_section);
 
         // 🔹 Reference to workout doc
         workoutRef = db.collection("users")
@@ -106,6 +136,9 @@ public class Client_workouts_details extends AppCompatActivity {
                         workoutFrequency.setText(snapshot.getString("fitnessLevel"));
                     }
                 });
+
+        // --- Load PT Sessions ---
+        loadPTSessions(db);
 
         // --- 2) Load workout exercises ---
         workoutRef.get().addOnSuccessListener(documentSnapshot -> {
@@ -179,9 +212,7 @@ public class Client_workouts_details extends AppCompatActivity {
                 String query = s == null ? "" : s.toString().trim();
 
                 if (query.isEmpty()) {
-                    // ✅ Use the new clearResults() method instead of manual clearing
                     searchAdapter.clearResults();
-                    searchResultsRecycler.setVisibility(View.GONE);
                     return;
                 }
 
@@ -205,20 +236,12 @@ public class Client_workouts_details extends AppCompatActivity {
                                 }
                             }
 
-                            // ✅ Use the new updateResults() method
                             searchAdapter.updateResults(newResults);
-
-                            // ✅ Use the new isEmpty() method for cleaner code
-                            searchResultsRecycler.setVisibility(
-                                    searchAdapter.isEmpty() ? View.GONE : View.VISIBLE
-                            );
                         })
                         .addOnFailureListener(e -> {
                             Log.e(TAG, "search error", e);
                             Toast.makeText(Client_workouts_details.this, "Search failed", Toast.LENGTH_SHORT).show();
-                            // ✅ Also clear results on error
                             searchAdapter.clearResults();
-                            searchResultsRecycler.setVisibility(View.GONE);
                         });
             }
         });
@@ -230,7 +253,7 @@ public class Client_workouts_details extends AppCompatActivity {
         getOnBackPressedDispatcher().addCallback(this, new androidx.activity.OnBackPressedCallback(true) {
             @Override
             public void handleOnBackPressed() {
-                if (searchResultsRecycler.getVisibility() == View.VISIBLE) {
+                if (searchOverlayContainer.getVisibility() == View.VISIBLE) {
                     clearSearch();
                 } else {
                     finish();
@@ -239,14 +262,26 @@ public class Client_workouts_details extends AppCompatActivity {
         });
     }
 
-    // ✅ NEW: Method to handle clearing search when user taps elsewhere or wants to dismiss
+    // Show search overlay at the top
+    private void showSearchOverlay() {
+        searchOverlayContainer.setVisibility(View.VISIBLE);
+        searchWorkouts.requestFocus();
+
+        // Show keyboard
+        android.view.inputmethod.InputMethodManager imm =
+            (android.view.inputmethod.InputMethodManager) getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.showSoftInput(searchWorkouts, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+        }
+    }
+
+    // Clear search and hide overlay
     private void clearSearch() {
         searchWorkouts.setText("");
         searchAdapter.clearResults();
-        searchResultsRecycler.setVisibility(View.GONE);
-
-        // Also clear focus from the EditText
+        searchOverlayContainer.setVisibility(View.GONE);
         searchWorkouts.clearFocus();
+        hideKeyboard();
     }
 
 
@@ -310,12 +345,89 @@ public class Client_workouts_details extends AppCompatActivity {
                         Toast.makeText(this, "Save failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
-    private boolean hasChanges = false;
+    // Load PT Sessions from membership
+    private void loadPTSessions(FirebaseFirestore db) {
+        db.collection("memberships")
+                .document(clientUid)
+                .addSnapshotListener((documentSnapshot, error) -> {
+                    if (error != null) {
+                        Log.e(TAG, "Error loading PT sessions", error);
+                        return;
+                    }
+
+                    if (documentSnapshot != null && documentSnapshot.exists()) {
+                        Long sessions = documentSnapshot.getLong("sessions");
+                        currentSessions = sessions != null ? sessions.intValue() : 0;
+                        clientRemainingSessions.setText(String.valueOf(currentSessions));
+
+                        // Disable button if no sessions remaining
+                        if (currentSessions <= 0) {
+                            markSessionCompleteButton.setEnabled(false);
+                            markSessionCompleteButton.setAlpha(0.5f);
+                        } else {
+                            markSessionCompleteButton.setEnabled(true);
+                            markSessionCompleteButton.setAlpha(1.0f);
+                        }
+                    } else {
+                        currentSessions = 0;
+                        clientRemainingSessions.setText("0");
+                        markSessionCompleteButton.setEnabled(false);
+                        markSessionCompleteButton.setAlpha(0.5f);
+                    }
+                });
+    }
+
+    // Mark session as complete and decrease count
+    private void markSessionComplete(FirebaseFirestore db) {
+        if (currentSessions <= 0) {
+            Toast.makeText(this, "No sessions remaining!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Show confirmation dialog
+        new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle("Mark Session Complete")
+                .setMessage("Confirm that you completed a session with this client? This will reduce their remaining sessions by 1.")
+                .setPositiveButton("Confirm", (dialog, which) -> {
+                    // Decrease sessions in membership document
+                    int newSessionCount = currentSessions - 1;
+
+                    Map<String, Object> updates = new HashMap<>();
+                    updates.put("sessions", newSessionCount);
+
+                    db.collection("memberships")
+                            .document(clientUid)
+                            .update(updates)
+                            .addOnSuccessListener(aVoid -> {
+                                Toast.makeText(this, "Session marked complete! Remaining: " + newSessionCount, Toast.LENGTH_SHORT).show();
+                                Log.d(TAG, "Session completed. New count: " + newSessionCount);
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "Failed to update sessions: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                Log.e(TAG, "Error updating sessions", e);
+                            });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
 
     private void onWorkoutChanged() {
         if (!hasChanges) {
             hasChanges = true;
             saveButton.setVisibility(View.VISIBLE); // show the save button
+        }
+    }
+
+    // Hide soft keyboard
+    private void hideKeyboard() {
+        View view = getCurrentFocus();
+        if (view == null) {
+            view = new View(this);
+        }
+        android.view.inputmethod.InputMethodManager imm =
+            (android.view.inputmethod.InputMethodManager) getSystemService(android.content.Context.INPUT_METHOD_SERVICE);
+        if (imm != null) {
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
     }
 }

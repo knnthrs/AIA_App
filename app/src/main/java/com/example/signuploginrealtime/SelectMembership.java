@@ -72,8 +72,8 @@ public class SelectMembership extends AppCompatActivity {
     private FirebaseFirestore db;
     private String currentUserId;
     private Executor executor = Executors.newSingleThreadExecutor();
-    private ListenerRegistration packagesListener;  // ✅ ADD THIS
-    private ListenerRegistration membershipListener;  // ✅ ADD THIS
+    private ListenerRegistration packagesListener;
+    private ListenerRegistration membershipListener;
 
     private CardView currentlySelectedCard = null;
     private List<CardView> allCards = new ArrayList<>();
@@ -81,10 +81,10 @@ public class SelectMembership extends AppCompatActivity {
     private String selectedCoachId = null;
     private String selectedCoachName = null;
     private List<String> loadedPackageIds = new ArrayList<>();
-    private boolean isInitialLoad = true; // ✅ ADD THIS
+    private boolean isInitialLoad = true;
     private boolean warningBannerShown = false;
-    private SharedPreferences packageCache; // ✅ BAGONG LINE
-    private boolean packagesDisplayedFromCache = false; // ✅ BAGONG LINE
+    private SharedPreferences packageCache;
+    private boolean packagesDisplayedFromCache = false;
 
 
 
@@ -123,7 +123,7 @@ public class SelectMembership extends AppCompatActivity {
         // Make "Terms and Conditions" text clickable
         setupTermsCheckbox();
 
-        // ✅ Display cached packages immediately
+        // Display cached packages immediately
         List<Map<String, Object>> cachedPackages = loadPackageDataFromCache();
         if (!cachedPackages.isEmpty()) {
             dailyContainer.removeAllViews();
@@ -169,10 +169,6 @@ public class SelectMembership extends AppCompatActivity {
             }
         });
     }
-
-    /**
-     * Setup clickable Terms and Conditions text in checkbox
-     */
     private void setupTermsCheckbox() {
         String checkboxText = "I agree to the Terms and Conditions";
         android.text.SpannableString spannableString = new android.text.SpannableString(checkboxText);
@@ -200,7 +196,7 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void checkExistingMembershipOnce() {
-        // ✅ ONE-TIME check using .get() instead of listener
+        // ONE-TIME check using .get() instead of listener
         db.collection("memberships")
                 .document(currentUserId)
                 .get()
@@ -232,7 +228,7 @@ public class SelectMembership extends AppCompatActivity {
 
                             showActiveMembershipWarning();
 
-                            // ✅ NOW setup real-time listener AFTER initial UI is done
+                            //NOW setup real-time listener AFTER initial UI is done
                             setupMembershipListener();
                         } else {
                             hasActiveMembership = false;
@@ -253,7 +249,7 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void setupMembershipListener() {
-        // ✅ Real-time updates AFTER initial load
+        //Real-time updates AFTER initial load
         membershipListener = db.collection("memberships")
                 .document(currentUserId)
                 .addSnapshotListener((documentSnapshot, error) -> {
@@ -457,7 +453,7 @@ public class SelectMembership extends AppCompatActivity {
 
                     if (queryDocumentSnapshots == null) return;
 
-                    // ✅ Build NEW signatures AND package data
+                    // Build NEW signatures AND package data
                     List<String> newPackageSignatures = new ArrayList<>();
                     List<Map<String, Object>> packagesData = new ArrayList<>();
 
@@ -478,7 +474,7 @@ public class SelectMembership extends AppCompatActivity {
                         String signature = packageId + "_" + price + "_" + type + "_" + months + "_" + sessions;
                         newPackageSignatures.add(signature);
 
-                        // ✅ Build package data for cache
+                        // Build package data for cache
                         Map<String, Object> packageData = new HashMap<>();
                         packageData.put("id", packageId);
                         packageData.put("type", type);
@@ -489,13 +485,13 @@ public class SelectMembership extends AppCompatActivity {
                         packagesData.add(packageData);
                     }
 
-                    // ✅ Sort both lists before comparing
+                    // Sort both lists before comparing
                     List<String> sortedOld = new ArrayList<>(loadedPackageIds);
                     List<String> sortedNew = new ArrayList<>(newPackageSignatures);
                     java.util.Collections.sort(sortedOld);
                     java.util.Collections.sort(sortedNew);
 
-                    // ✅ Check if ACTUALLY changed
+                    // Check if ACTUALLY changed
                     if (sortedOld.equals(sortedNew)) {
                         Log.d(TAG, "📦 Packages unchanged, skipping UI rebuild");
                         return;
@@ -503,7 +499,7 @@ public class SelectMembership extends AppCompatActivity {
 
                     Log.d(TAG, "📦 Packages changed, reloading...");
 
-                    // ✅ UPDATE CACHE with new data
+                    //UPDATE CACHE with new data
                     savePackageDataToCache(packagesData);
 
                     if (packageCache == null) {
@@ -548,7 +544,7 @@ public class SelectMembership extends AppCompatActivity {
 
 
     private void showActiveMembershipWarning() {
-        // ✅ Prevent duplicate banners
+        // Prevent duplicate banners
         if (warningBannerShown) {
             Log.d(TAG, "⚠️ Warning banner already shown, skipping");
             return;
@@ -617,7 +613,7 @@ public class SelectMembership extends AppCompatActivity {
         // Insert banner at the top
         scrollContent.addView(warningBanner, 0);
 
-        warningBannerShown = true; // ✅ Mark as shown
+        warningBannerShown = true;
         Log.d(TAG, "✅ Warning banner added");
     }
 
@@ -768,10 +764,6 @@ public class SelectMembership extends AppCompatActivity {
         allCards.add(card);
         return card;
     }
-
-    /**
-     * Show full Terms and Conditions in a separate scrollable dialog
-     */
     private void showFullTermsAndConditions() {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Terms and Conditions");
@@ -1010,7 +1002,7 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void showCoachSelectionDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle); // ✅ Add style
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
         builder.setTitle("Personal Training Coach");
         builder.setMessage("This membership includes " + selectedSessions + " PT sessions.\n\nHow would you like to choose your coach?");
 
@@ -1026,16 +1018,16 @@ public class SelectMembership extends AppCompatActivity {
 
         builder.setCancelable(true);
 
-        AlertDialog dialog = builder.create(); // ✅ Create the dialog first
+        AlertDialog dialog = builder.create(); // Create the dialog first
 
-        // ✅ Apply rounded background
+        // Apply rounded background
         if (dialog.getWindow() != null) {
             dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
         }
 
-        dialog.show(); // ✅ Show the dialog
+        dialog.show(); //Show the dialog
 
-        // ✅ Style the buttons after showing
+        // Style the buttons after showing
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#4CAF50")); // Green
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#2196F3")); // Blue
     }
@@ -1074,7 +1066,7 @@ public class SelectMembership extends AppCompatActivity {
                         initiatePayMongoPayment();
                     });
 
-                    builder.setNegativeButton("Cancel", (dialog, which) -> {  // ✅ Add action
+                    builder.setNegativeButton("Cancel", (dialog, which) -> {
                         dialog.dismiss();
                     });
 
@@ -1086,7 +1078,7 @@ public class SelectMembership extends AppCompatActivity {
 
                     dialog.show();
 
-                    // ✅ Style the Cancel button after showing
+                    // Style the Cancel button after showing
                     dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#D32F2F")); // Red
                 })
                 .addOnFailureListener(e -> {
@@ -1100,7 +1092,7 @@ public class SelectMembership extends AppCompatActivity {
         loadingProgress.setVisibility(View.VISIBLE);
 
         db.collection("coaches")
-                .get()  // ✅ Remove yung .whereEqualTo("status", "active")
+                .get()  // Remove yung .whereEqualTo("status", "active")
                 .addOnSuccessListener(querySnapshot -> {
                     loadingProgress.setVisibility(View.GONE);
 
@@ -1320,7 +1312,7 @@ public class SelectMembership extends AppCompatActivity {
                     if (existingDoc.exists() && "active".equals(existingDoc.getString("membershipStatus"))) {
                         String existingPlanType = existingDoc.getString("membershipPlanType");  // ✅ ADD THIS
 
-                        // ✅ Check BOTH planLabel AND planType
+                        // Check BOTH planLabel AND planType
                         if (existingPlanType != null && !existingPlanType.isEmpty() && !existingPlanType.equals("None")) {
 
                             Log.d(TAG, "Replacing existing membership: " + existingPlanType);
@@ -1369,7 +1361,7 @@ public class SelectMembership extends AppCompatActivity {
         Log.d(TAG, "Start Date: " + startTimestamp.toDate());
         Log.d(TAG, "Expiration Date: " + expirationTimestamp.toDate());
 
-        // ✅ STEP 1: Update the user's membership document
+        // Update the user's membership document
         Map<String, Object> membershipData = new HashMap<>();
         membershipData.put("fullname", fullName);
         membershipData.put("userId", userId);
@@ -1383,7 +1375,7 @@ public class SelectMembership extends AppCompatActivity {
         membershipData.put("membershipExpirationDate", expirationTimestamp);
         membershipData.put("lastUpdated", Timestamp.now());
 
-        // ✅ Save coach info if selected
+        // Save coach info if selected
         if (selectedCoachId != null) {
             membershipData.put("coachId", selectedCoachId);
             membershipData.put("coachName", selectedCoachName);
@@ -1408,7 +1400,7 @@ public class SelectMembership extends AppCompatActivity {
                     userUpdate.put("months", selectedMonths);
                     userUpdate.put("sessions", selectedSessions);
 
-                    // ✅ Save coach assignment if PT package
+                    //  Save coach assignment if PT package
                     if (selectedCoachId != null) {
                         userUpdate.put("coachId", selectedCoachId);
                     }
@@ -1422,7 +1414,7 @@ public class SelectMembership extends AppCompatActivity {
                             .addOnSuccessListener(v -> {
                                 Log.d(TAG, "✅ User document updated successfully");
 
-                                // ✅ STEP 3: Add to history collection
+                                // Add to history collection
                                 Map<String, Object> historyData = new HashMap<>();
                                 historyData.put("fullname", fullName);
                                 historyData.put("userId", userId);
@@ -1444,7 +1436,7 @@ public class SelectMembership extends AppCompatActivity {
                                         .addOnSuccessListener(historyDocRef -> {
                                             Log.d(TAG, "📜 History record added: " + historyDocRef.getId());
 
-                                            // ✅ STEP 4: Add payment record
+                                            //Add payment record
                                             Map<String, Object> paymentData = new HashMap<>();
                                             paymentData.put("userId", userId);
                                             paymentData.put("fullname", fullName);
@@ -1469,7 +1461,7 @@ public class SelectMembership extends AppCompatActivity {
                                                         Log.d(TAG, "💰 Payment added to paymentHistory: " + paymentDocRef.getId());
                                                         Log.d(TAG, "🎉 ALL STEPS COMPLETED! Navigating to MainActivity...");
 
-                                                        // ✅ STEP 5: Navigate to MainActivity
+                                                        //Navigate to MainActivity
                                                         runOnUiThread(() -> {
                                                             if (loadingProgress != null) {
                                                                 loadingProgress.setVisibility(View.GONE);
@@ -1587,10 +1579,6 @@ public class SelectMembership extends AppCompatActivity {
                     Log.e(TAG, "Error checking expiration", e);
                 });
     }
-
-    /**
-     * Archive expired membership to history and reset to "None"
-     */
     private void archiveExpiredMembership(com.google.firebase.firestore.DocumentSnapshot membershipDoc) {
         String userId = membershipDoc.getString("userId");
         String planType = membershipDoc.getString("membershipPlanType");
@@ -1605,7 +1593,7 @@ public class SelectMembership extends AppCompatActivity {
         Log.d(TAG, "🔄 Archiving expired membership for: " + fullName);
         Log.d(TAG, "📊 Plan: " + planType);
 
-        // ✅ STEP 1: Add to history with "expired" status
+        // Add to history with "expired" status
         Map<String, Object> historyData = new HashMap<>();
         historyData.put("fullname", fullName);
         historyData.put("userId", userId);
@@ -1626,7 +1614,7 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(historyDocRef -> {
                     Log.d(TAG, "✅ Expired membership archived to history: " + historyDocRef.getId());
 
-                    // ✅ STEP 2: Reset membership to "None"
+                    //Reset membership to "None"
                     resetMembershipToNone(userId, fullName);
                 })
                 .addOnFailureListener(e -> {
@@ -1637,9 +1625,6 @@ public class SelectMembership extends AppCompatActivity {
                 });
     }
 
-    /**
-     * Reset membership document to "None" status
-     */
     private void resetMembershipToNone(String userId, String fullName) {
         Log.d(TAG, "🔄 Resetting membership to 'None' for: " + fullName);
 
@@ -1664,7 +1649,7 @@ public class SelectMembership extends AppCompatActivity {
                 .addOnSuccessListener(aVoid -> {
                     Log.d(TAG, "✅ Membership document reset to 'None'");
 
-                    // ✅ STEP 2: Update the users collection
+                    // Update the users collection
                     Map<String, Object> userUpdate = new HashMap<>();
                     userUpdate.put("membershipPlanType", "None");
                     userUpdate.put("membershipActive", false);
@@ -1707,13 +1692,12 @@ public class SelectMembership extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        // ✅ REMOVE ALL LISTENERS - we're not using them anymore
         Log.d(TAG, "🧹 Activity destroyed");
     }
 
     @Override
     public void finish() {
         super.finish();
-        overridePendingTransition(0, 0); // ✅ No animation on any finish
+        overridePendingTransition(0, 0);
     }
 }

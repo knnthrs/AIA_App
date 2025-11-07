@@ -1400,9 +1400,54 @@ public class SelectMembership extends AppCompatActivity {
                     userUpdate.put("months", selectedMonths);
                     userUpdate.put("sessions", selectedSessions);
 
-                    //  Save coach assignment if PT package
-                    if (selectedCoachId != null) {
+                    // Handle coach assignment based on package type
+                    if (selectedCoachId != null && selectedSessions > 0) {
+                        // PT package - assign coach and unarchive if needed
                         userUpdate.put("coachId", selectedCoachId);
+                        userUpdate.put("isArchived", false);
+                        userUpdate.put("archivedBy", null);
+                        userUpdate.put("archivedAt", null);
+                        userUpdate.put("archiveReason", null);
+                        Log.d(TAG, "✅ Assigning coach for PT package");
+                    } else if (selectedSessions == 0) {
+                        // Non-PT package - need to archive if they had a coach
+                        // First get current coachId before updating
+                        db.collection("users").document(userId).get()
+                            .addOnSuccessListener(userDoc -> {
+                                String previousCoachId = userDoc.getString("coachId");
+
+                                Map<String, Object> finalUpdate = new HashMap<>(userUpdate);
+                                finalUpdate.put("coachId", null);
+
+                                // If they had a coach, archive them
+                                if (previousCoachId != null && !previousCoachId.isEmpty()) {
+                                    finalUpdate.put("isArchived", true);
+                                    finalUpdate.put("archivedBy", previousCoachId);
+                                    finalUpdate.put("archivedAt", Timestamp.now());
+                                    finalUpdate.put("archiveReason", "Switched to non-PT package");
+                                    Log.d(TAG, "🗄️ User had coach " + previousCoachId + ", archiving them");
+                                } else {
+                                    Log.d(TAG, "ℹ️ User had no coach, just removing coachId");
+                                }
+
+                                // Apply the update
+                                db.collection("users").document(userId).update(finalUpdate)
+                                    .addOnSuccessListener(v2 -> {
+                                        Log.d(TAG, "✅ User updated with archive status");
+                                        continueWithHistoryAndPayment(userId, fullName, paymentMethod, startTimestamp, expirationTimestamp);
+                                    })
+                                    .addOnFailureListener(e -> {
+                                        Log.e(TAG, "❌ Failed to update user with archive", e);
+                                    });
+                            })
+                            .addOnFailureListener(e -> {
+                                Log.e(TAG, "❌ Failed to get previous coachId", e);
+                                // Fallback: just remove coachId
+                                userUpdate.put("coachId", null);
+                                db.collection("users").document(userId).update(userUpdate)
+                                    .addOnSuccessListener(v2 -> continueWithHistoryAndPayment(userId, fullName, paymentMethod, startTimestamp, expirationTimestamp));
+                            });
+                        return; // Exit here since we're handling async
                     }
 
 
@@ -1512,6 +1557,76 @@ public class SelectMembership extends AppCompatActivity {
                 });
     }
 
+
+    private void continueWithHistoryAndPayment(String userId, String fullName, String paymentMethod,
+                                                Timestamp startTimestamp, Timestamp expirationTimestamp) {
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser == null) return;
+
+        // Add to history collection
+        Map<String, Object> historyData = new HashMap<>();
+        historyData.put("fullname", fullName);
+        historyData.put("userId", userId);
+        historyData.put("email", currentUser.getEmail());
+        historyData.put("membershipPlanType", selectedPlanType);
+        historyData.put("months", selectedMonths);
+        historyData.put("sessions", selectedSessions);
+        historyData.put("price", selectedPrice);
+        historyData.put("paymentMethod", paymentMethod);
+        historyData.put("status", "active");
+        historyData.put("timestamp", Timestamp.now());
+        historyData.put("startDate", startTimestamp);
+        historyData.put("expirationDate", expirationTimestamp);
+
+        Log.d(TAG, "📝 Adding to history collection");
+
+        db.collection("history")
+                .add(historyData)
+                .addOnSuccessListener(historyDocRef -> {
+                    Log.d(TAG, "📜 History record added: " + historyDocRef.getId());
+
+                    // Add payment record
+                    Map<String, Object> paymentData = new HashMap<>();
+                    paymentData.put("userId", userId);
+                    paymentData.put("fullname", fullName);
+                    paymentData.put("email", currentUser.getEmail());
+                    paymentData.put("membershipPlanType", selectedPlanType);
+                    paymentData.put("months", selectedMonths);
+                    paymentData.put("sessions", selectedSessions);
+                    paymentData.put("price", selectedPrice);
+                    paymentData.put("paymentMethod", paymentMethod);
+                    paymentData.put("paymentStatus", "paid");
+                    paymentData.put("timestamp", Timestamp.now());
+                    paymentData.put("startDate", startTimestamp);
+                    paymentData.put("expirationDate", expirationTimestamp);
+
+                    db.collection("users")
+                            .document(userId)
+                            .collection("paymentHistory")
+                            .add(paymentData)
+                            .addOnSuccessListener(paymentDocRef -> {
+                                Log.d(TAG, "💰 Payment added to paymentHistory");
+
+                                runOnUiThread(() -> {
+                                    if (loadingProgress != null) {
+                                        loadingProgress.setVisibility(View.GONE);
+                                    }
+
+                                    Toast.makeText(SelectMembership.this,
+                                            "Membership activated successfully!",
+                                            Toast.LENGTH_SHORT).show();
+
+                                    Intent mainIntent = new Intent(SelectMembership.this, MainActivity.class);
+                                    mainIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+                                    mainIntent.putExtra("membershipActivated", true);
+                                    startActivity(mainIntent);
+                                    finish();
+                                });
+                            })
+                            .addOnFailureListener(e -> navigateToMainAfterError());
+                })
+                .addOnFailureListener(e -> navigateToMainAfterError());
+    }
 
     private void navigateToMainAfterError() {
         runOnUiThread(() -> {

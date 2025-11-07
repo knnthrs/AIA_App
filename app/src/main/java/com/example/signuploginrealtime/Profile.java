@@ -218,9 +218,9 @@ public class Profile extends AppCompatActivity {
         });
 
 
-        LinearLayout layoutContact = findViewById(R.id.layout_contact);
-        layoutContact.setOnClickListener(v -> {
-            startActivity(new Intent(Profile.this, ContactUsActivity.class));
+        LinearLayout layoutAboutUs = findViewById(R.id.layout_contact);
+        layoutAboutUs.setOnClickListener(v -> {
+            startActivity(new Intent(Profile.this, AboutusActivity.class));
             overridePendingTransition(0, 0);
         });
 

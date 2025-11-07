@@ -889,7 +889,7 @@
 
                         </LinearLayout>
 
-                        <!-- Contact Us -->
+                        <!-- About Us -->
                         <LinearLayout
                             android:id="@+id/layout_contact"
                             android:layout_width="match_parent"
@@ -912,7 +912,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="Contact Us"
+                                android:text="About Us"
                                 android:textSize="16sp"
                                 android:textColor="#333333" />
 
@@ -921,7 +921,7 @@
                                 android:layout_height="20dp"
                                 android:src="@drawable/ic_chevron_right"
                                 app:tint="#999999"
-                                android:contentDescription="Contact us" />
+                                android:contentDescription="About us" />
 
                         </LinearLayout>
 

@@ -158,6 +158,8 @@ public class Client_workouts_details extends AppCompatActivity {
                             if (exerciseInfoMap != null) {
                                 info.setName((String) exerciseInfoMap.get("name"));
                                 info.setGifUrl((String) exerciseInfoMap.get("gifUrl"));
+                                info.setTargetMuscles((List<String>) exerciseInfoMap.get("targetMuscles"));
+                                info.setEquipments((List<String>) exerciseInfoMap.get("equipments"));
                             }
 
                             WorkoutExercise workoutExercise = new WorkoutExercise();
@@ -297,6 +299,8 @@ public class Client_workouts_details extends AppCompatActivity {
         ExerciseInfo info = new ExerciseInfo();
         info.setName(exerciseName);
         info.setGifUrl((String) exercise.get("gifUrl"));
+        info.setTargetMuscles((List<String>) exercise.get("targetMuscles"));
+        info.setEquipments((List<String>) exercise.get("equipments"));
 
         WorkoutExercise newExercise = new WorkoutExercise();
         newExercise.setExerciseInfo(info);
@@ -326,6 +330,8 @@ public class Client_workouts_details extends AppCompatActivity {
             if (we.getExerciseInfo() != null) {
                 info.put("name", we.getExerciseInfo().getName());
                 info.put("gifUrl", we.getExerciseInfo().getGifUrl());
+                info.put("targetMuscles", we.getExerciseInfo().getTargetMuscles());
+                info.put("equipments", we.getExerciseInfo().getEquipments());
             }
             map.put("exerciseInfo", info);
             map.put("sets", we.getSets());

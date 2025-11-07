@@ -96,6 +96,9 @@
             android:name=".SelectMembership"
             android:exported="false" />
         <activity
+            android:name=".ScheduleSelectionActivity"
+            android:exported="false" />
+        <activity
             android:name=".Notification"
             android:exported="false" />
         <activity

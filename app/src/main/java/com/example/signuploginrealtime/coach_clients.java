@@ -468,6 +468,15 @@ public class coach_clients extends AppCompatActivity {
                     client.setStatus("Active");
                     client.setSessions(sessionsCount);
 
+                    // Load schedule data from membership
+                    String scheduleDate = documentSnapshot.getString("scheduleDate");
+                    String scheduleTime = documentSnapshot.getString("scheduleTime");
+                    if (scheduleDate != null && scheduleTime != null) {
+                        client.setScheduleDate(scheduleDate);
+                        client.setScheduleTime(scheduleTime);
+                        Log.d("Schedule", "📅 Schedule loaded for " + client.getName() + ": " + scheduleDate + " at " + scheduleTime);
+                    }
+
                     int index = filteredClientsList.indexOf(client);
                     if (index >= 0) {
                         clientsAdapter.notifyItemChanged(index);
@@ -728,6 +737,8 @@ public class coach_clients extends AppCompatActivity {
         private String activityLevel;
         private String profilePictureUrl;
         private int sessions;
+        private String scheduleDate;
+        private String scheduleTime;
 
         public Client() {}
 
@@ -752,10 +763,14 @@ public class coach_clients extends AppCompatActivity {
         public String getActivityLevel() { return activityLevel; }
         public String getProfilePictureUrl() { return profilePictureUrl; }
         public int getSessions() { return sessions; }
+        public String getScheduleDate() { return scheduleDate; }
+        public String getScheduleTime() { return scheduleTime; }
 
         public void setUid(String uid) { this.uid = uid; }
         public void setStatus(String status) { this.status = status; }
         public void setProfilePictureUrl(String profilePictureUrl) { this.profilePictureUrl = profilePictureUrl; }
         public void setSessions(int sessions) { this.sessions = sessions; }
+        public void setScheduleDate(String scheduleDate) { this.scheduleDate = scheduleDate; }
+        public void setScheduleTime(String scheduleTime) { this.scheduleTime = scheduleTime; }
     }
 }

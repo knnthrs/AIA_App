@@ -80,6 +80,8 @@ public class SelectMembership extends AppCompatActivity {
     private boolean isProcessingPayment = false;
     private String selectedCoachId = null;
     private String selectedCoachName = null;
+    private String selectedScheduleDate = null;
+    private String selectedScheduleTime = null;
     private List<String> loadedPackageIds = new ArrayList<>();
     private boolean isInitialLoad = true;
     private boolean warningBannerShown = false;
@@ -1063,7 +1065,8 @@ public class SelectMembership extends AppCompatActivity {
                         selectedCoachName = coachNames.get(which);
 
                         Toast.makeText(this, "Coach selected: " + selectedCoachName, Toast.LENGTH_SHORT).show();
-                        initiatePayMongoPayment();
+                        // Go to schedule selection
+                        openScheduleSelection();
                     });
 
                     builder.setNegativeButton("Cancel", (dialog, which) -> {
@@ -1110,7 +1113,8 @@ public class SelectMembership extends AppCompatActivity {
                     selectedCoachName = firstCoach.getString("fullname");
 
                     Toast.makeText(this, "Coach assigned: " + selectedCoachName, Toast.LENGTH_SHORT).show();
-                    initiatePayMongoPayment();
+                    // Go to schedule selection
+                    openScheduleSelection();
                 })
                 .addOnFailureListener(e -> {
                     loadingProgress.setVisibility(View.GONE);
@@ -1119,6 +1123,19 @@ public class SelectMembership extends AppCompatActivity {
                     selectedCoachName = null;
                     initiatePayMongoPayment();
                 });
+    }
+
+    private void openScheduleSelection() {
+        Intent intent = new Intent(SelectMembership.this, ScheduleSelectionActivity.class);
+        intent.putExtra("coachId", selectedCoachId);
+        intent.putExtra("coachName", selectedCoachName);
+        intent.putExtra("sessions", selectedSessions);
+        intent.putExtra("packageId", selectedPackageId);
+        intent.putExtra("planType", selectedPlanType);
+        intent.putExtra("months", selectedMonths);
+        intent.putExtra("durationDays", selectedDurationDays);
+        intent.putExtra("price", selectedPrice);
+        startActivityForResult(intent, 200);
     }
 
 
@@ -1276,6 +1293,30 @@ public class SelectMembership extends AppCompatActivity {
             } else {
                 Toast.makeText(this, "Payment was cancelled", Toast.LENGTH_SHORT).show();
             }
+        } else if (requestCode == 200) {
+            // Schedule selection result
+            if (resultCode == RESULT_OK && data != null) {
+                selectedScheduleDate = data.getStringExtra("selectedDate");
+                selectedScheduleTime = data.getStringExtra("selectedTime");
+                String returnedCoachId = data.getStringExtra("coachId");
+                String returnedCoachName = data.getStringExtra("coachName");
+
+                // Update coach info if returned
+                if (returnedCoachId != null) {
+                    selectedCoachId = returnedCoachId;
+                }
+                if (returnedCoachName != null) {
+                    selectedCoachName = returnedCoachName;
+                }
+
+                Log.d(TAG, "Schedule selected: " + selectedScheduleDate + " at " + selectedScheduleTime);
+                Toast.makeText(this, "Schedule confirmed! Proceeding to payment...", Toast.LENGTH_SHORT).show();
+
+                // Now proceed to payment
+                initiatePayMongoPayment();
+            } else {
+                Toast.makeText(this, "Schedule selection cancelled", Toast.LENGTH_SHORT).show();
+            }
         }
     }
 
@@ -1379,6 +1420,12 @@ public class SelectMembership extends AppCompatActivity {
         if (selectedCoachId != null) {
             membershipData.put("coachId", selectedCoachId);
             membershipData.put("coachName", selectedCoachName);
+
+            // Save schedule if selected
+            if (selectedScheduleDate != null && selectedScheduleTime != null) {
+                membershipData.put("scheduleDate", selectedScheduleDate);
+                membershipData.put("scheduleTime", selectedScheduleTime);
+            }
         } else {
             membershipData.put("coachName", "No coach assigned");
         }
@@ -1611,6 +1658,11 @@ public class SelectMembership extends AppCompatActivity {
                             .addOnSuccessListener(paymentDocRef -> {
                                 Log.d(TAG, "💰 Payment added to paymentHistory");
 
+                                // Save schedule booking if PT package
+                                if (selectedScheduleDate != null && selectedScheduleTime != null && selectedCoachId != null) {
+                                    saveScheduleBooking(userId, fullName);
+                                }
+
                                 runOnUiThread(() -> {
                                     if (loadingProgress != null) {
                                         loadingProgress.setVisibility(View.GONE);
@@ -1648,6 +1700,27 @@ public class SelectMembership extends AppCompatActivity {
             startActivity(mainIntent);
             finish();
         });
+    }
+
+    private void saveScheduleBooking(String userId, String fullName) {
+        Map<String, Object> scheduleData = new HashMap<>();
+        scheduleData.put("userId", userId);
+        scheduleData.put("userName", fullName);
+        scheduleData.put("coachId", selectedCoachId);
+        scheduleData.put("coachName", selectedCoachName);
+        scheduleData.put("date", selectedScheduleDate);
+        scheduleData.put("time", selectedScheduleTime);
+        scheduleData.put("status", "scheduled");
+        scheduleData.put("createdAt", Timestamp.now());
+
+        db.collection("schedules")
+                .add(scheduleData)
+                .addOnSuccessListener(docRef -> {
+                    Log.d(TAG, "📅 Schedule booking saved: " + docRef.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to save schedule booking", e);
+                });
     }
 
     // Save user to coach's students subcollection
@@ -1852,3 +1925,4 @@ public class SelectMembership extends AppCompatActivity {
         overridePendingTransition(0, 0);
     }
 }
+

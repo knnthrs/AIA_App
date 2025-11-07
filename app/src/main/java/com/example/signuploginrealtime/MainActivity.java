@@ -1,4 +1,4 @@
-    package com.example.signuploginrealtime;
+package com.example.signuploginrealtime;
 
     import android.Manifest;
     import android.annotation.SuppressLint;
@@ -10,6 +10,7 @@
     import android.widget.FrameLayout;
     import android.widget.ImageView;
     import android.widget.TextView;
+    import android.widget.Toast;
     import android.util.Log;
     import androidx.activity.OnBackPressedCallback;
     import androidx.annotation.Nullable;
@@ -75,13 +76,19 @@
         private static List<String> cachedExerciseNames = null;
         private static List<String> cachedExerciseGifs = null;
         private static String cachedPromoImageUrl = null;
+        private static String cachedScheduleDate = null;
+        private static String cachedScheduleTime = null;
         private ListenerRegistration expirationListener;
+        private boolean isSchedulePromptShowing = false;
 
 
         TextView greetingText;
         TextView membershipStatus;
         TextView planType;
         TextView expiryDate;
+        TextView scheduleDateTime;
+        LinearLayout scheduleContainer;
+        ImageView scheduleIcon;
         TextView streakDisplay;
         CardView streakCard;
         CardView activitiesCard;
@@ -210,6 +217,9 @@
             membershipStatus = findViewById(R.id.membershipStatus);
             planType = findViewById(R.id.planType);
             expiryDate = findViewById(R.id.expiryDate);
+            scheduleDateTime = findViewById(R.id.schedule_date_time);
+            scheduleContainer = findViewById(R.id.scheduleContainer);
+            scheduleIcon = findViewById(R.id.schedule_icon);
             bottomNavigationView = findViewById(R.id.bottomNavigation);
             streakDisplay = findViewById(R.id.streak_number);
             streakCard = findViewById(R.id.streak_counter_card);
@@ -554,6 +564,33 @@
 
             // Start listening for unread notifications
             setupUnreadNotificationListener();
+
+            // Schedule icon click listener (for PT members to reschedule)
+            if (scheduleIcon != null) {
+                scheduleIcon.setOnClickListener(v -> {
+                    // Open schedule selection - get current coach and membership info
+                    dbFirestore.collection("memberships").document(mAuth.getCurrentUser().getUid())
+                        .get()
+                        .addOnSuccessListener(doc -> {
+                            if (doc.exists()) {
+                                String coachId = doc.getString("coachId");
+                                String coachName = doc.getString("coachName");
+                                Long sessions = doc.getLong("sessions");
+
+                                if (coachId != null && sessions != null && sessions > 0) {
+                                    Intent intent = new Intent(MainActivity.this, ScheduleSelectionActivity.class);
+                                    intent.putExtra("coachId", coachId);
+                                    intent.putExtra("coachName", coachName);
+                                    intent.putExtra("sessions", sessions.intValue());
+                                    startActivity(intent);
+                                    overridePendingTransition(0, 0);
+                                } else {
+                                    Toast.makeText(MainActivity.this, "No PT sessions available", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        });
+                });
+            }
         }
 
         /**
@@ -602,6 +639,52 @@
         private void stopPulseAnimation(View view) {
             if (view == null) return;
             view.clearAnimation();
+        }
+
+        /**
+         * Start beat animation on a view (heartbeat effect)
+         */
+        private void startBeatAnimation(View view) {
+            if (view == null) return;
+
+            // Create more continuous heartbeat-like animation sequence
+            android.view.animation.AnimationSet heartbeat = new android.view.animation.AnimationSet(true);
+
+            // First beat: quick scale up
+            android.view.animation.ScaleAnimation beat1 = new android.view.animation.ScaleAnimation(
+                    1f, 1.3f, 1f, 1.3f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+            beat1.setDuration(120);
+            beat1.setFillAfter(true);
+
+            // Second beat: quick scale down
+            android.view.animation.ScaleAnimation beat2 = new android.view.animation.ScaleAnimation(
+                    1.3f, 0.8f, 1.3f, 0.8f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+            beat2.setDuration(120);
+            beat2.setStartOffset(120);
+            beat2.setFillAfter(true);
+
+            // Third beat: back to normal (faster)
+            android.view.animation.ScaleAnimation beat3 = new android.view.animation.ScaleAnimation(
+                    0.8f, 1.0f, 0.8f, 1.0f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+            beat3.setDuration(100);
+            beat3.setStartOffset(240);
+            beat3.setFillAfter(true);
+
+            heartbeat.addAnimation(beat1);
+            heartbeat.addAnimation(beat2);
+            heartbeat.addAnimation(beat3);
+
+            // Repeat the heartbeat more frequently (every 400ms instead of 500ms)
+            heartbeat.setRepeatCount(android.view.animation.Animation.INFINITE);
+            heartbeat.setRepeatMode(android.view.animation.Animation.RESTART);
+
+            view.startAnimation(heartbeat);
         }
 
         // Helper method to get current week's workout progress
@@ -1083,6 +1166,43 @@
                                                             } else {
                                                                 Log.d(TAG, "📊 Membership data unchanged, skipping UI update");
                                                             }
+
+                                                            // Always check and display schedule (even if membership data unchanged)
+                                                            String scheduleDate = documentSnapshot.getString("scheduleDate");
+                                                            String scheduleTime = documentSnapshot.getString("scheduleTime");
+
+                                                            // Only update if schedule changed
+                                                            boolean scheduleChanged = false;
+                                                            if (scheduleDate != null && scheduleTime != null && sessions != null && sessions > 0) {
+                                                                // User has schedule booked
+                                                                if (!scheduleDate.equals(cachedScheduleDate) || !scheduleTime.equals(cachedScheduleTime)) {
+                                                                    scheduleChanged = true;
+                                                                    displaySchedule(scheduleDate, scheduleTime);
+                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
+                                                                    // Schedule exists but container not visible - show it
+                                                                    displaySchedule(scheduleDate, scheduleTime);
+                                                                }
+                                                            } else if (sessions != null && sessions > 0) {
+                                                                // User has PT sessions but NO schedule - show prompt to book
+                                                                if (cachedScheduleDate != null || cachedScheduleTime != null ||
+                                                                    (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE)) {
+                                                                    scheduleChanged = true;
+                                                                    showBookNextSchedulePrompt();
+                                                                }
+                                                            } else {
+                                                                // No PT sessions or expired - hide schedule
+                                                                if (cachedScheduleDate != null || cachedScheduleTime != null) {
+                                                                    scheduleChanged = true;
+                                                                    hideSchedule();
+                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() == View.VISIBLE) {
+                                                                    // No schedule but container is visible - hide it
+                                                                    hideSchedule();
+                                                                }
+                                                            }
+
+                                                            if (scheduleChanged) {
+                                                                Log.d(TAG, "📅 Schedule updated");
+                                                            }
                                                         })
                                                         .addOnFailureListener(serverError -> {
                                                             // Fallback to system time
@@ -1390,6 +1510,16 @@
             }
         }
 
+
+        @Override
+        protected void onPause() {
+            super.onPause();
+
+            // DON'T clear schedule cache - keep it to prevent flickering
+            // The real-time listener will update it if needed
+
+            Log.d(TAG, "📱 MainActivity paused - keeping schedule cache");
+        }
 
         private void goToLogin(){
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);
@@ -1700,16 +1830,27 @@
                                         cachedExpiryDate = null;
                                         cachedStatusColor = null;
                                         cachedCoachName = null;
+                                        cachedScheduleDate = null;
+                                        cachedScheduleTime = null;
 
                                         // Clear coach cache
                                         if (coachCache != null) {
                                             coachCache.edit().remove("cached_coach_name").apply();
                                         }
 
+                                        // Clear schedule cache
+                                        if (membershipCache != null) {
+                                            membershipCache.edit()
+                                                    .remove("cached_schedule_date")
+                                                    .remove("cached_schedule_time")
+                                                    .apply();
+                                        }
+
                                         setDefaultMembershipValues();
                                         hideCoachName();
+                                        hideSchedule();
 
-                                        Log.d(TAG, "🎯 UI updated - Coach name hidden, membership reset");
+                                        Log.d(TAG, "🎯 UI updated - Coach name hidden, schedule cleared, membership reset");
                                     });
                                 })
                                 .addOnFailureListener(e -> {
@@ -1973,13 +2114,13 @@
 
                         if (snapshots != null && !snapshots.isEmpty()) {
                             // Has unread notifications - show badge
-                            if (notificationBadge != null) {
+                            if ( notificationBadge != null) {
                                 notificationBadge.setVisibility(View.VISIBLE);
                             }
                             Log.d(TAG, "Unread notifications: " + snapshots.size());
                         } else {
                             // No unread notifications - hide badge
-                            if (notificationBadge != null) {
+                            if ( notificationBadge != null) {
                                 notificationBadge.setVisibility(View.GONE);
                             }
                             Log.d(TAG, "No unread notifications");
@@ -2028,6 +2169,83 @@
             if (coachNameContainer != null) {
                 coachNameContainer.setVisibility(View.GONE);
                 Log.d(TAG, "❌ Hiding coach name container");
+            }
+        }
+
+        // ✅ Helper method to display schedule
+        private void displaySchedule(String date, String time) {
+            if (scheduleContainer != null && scheduleDateTime != null) {
+                scheduleDateTime.setText(date + " at " + time);
+                scheduleDateTime.setTextColor(getColor(R.color.white)); // Reset to white
+                scheduleContainer.setVisibility(View.VISIBLE);
+
+                // Stop pulse animation on icon if it was running
+                if (scheduleIcon != null) {
+                    stopPulseAnimation(scheduleIcon);
+                }
+
+                // Cache schedule data
+                cachedScheduleDate = date;
+                cachedScheduleTime = time;
+                if (membershipCache != null) {
+                    membershipCache.edit()
+                            .putString("cached_schedule_date", date)
+                            .putString("cached_schedule_time", time)
+                            .apply();
+                }
+
+                Log.d(TAG, "✅ Displaying schedule: " + date + " at " + time);
+            }
+        }
+
+        // ✅ Helper method to hide schedule
+        private void hideSchedule() {
+            if (scheduleContainer != null) {
+                scheduleContainer.setVisibility(View.GONE);
+
+                // Stop icon animation if running
+                if (scheduleIcon != null) {
+                    stopPulseAnimation(scheduleIcon);
+                }
+
+                // Clear cached schedule
+                cachedScheduleDate = null;
+                cachedScheduleTime = null;
+                if (membershipCache != null) {
+                    membershipCache.edit()
+                            .remove("cached_schedule_date")
+                            .remove("cached_schedule_time")
+                            .apply();
+                }
+
+                // Reset the prompt flag
+                isSchedulePromptShowing = false;
+
+                Log.d(TAG, "❌ Hiding schedule container");
+            }
+        }
+
+        // ✅ Helper method to show "Book Next Schedule" prompt
+        private void showBookNextSchedulePrompt() {
+            if (scheduleContainer != null && scheduleDateTime != null && scheduleIcon != null) {
+                // Check if we're already showing the exact prompt to prevent flickering
+                String currentText = scheduleDateTime.getText().toString();
+                boolean isAlreadyShowingExactPrompt = "Tap the icon → to book your next session".equals(currentText) &&
+                                                     scheduleContainer.getVisibility() == View.VISIBLE &&
+                                                     scheduleDateTime.getCurrentTextColor() == getColor(R.color.orange);
+
+                if (!isAlreadyShowingExactPrompt) {
+                    scheduleDateTime.setText("Tap the icon → to book your next session");
+                    scheduleDateTime.setTextColor(getColor(R.color.orange));
+                    scheduleContainer.setVisibility(View.VISIBLE);
+
+                    // Use the same gentle pulse animation as membership CTA
+                    startPulseAnimation(scheduleIcon);
+
+                    Log.d(TAG, "✅ Showing book next schedule prompt with pulse animation");
+                } else {
+                    Log.d(TAG, "📅 Schedule prompt already showing correctly, skipping update");
+                }
             }
         }
 
@@ -2088,6 +2306,18 @@
             // ✅ Display cached workouts
             if (cachedExerciseNames != null && !cachedExerciseNames.isEmpty()) {
                 displayYourWorkouts(cachedExerciseNames, cachedExerciseGifs);
+            }
+
+            // ✅ Display cached schedule - BUT NOT if we just cleared it (prevents flickering)
+            String cachedSchedDate = membershipCache.getString("cached_schedule_date", null);
+            String cachedSchedTime = membershipCache.getString("cached_schedule_time", null);
+            if (cachedSchedDate != null && cachedSchedTime != null) {
+                cachedScheduleDate = cachedSchedDate;
+                cachedScheduleTime = cachedSchedTime;
+                displaySchedule(cachedSchedDate, cachedSchedTime);
+            } else {
+                // No cached schedule data - let the listener handle it
+                Log.d(TAG, "📅 No cached schedule data - waiting for real-time listener");
             }
 
             // ✅ Display cached promo or show "No Promo" state

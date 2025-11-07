@@ -56,6 +56,15 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
         // PT sessions info is shown in Client Workout Details, so hide it here
         holder.clientSessions.setVisibility(View.GONE);
 
+        // Display schedule if available
+        if (client.getScheduleDate() != null && client.getScheduleTime() != null &&
+            !client.getScheduleDate().isEmpty() && !client.getScheduleTime().isEmpty()) {
+            holder.clientSchedule.setText("📅 " + client.getScheduleDate() + " at " + client.getScheduleTime());
+            holder.clientSchedule.setVisibility(View.VISIBLE);
+        } else {
+            holder.clientSchedule.setVisibility(View.GONE);
+        }
+
         String profilePictureUrl = client.getProfilePictureUrl();
 
         if (profilePictureUrl != null && !profilePictureUrl.isEmpty()) {
@@ -111,7 +120,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
 
     public static class ClientViewHolder extends RecyclerView.ViewHolder {
         CardView clientCard;
-        TextView clientName, clientEmail, clientStatus, clientAvatar, clientSessions;
+        TextView clientName, clientEmail, clientStatus, clientAvatar, clientSessions, clientSchedule;
         ImageView clientProfileImage;
 
         public ClientViewHolder(@NonNull View itemView) {
@@ -123,6 +132,7 @@ public class ClientsAdapter extends RecyclerView.Adapter<ClientsAdapter.ClientVi
             clientAvatar = itemView.findViewById(R.id.client_avatar);
             clientProfileImage = itemView.findViewById(R.id.client_profile_image);
             clientSessions = itemView.findViewById(R.id.client_sessions);
+            clientSchedule = itemView.findViewById(R.id.client_schedule);
         }
     }
 }

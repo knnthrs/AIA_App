@@ -61,6 +61,7 @@ public class Client_workouts_details extends AppCompatActivity {
     private Button saveButton;
     private int currentSessions = 0;
     private boolean hasChanges = false;
+    private FirebaseFirestore db;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -91,7 +92,7 @@ public class Client_workouts_details extends AppCompatActivity {
         RecyclerView recyclerView = findViewById(R.id.workouts_recycler_view);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        FirebaseFirestore db = FirebaseFirestore.getInstance();
+        db = FirebaseFirestore.getInstance();
         clientUid = getIntent().getStringExtra("client_uid");
 
         if (clientUid == null) {
@@ -400,13 +401,20 @@ public class Client_workouts_details extends AppCompatActivity {
 
                     Map<String, Object> updates = new HashMap<>();
                     updates.put("sessions", newSessionCount);
+                    updates.put("scheduleDate", null);  // Clear schedule
+                    updates.put("scheduleTime", null);  // Clear schedule
 
                     db.collection("memberships")
                             .document(clientUid)
                             .update(updates)
                             .addOnSuccessListener(aVoid -> {
                                 Toast.makeText(this, "Session marked complete! Remaining: " + newSessionCount, Toast.LENGTH_SHORT).show();
-                                Log.d(TAG, "Session completed. New count: " + newSessionCount);
+                                Log.d(TAG, "Session completed. New count: " + newSessionCount + ". Schedule cleared.");
+
+                                // Create notification for user to book next schedule
+                                if (newSessionCount > 0) {
+                                    createRescheduleNotification(clientUid, newSessionCount);
+                                }
                             })
                             .addOnFailureListener(e -> {
                                 Toast.makeText(this, "Failed to update sessions: " + e.getMessage(), Toast.LENGTH_SHORT).show();
@@ -415,6 +423,29 @@ public class Client_workouts_details extends AppCompatActivity {
                 })
                 .setNegativeButton("Cancel", null)
                 .show();
+    }
+
+    private void createRescheduleNotification(String userId, int remainingSessions) {
+        String title = "Session Completed! 🎉";
+        String message = "Your session is complete. You have " + remainingSessions +
+                        " session(s) remaining. Tap the schedule icon on your membership card to book your next session!";
+
+        Map<String, Object> notification = new HashMap<>();
+        notification.put("userId", userId);
+        notification.put("title", title);
+        notification.put("message", message);
+        notification.put("type", "session_completed");
+        notification.put("timestamp", System.currentTimeMillis());
+        notification.put("read", false);
+
+        db.collection("notifications")
+                .add(notification)
+                .addOnSuccessListener(docRef -> {
+                    Log.d(TAG, "✅ Reschedule notification created: " + docRef.getId());
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "❌ Failed to create reschedule notification", e);
+                });
     }
 
     private void onWorkoutChanged() {

@@ -5,14 +5,17 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="@drawable/yellowbackg">
+    android:background="@drawable/yellowbackg"
+    android:fitsSystemWindows="true">
 
     <!-- Header -->
     <LinearLayout
+        android:id="@+id/header_layout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:padding="16dp"
+        android:paddingTop="8dp"
         android:gravity="center_vertical">
 
         <ImageView
@@ -163,4 +166,3 @@
     </androidx.cardview.widget.CardView>
 
 </LinearLayout>
-

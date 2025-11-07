@@ -15,6 +15,8 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.cardview.widget.CardView;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
@@ -40,6 +42,7 @@ public class ScheduleSelectionActivity extends AppCompatActivity {
     private CardView confirmScheduleButton;
     private ProgressBar loadingProgress;
     private View backButton;
+    private LinearLayout headerLayout;
 
     private FirebaseFirestore db;
     private String coachId;
@@ -66,6 +69,9 @@ public class ScheduleSelectionActivity extends AppCompatActivity {
 
         Log.d(TAG, "ScheduleSelectionActivity onCreate called");
 
+        // Enable edge-to-edge display
+        getWindow().setDecorFitsSystemWindows(false);
+
         db = FirebaseFirestore.getInstance();
 
         // Get data from intent
@@ -85,6 +91,7 @@ public class ScheduleSelectionActivity extends AppCompatActivity {
         Log.d(TAG, "Intent extras - coachId: " + coachId + ", coachName: " + coachName + ", sessions: " + sessions + ", isRescheduling: " + isRescheduling);
 
         initializeViews();
+        setupWindowInsets();
         setupListeners();
 
         // Check if we have the required data
@@ -105,9 +112,23 @@ public class ScheduleSelectionActivity extends AppCompatActivity {
         confirmScheduleButton = findViewById(R.id.confirm_schedule_button);
         loadingProgress = findViewById(R.id.loading_progress);
         backButton = findViewById(R.id.back_button);
+        headerLayout = findViewById(R.id.header_layout);
 
         coachNameText.setText(coachName);
         sessionsInfoText.setText(sessions + " PT Sessions");
+    }
+
+    private void setupWindowInsets() {
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
+            int topInset = insets.getInsets(WindowInsetsCompat.Type.systemBars()).top;
+
+            // Apply top padding to header to push it below the status bar/notch
+            ViewGroup.MarginLayoutParams params = (ViewGroup.MarginLayoutParams) headerLayout.getLayoutParams();
+            params.topMargin = topInset;
+            headerLayout.setLayoutParams(params);
+
+            return WindowInsetsCompat.CONSUMED;
+        });
     }
 
     private void setupListeners() {

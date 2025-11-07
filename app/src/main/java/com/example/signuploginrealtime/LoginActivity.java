@@ -52,6 +52,9 @@ public class LoginActivity extends AppCompatActivity {
         aboutUsRedirectText = findViewById(R.id.AboutusRedirectText);
         progressBar = findViewById(R.id.progressBar);
 
+        signupRedirectText.setPaintFlags(signupRedirectText.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+        aboutUsRedirectText.setPaintFlags(aboutUsRedirectText.getPaintFlags() | Paint.UNDERLINE_TEXT_FLAG);
+
         TextView forgotPasswordText = findViewById(R.id.forgotPasswordText);
 
         forgotPasswordText.setPaintFlags(

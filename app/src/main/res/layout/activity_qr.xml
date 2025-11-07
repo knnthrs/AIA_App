@@ -18,12 +18,14 @@
 
         <ImageView
             android:id="@+id/back_button"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:layout_marginEnd="16dp"
             android:clickable="true"
+            android:contentDescription="Back"
             android:focusable="true"
             android:foreground="?attr/selectableItemBackgroundBorderless"
+            android:padding="9dp"
             android:src="@drawable/ic_arrow_back"
             app:tint="#333333" />
 
@@ -67,8 +69,8 @@
                     android:padding="20dp">
 
                     <androidx.cardview.widget.CardView
-                        android:layout_width="200dp"
-                        android:layout_height="200dp"
+                        android:layout_width="250dp"
+                        android:layout_height="250dp"
                         android:layout_marginBottom="16dp"
                         android:backgroundTint="#F8F8F8"
                         app:cardCornerRadius="12dp"
@@ -76,11 +78,53 @@
 
                         <ImageView
                             android:id="@+id/qr_code_image"
-                            android:layout_width="180dp"
-                            android:layout_height="180dp"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
                             android:layout_gravity="center"
                             android:scaleType="fitCenter"
                             tools:ignore="ContentDescription" />
+
+                        <!-- Locked Overlay -->
+                        <LinearLayout
+                            android:id="@+id/locked_qr_overlay"
+                            android:layout_width="match_parent"
+                            android:layout_height="match_parent"
+                            android:background="#80000000"
+                            android:gravity="center"
+                            android:orientation="vertical"
+                            android:visibility="gone"
+                            tools:visibility="visible">
+
+                            <ImageView
+                                android:layout_width="80dp"
+                                android:layout_height="80dp"
+                                android:src="@drawable/ic_lock"
+                                app:tint="@android:color/white"
+                                tools:ignore="ContentDescription" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="8dp"
+                                android:text="No Active Membership"
+                                android:textColor="@android:color/white"
+                                android:textSize="16sp"
+                                android:textStyle="bold" />
+
+                            <Button
+                                android:id="@+id/btn_get_membership"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="16dp"
+                                android:backgroundTint="#2196F3"
+                                android:paddingHorizontal="24dp"
+                                android:paddingVertical="10dp"
+                                android:text="Get Membership"
+                                android:textColor="#FFFFFF"
+                                android:textSize="14sp"
+                                android:textStyle="bold" />
+                        </LinearLayout>
+
                     </androidx.cardview.widget.CardView>
 
                     <TextView
@@ -88,11 +132,11 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="6dp"
+                        android:gravity="center"
                         android:text="Loading..."
                         android:textColor="#333333"
                         android:textSize="18sp"
-                        android:textStyle="bold"
-                        android:gravity="center" />
+                        android:textStyle="bold" />
 
                     <androidx.cardview.widget.CardView
                         android:layout_width="wrap_content"
@@ -106,68 +150,29 @@
                             android:id="@+id/membership_status"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:gravity="center"
                             android:paddingHorizontal="12dp"
                             android:paddingVertical="6dp"
                             android:text="Loading..."
                             android:textColor="#27AE60"
                             android:textSize="11sp"
-                            android:textStyle="bold"
-                            android:gravity="center" />
+                            android:textStyle="bold" />
                     </androidx.cardview.widget.CardView>
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- No Membership Container -->
-            <LinearLayout
-                android:id="@+id/no_membership_container"
+
+            <!-- Attendance History Section -->
+            <TextView
+                android:id="@+id/attendance_history_title"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
+                android:layout_marginTop="24dp"
                 android:gravity="center"
-                android:padding="24dp"
-                android:visibility="gone">
-
-                <ImageView
-                    android:layout_width="120dp"
-                    android:layout_height="120dp"
-                    android:src="@drawable/ic_lock"
-                    app:tint="#999999"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="No Active Membership"
-                    android:textSize="20sp"
-                    android:textStyle="bold"
-                    android:textColor="#333333"
-                    android:layout_marginTop="16dp"/>
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Purchase a membership plan to access your attendance QR code"
-                    android:textSize="14sp"
-                    android:textColor="#666666"
-                    android:textAlignment="center"
-                    android:gravity="center"
-                    android:layout_marginTop="8dp"
-                    android:paddingHorizontal="20dp"/>
-
-                <Button
-                    android:id="@+id/btn_get_membership"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Get Membership"
-                    android:textColor="#FFFFFF"
-                    android:backgroundTint="#2196F3"
-                    android:layout_marginTop="24dp"
-                    android:paddingHorizontal="32dp"
-                    android:paddingVertical="12dp"
-                    android:textStyle="bold"
-                    android:textSize="16sp"/>
-
-            </LinearLayout>
-            <!-- ✅ END OF NEW BLOCK -->
+                android:text="Attendance History"
+                android:textColor="#333333"
+                android:textSize="22sp"
+                android:textStyle="bold" />
 
             <!-- Attendance History Card (Expandable) -->
             <androidx.cardview.widget.CardView

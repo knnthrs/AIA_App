@@ -30,6 +30,7 @@ import com.google.firebase.firestore.QueryDocumentSnapshot;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.qrcode.QRCodeWriter;
+import android.widget.FrameLayout;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -65,7 +66,8 @@ public class QR extends AppCompatActivity {
     private DocumentReference userDocRef;
     private ListenerRegistration userDataListener;
     private ListenerRegistration attendanceListener;
-    private LinearLayout noMembershipContainer;
+    private LinearLayout lockedQrOverlay;
+    private CardView qrCodeCard;
     private android.widget.Button btnGetMembership;
     private ListenerRegistration membershipListener;
 
@@ -126,7 +128,8 @@ public class QR extends AppCompatActivity {
         totalVisitsText = findViewById(R.id.total_visits_text);
         thisMonthText = findViewById(R.id.this_month_text);
         attendanceRecords = new ArrayList<>();
-        noMembershipContainer = findViewById(R.id.no_membership_container);
+        lockedQrOverlay = findViewById(R.id.locked_qr_overlay);
+        qrCodeCard = findViewById(R.id.qr_code_card);
         btnGetMembership = findViewById(R.id.btn_get_membership);
 
         deleteToolbar = findViewById(R.id.delete_toolbar);
@@ -490,6 +493,7 @@ public class QR extends AppCompatActivity {
         CardView statusCard = (CardView) membershipStatus.getParent();
 
         if (isActive || membershipStatusText.toUpperCase().contains("ACTIVE")) {
+            lockedQrOverlay.setVisibility(View.GONE);
             if (membershipType.equalsIgnoreCase("Premium") || membershipType.equalsIgnoreCase("VIP")) {
                 membershipStatus.setTextColor(0xFF9C27B0);
                 statusCard.setCardBackgroundColor(0xFFE1BEE7);
@@ -498,6 +502,7 @@ public class QR extends AppCompatActivity {
                 statusCard.setCardBackgroundColor(0xFFE8F5E8);
             }
         } else {
+            lockedQrOverlay.setVisibility(View.VISIBLE);
             membershipStatus.setTextColor(0xFFD32F2F);
             statusCard.setCardBackgroundColor(0xFFFFEBEE);
         }
@@ -511,7 +516,6 @@ public class QR extends AppCompatActivity {
 
         // Always render immediately so UI never blocks on Firestore
         generateQRCode(qrData);
-        showQRCode();
 
         // Best-effort persist to Firestore
         if (userDocRef != null) {
@@ -544,17 +548,6 @@ public class QR extends AppCompatActivity {
         }
     }
 
-    private void showNoMembershipMessage() {
-        CardView qrCodeCard = findViewById(R.id.qr_code_card);
-        qrCodeCard.setVisibility(View.GONE);
-        noMembershipContainer.setVisibility(View.VISIBLE);
-    }
-
-    private void showQRCode() {
-        CardView qrCodeCard = findViewById(R.id.qr_code_card);
-        qrCodeCard.setVisibility(View.VISIBLE);
-        noMembershipContainer.setVisibility(View.GONE);
-    }
 
     private void generateQRCode(String text) {
         QRCodeWriter writer = new QRCodeWriter();
@@ -747,4 +740,3 @@ public class QR extends AppCompatActivity {
         deleteSelectedAttendance();
     }
 }
-

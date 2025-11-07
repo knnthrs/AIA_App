@@ -1409,6 +1409,10 @@ public class SelectMembership extends AppCompatActivity {
                         userUpdate.put("archivedAt", null);
                         userUpdate.put("archiveReason", null);
                         Log.d(TAG, "✅ Assigning coach for PT package");
+
+                        // Save user to coach's students subcollection immediately
+                        saveToCoachStudentsSubcollection(userId, fullName, currentUser.getEmail(), selectedCoachId);
+
                     } else if (selectedSessions == 0) {
                         // Non-PT package - need to archive if they had a coach
                         // First get current coachId before updating
@@ -1644,6 +1648,38 @@ public class SelectMembership extends AppCompatActivity {
             startActivity(mainIntent);
             finish();
         });
+    }
+
+    // Save user to coach's students subcollection
+    private void saveToCoachStudentsSubcollection(String userId, String fullName, String email, String coachId) {
+        // Get user's phone number
+        db.collection("users").document(userId).get()
+            .addOnSuccessListener(userDoc -> {
+                String phone = userDoc.getString("phone");
+
+                // Create student data with only required fields
+                Map<String, Object> studentData = new HashMap<>();
+                studentData.put("userId", userId);
+                studentData.put("name", fullName);
+                studentData.put("email", email);
+                studentData.put("phone", phone != null ? phone : "N/A");
+
+                // Save to coach's students subcollection
+                db.collection("coaches")
+                    .document(coachId)
+                    .collection("students")
+                    .document(userId)
+                    .set(studentData)
+                    .addOnSuccessListener(aVoid -> {
+                        Log.d(TAG, "✅ User saved to coach's students subcollection");
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "❌ Failed to save to students subcollection: " + e.getMessage(), e);
+                    });
+            })
+            .addOnFailureListener(e -> {
+                Log.e(TAG, "❌ Failed to get user phone number: " + e.getMessage(), e);
+            });
     }
 
 

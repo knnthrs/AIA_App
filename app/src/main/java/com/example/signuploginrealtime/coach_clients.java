@@ -379,6 +379,9 @@ public class coach_clients extends AppCompatActivity {
 
                                                     Log.d("ClientAdd", "Added new client: " + name);
 
+                                                    // Save client to coach's students subcollection
+                                                    saveClientToStudentsSubcollection(userId, name, email, fitnessGoal, fitnessLevel, weightStr, heightStr, profilePictureUrl);
+
                                                     setupMembershipListener(client, currentStreak, workoutsCompleted);
                                                 }
 
@@ -588,6 +591,43 @@ public class coach_clients extends AppCompatActivity {
                     Toast.makeText(this, "Failed to archive: " + e.getMessage(), Toast.LENGTH_LONG).show();
                     Log.e("ArchiveClient", "Error: " + e.getMessage(), e);
                 });
+    }
+
+    private void saveClientToStudentsSubcollection(String userId, String name, String email,
+                                                    String fitnessGoal, String fitnessLevel,
+                                                    String weight, String height, String profilePictureUrl) {
+        if (currentCoachId == null || currentCoachId.isEmpty()) {
+            Log.e("SaveStudent", "Coach ID is null, cannot save to subcollection");
+            return;
+        }
+
+        // Get phone number from Firestore
+        firestore.collection("users").document(userId).get()
+            .addOnSuccessListener(doc -> {
+                String phone = doc.getString("phone");
+
+                // Only save email, name, phone, and userId
+                Map<String, Object> studentData = new HashMap<>();
+                studentData.put("userId", userId);
+                studentData.put("name", name);
+                studentData.put("email", email);
+                studentData.put("phone", phone != null ? phone : "N/A");
+
+                firestore.collection("coaches")
+                        .document(currentCoachId)
+                        .collection("students")
+                        .document(userId)
+                        .set(studentData)
+                        .addOnSuccessListener(aVoid -> {
+                            Log.d("SaveStudent", "✅ Client saved to students subcollection: " + name);
+                        })
+                        .addOnFailureListener(e -> {
+                            Log.e("SaveStudent", "❌ Failed to save to subcollection: " + e.getMessage(), e);
+                        });
+            })
+            .addOnFailureListener(e -> {
+                Log.e("SaveStudent", "❌ Failed to get phone number: " + e.getMessage(), e);
+            });
     }
 
     private void autoArchiveClient(Client client) {

@@ -289,12 +289,33 @@ public class CoachArchiveActivity extends AppCompatActivity {
                 .document(client.getUid())
                 .update(deleteData)
                 .addOnSuccessListener(aVoid -> {
+                    // Also delete from coach's students subcollection
+                    deleteFromStudentsSubcollection(client.getUid(), client.getName());
                     Toast.makeText(this, client.getName() + " deleted permanently", Toast.LENGTH_SHORT).show();
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(this, "Failed to delete client: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                     Log.e("DeleteClient", "Error: " + e.getMessage(), e);
                     loadArchivedClients();
+                });
+    }
+
+    private void deleteFromStudentsSubcollection(String userId, String clientName) {
+        if (currentCoachId == null || currentCoachId.isEmpty()) {
+            Log.e("DeleteStudent", "Coach ID is null, cannot delete from subcollection");
+            return;
+        }
+
+        firestore.collection("coaches")
+                .document(currentCoachId)
+                .collection("students")
+                .document(userId)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    Log.d("DeleteStudent", "✅ Client deleted from students subcollection: " + clientName);
+                })
+                .addOnFailureListener(e -> {
+                    Log.e("DeleteStudent", "❌ Failed to delete from subcollection: " + e.getMessage(), e);
                 });
     }
 

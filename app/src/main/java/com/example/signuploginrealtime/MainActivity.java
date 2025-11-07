@@ -80,6 +80,7 @@ package com.example.signuploginrealtime;
         private static String cachedScheduleTime = null;
         private ListenerRegistration expirationListener;
         private boolean isSchedulePromptShowing = false;
+        private long lastSchedulePromptTime = 0;
 
 
         TextView greetingText;
@@ -617,20 +618,49 @@ package com.example.signuploginrealtime;
 
         /**
          * Start pulse animation on a view
+         * For schedule icon, uses more obvious animation
          */
         private void startPulseAnimation(View view) {
             if (view == null) return;
 
-            android.view.animation.ScaleAnimation pulse = new android.view.animation.ScaleAnimation(
-                    1f, 1.05f, 1f, 1.05f,
-                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
-                    android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+            // Check if this is the schedule icon for more obvious animation
+            boolean isScheduleIcon = (view == scheduleIcon);
 
-            pulse.setDuration(1000);
-            pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
-            pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+            if (isScheduleIcon) {
+                // More obvious animation for schedule icon - larger scale with faster tempo
+                android.view.animation.AnimationSet animationSet = new android.view.animation.AnimationSet(true);
+                animationSet.setInterpolator(new android.view.animation.AccelerateDecelerateInterpolator());
 
-            view.startAnimation(pulse);
+                // Scale animation - more dramatic (1.0 to 1.3)
+                android.view.animation.ScaleAnimation scaleAnimation = new android.view.animation.ScaleAnimation(
+                        1f, 1.3f, 1f, 1.3f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+                scaleAnimation.setDuration(600); // Faster
+
+                // Alpha animation - pulse effect
+                android.view.animation.AlphaAnimation alphaAnimation = new android.view.animation.AlphaAnimation(1.0f, 0.3f);
+                alphaAnimation.setDuration(600);
+
+                animationSet.addAnimation(scaleAnimation);
+                animationSet.addAnimation(alphaAnimation);
+                animationSet.setRepeatMode(android.view.animation.Animation.REVERSE);
+                animationSet.setRepeatCount(android.view.animation.Animation.INFINITE);
+
+                view.startAnimation(animationSet);
+            } else {
+                // Subtle animation for other views (like membership CTA)
+                android.view.animation.ScaleAnimation pulse = new android.view.animation.ScaleAnimation(
+                        1f, 1.05f, 1f, 1.05f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f,
+                        android.view.animation.Animation.RELATIVE_TO_SELF, 0.5f);
+
+                pulse.setDuration(1000);
+                pulse.setRepeatMode(android.view.animation.Animation.REVERSE);
+                pulse.setRepeatCount(android.view.animation.Animation.INFINITE);
+
+                view.startAnimation(pulse);
+            }
         }
 
         /**
@@ -1184,8 +1214,15 @@ package com.example.signuploginrealtime;
                                                                 }
                                                             } else if (sessions != null && sessions > 0) {
                                                                 // User has PT sessions but NO schedule - show prompt to book
-                                                                if (cachedScheduleDate != null || cachedScheduleTime != null ||
-                                                                    (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE)) {
+                                                                // Only show if we're not already showing it (check cache)
+                                                                if (cachedScheduleDate != null || cachedScheduleTime != null) {
+                                                                    // Had a schedule before, now needs prompt
+                                                                    scheduleChanged = true;
+                                                                    cachedScheduleDate = null;
+                                                                    cachedScheduleTime = null;
+                                                                    showBookNextSchedulePrompt();
+                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
+                                                                    // Container is hidden, need to show prompt
                                                                     scheduleChanged = true;
                                                                     showBookNextSchedulePrompt();
                                                                 }
@@ -2235,14 +2272,31 @@ package com.example.signuploginrealtime;
                                                      scheduleDateTime.getCurrentTextColor() == getColor(R.color.orange);
 
                 if (!isAlreadyShowingExactPrompt) {
-                    scheduleDateTime.setText("Tap the icon → to book your next session");
-                    scheduleDateTime.setTextColor(getColor(R.color.orange));
-                    scheduleContainer.setVisibility(View.VISIBLE);
+                    long currentTime = System.currentTimeMillis();
+                    // Prevent rapid successive calls - minimum interval 1 second
+                    if (currentTime - lastSchedulePromptTime >= 1000) {
+                        scheduleDateTime.setText("Tap the icon → to book your next session");
+                        scheduleDateTime.setTextColor(getColor(R.color.orange));
+                        scheduleContainer.setVisibility(View.VISIBLE);
 
-                    // Use the same gentle pulse animation as membership CTA
-                    startPulseAnimation(scheduleIcon);
+                        // Use the same gentle pulse animation as membership CTA
+                        startPulseAnimation(scheduleIcon);
 
-                    Log.d(TAG, "✅ Showing book next schedule prompt with pulse animation");
+                        // ✅ Mark in cache that we're showing prompt (use special marker)
+                        if (membershipCache != null) {
+                            membershipCache.edit()
+                                    .putString("cached_schedule_date", "__PROMPT_SHOWING__")
+                                    .putString("cached_schedule_time", "__PROMPT_SHOWING__")
+                                    .apply();
+                        }
+                        cachedScheduleDate = "__PROMPT_SHOWING__";
+                        cachedScheduleTime = "__PROMPT_SHOWING__";
+
+                        Log.d(TAG, "✅ Showing book next schedule prompt with pulse animation");
+                        lastSchedulePromptTime = currentTime;
+                    } else {
+                        Log.d(TAG, "⏰ Ignored rapid successive call to showBookNextSchedulePrompt");
+                    }
                 } else {
                     Log.d(TAG, "📅 Schedule prompt already showing correctly, skipping update");
                 }
@@ -2312,11 +2366,30 @@ package com.example.signuploginrealtime;
             String cachedSchedDate = membershipCache.getString("cached_schedule_date", null);
             String cachedSchedTime = membershipCache.getString("cached_schedule_time", null);
             if (cachedSchedDate != null && cachedSchedTime != null) {
-                cachedScheduleDate = cachedSchedDate;
-                cachedScheduleTime = cachedSchedTime;
-                displaySchedule(cachedSchedDate, cachedSchedTime);
+                // Check if it's the prompt marker
+                if ("__PROMPT_SHOWING__".equals(cachedSchedDate) && "__PROMPT_SHOWING__".equals(cachedSchedTime)) {
+                    // We were showing the prompt - restore it
+                    cachedScheduleDate = "__PROMPT_SHOWING__";
+                    cachedScheduleTime = "__PROMPT_SHOWING__";
+                    if (scheduleContainer != null && scheduleDateTime != null && scheduleIcon != null) {
+                        scheduleDateTime.setText("Tap the icon → to book your next session");
+                        scheduleDateTime.setTextColor(getColor(R.color.orange));
+                        scheduleContainer.setVisibility(View.VISIBLE);
+                        startPulseAnimation(scheduleIcon);
+                        Log.d(TAG, "📅 Restored schedule prompt from cache");
+                    }
+                } else {
+                    // Real schedule data
+                    cachedScheduleDate = cachedSchedDate;
+                    cachedScheduleTime = cachedSchedTime;
+                    displaySchedule(cachedSchedDate, cachedSchedTime);
+                }
             } else {
-                // No cached schedule data - let the listener handle it
+                // ✅ CRITICAL FIX: Don't show prompt here - let listener handle it to prevent flickering
+                // Just hide the container initially if there's no cached schedule
+                if (scheduleContainer != null) {
+                    scheduleContainer.setVisibility(View.GONE);
+                }
                 Log.d(TAG, "📅 No cached schedule data - waiting for real-time listener");
             }
 

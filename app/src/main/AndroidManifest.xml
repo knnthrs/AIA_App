@@ -47,6 +47,9 @@
             android:name=".CoachArchiveActivity"
             android:exported="false" />
         <activity
+            android:name=".CoachSpecializationsActivity"
+            android:exported="false" />
+        <activity
             android:name=".FeedbackActivity"
             android:exported="false" />
         <activity

@@ -233,6 +233,12 @@ public class coach_clients extends AppCompatActivity {
             drawerLayout.closeDrawer(GravityCompat.END);
         });
 
+        findViewById(R.id.menu_specializations).setOnClickListener(v -> {
+            Intent intent = new Intent(coach_clients.this, CoachSpecializationsActivity.class);
+            startActivity(intent);
+            drawerLayout.closeDrawer(GravityCompat.END);
+        });
+
         findViewById(R.id.menu_logout).setOnClickListener(v -> {
             new AlertDialog.Builder(this)
                     .setTitle("Logout")

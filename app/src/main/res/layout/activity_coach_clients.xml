@@ -275,6 +275,17 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/menu_specializations"
+                style="@style/SidebarMenuItem">
+                <ImageView
+                    style="@style/SidebarMenuIcon"
+                    android:src="@drawable/ic_star" />
+                <TextView
+                    style="@style/SidebarMenuText"
+                    android:text="My Specializations" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/menu_logout"
                 style="@style/SidebarMenuItem">
                 <ImageView

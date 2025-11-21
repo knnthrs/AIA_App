@@ -1047,48 +1047,80 @@ public class SelectMembership extends AppCompatActivity {
                         return;
                     }
 
-                    List<String> coachNames = new ArrayList<>();
-                    List<String> coachIds = new ArrayList<>();
+                    List<com.example.signuploginrealtime.models.Coach> coaches = new ArrayList<>();
 
                     for (QueryDocumentSnapshot doc : querySnapshot) {
-                        String name = doc.getString("fullname");
-                        if (name != null) {
-                            coachNames.add(name);
-                            coachIds.add(doc.getId());
+                        com.example.signuploginrealtime.models.Coach coach = new com.example.signuploginrealtime.models.Coach();
+                        coach.setId(doc.getId());
+                        coach.setFullname(doc.getString("fullname"));
+                        coach.setEmail(doc.getString("email"));
+                        coach.setPhoneNumber(doc.getString("phoneNumber"));
+
+                        // Get skills from Firestore
+                        List<String> skills = (List<String>) doc.get("skills");
+                        if (skills != null) {
+                            coach.setSkills(skills);
                         }
+
+                        // Get years of experience
+                        Long experience = doc.getLong("yearsOfExperience");
+                        if (experience != null) {
+                            coach.setYearsOfExperience(experience.intValue());
+                        }
+
+                        coaches.add(coach);
                     }
 
-                    AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
-                    builder.setTitle("Select Your Coach");
-                    builder.setItems(coachNames.toArray(new String[0]), (dialog, which) -> {
-                        selectedCoachId = coachIds.get(which);
-                        selectedCoachName = coachNames.get(which);
-
-                        Toast.makeText(this, "Coach selected: " + selectedCoachName, Toast.LENGTH_SHORT).show();
-                        // Go to schedule selection
-                        openScheduleSelection();
-                    });
-
-                    builder.setNegativeButton("Cancel", (dialog, which) -> {
-                        dialog.dismiss();
-                    });
-
-                    AlertDialog dialog = builder.create();
-
-                    if (dialog.getWindow() != null) {
-                        dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
-                    }
-
-                    dialog.show();
-
-                    // Style the Cancel button after showing
-                    dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#D32F2F")); // Red
+                    // Show custom dialog with skills
+                    showCoachSelectionDialog(coaches);
                 })
                 .addOnFailureListener(e -> {
                     loadingProgress.setVisibility(View.GONE);
                     Toast.makeText(this, "Error loading coaches. Auto-assigning...", Toast.LENGTH_SHORT).show();
                     autoAssignCoach();
                 });
+    }
+
+    private void showCoachSelectionDialog(List<com.example.signuploginrealtime.models.Coach> coaches) {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_coach_selection, null);
+
+        androidx.recyclerview.widget.RecyclerView recyclerView = dialogView.findViewById(R.id.recyclerViewCoaches);
+        com.google.android.material.button.MaterialButton btnCancel = dialogView.findViewById(R.id.btnCancel);
+
+        recyclerView.setLayoutManager(new androidx.recyclerview.widget.LinearLayoutManager(this));
+
+        com.example.signuploginrealtime.adapters.CoachSelectionAdapter adapter =
+            new com.example.signuploginrealtime.adapters.CoachSelectionAdapter(coaches, coach -> {
+                selectedCoachId = coach.getId();
+                selectedCoachName = coach.getFullname();
+
+                Toast.makeText(this, "Coach selected: " + selectedCoachName, Toast.LENGTH_SHORT).show();
+
+                // Dismiss dialog and go to schedule selection
+                AlertDialog dialog = (AlertDialog) recyclerView.getTag();
+                if (dialog != null) {
+                    dialog.dismiss();
+                }
+                openScheduleSelection();
+            });
+
+        recyclerView.setAdapter(adapter);
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setView(dialogView);
+
+        AlertDialog dialog = builder.create();
+
+        // Store dialog reference in RecyclerView tag for dismissal
+        recyclerView.setTag(dialog);
+
+        btnCancel.setOnClickListener(v -> dialog.dismiss());
+
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+
+        dialog.show();
     }
 
     private void autoAssignCoach() {

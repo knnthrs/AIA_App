@@ -1004,35 +1004,10 @@ public class SelectMembership extends AppCompatActivity {
     }
 
     private void showCoachSelectionDialog() {
-        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
-        builder.setTitle("Personal Training Coach");
-        builder.setMessage("This membership includes " + selectedSessions + " PT sessions.\n\nHow would you like to choose your coach?");
-
-        builder.setPositiveButton("Choose My Coach", (dialog, which) -> {
-            dialog.dismiss();
-            showAvailableCoachesList();
-        });
-
-        builder.setNegativeButton("Auto-Assign", (dialog, which) -> {
-            dialog.dismiss();
-            autoAssignCoach();
-        });
-
-        builder.setCancelable(true);
-
-        AlertDialog dialog = builder.create(); // Create the dialog first
-
-        // Apply rounded background
-        if (dialog.getWindow() != null) {
-            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
-        }
-
-        dialog.show(); //Show the dialog
-
-        // Style the buttons after showing
-        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(Color.parseColor("#4CAF50")); // Green
-        dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(Color.parseColor("#2196F3")); // Blue
+        // Directly show the coach list - no auto-assign option
+        showAvailableCoachesList();
     }
+
     private void showAvailableCoachesList() {
         loadingProgress.setVisibility(View.VISIBLE);
 
@@ -1042,8 +1017,7 @@ public class SelectMembership extends AppCompatActivity {
                     loadingProgress.setVisibility(View.GONE);
 
                     if (querySnapshot.isEmpty()) {
-                        Toast.makeText(this, "No available coaches at the moment. Auto-assigning...", Toast.LENGTH_SHORT).show();
-                        autoAssignCoach();
+                        Toast.makeText(this, "No coaches available. Please contact support.", Toast.LENGTH_LONG).show();
                         return;
                     }
 
@@ -1076,8 +1050,7 @@ public class SelectMembership extends AppCompatActivity {
                 })
                 .addOnFailureListener(e -> {
                     loadingProgress.setVisibility(View.GONE);
-                    Toast.makeText(this, "Error loading coaches. Auto-assigning...", Toast.LENGTH_SHORT).show();
-                    autoAssignCoach();
+                    Toast.makeText(this, "Error loading coaches: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
     }
 

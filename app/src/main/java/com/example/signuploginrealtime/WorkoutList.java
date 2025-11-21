@@ -468,6 +468,38 @@ public class WorkoutList extends AppCompatActivity {
             if (gender != null) {
                 userProfile.setGender(gender);
             }
+
+            // Update health issues - CRITICAL FOR WORKOUT SAFETY
+            try {
+                Object healthIssuesObj = snapshot.get("healthIssues");
+                List<String> healthIssuesList = new ArrayList<>();
+
+                if (healthIssuesObj instanceof String) {
+                    // If it's a comma-separated string
+                    String healthIssuesStr = (String) healthIssuesObj;
+                    if (!healthIssuesStr.isEmpty() && !healthIssuesStr.equalsIgnoreCase("none")) {
+                        String[] issues = healthIssuesStr.split(",");
+                        for (String issue : issues) {
+                            String trimmed = issue.trim();
+                            if (!trimmed.isEmpty()) {
+                                healthIssuesList.add(trimmed);
+                            }
+                        }
+                    }
+                } else if (healthIssuesObj instanceof List) {
+                    // If it's already a list
+                    healthIssuesList = (List<String>) healthIssuesObj;
+                }
+
+                userProfile.setHealthIssues(healthIssuesList);
+                Log.d(TAG, "Updated healthIssues: " + healthIssuesList.size() + " issues loaded");
+                if (!healthIssuesList.isEmpty()) {
+                    Log.d(TAG, "Health issues: " + String.join(", ", healthIssuesList));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading health issues", e);
+                userProfile.setHealthIssues(new ArrayList<>());
+            }
         }
     }private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
         com.example.signuploginrealtime.models.UserProfile modelProfile =

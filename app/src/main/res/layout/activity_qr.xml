@@ -162,18 +162,6 @@
             </androidx.cardview.widget.CardView>
 
 
-            <!-- Attendance History Section -->
-            <TextView
-                android:id="@+id/attendance_history_title"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:gravity="center"
-                android:text="Attendance History"
-                android:textColor="#333333"
-                android:textSize="22sp"
-                android:textStyle="bold" />
-
             <!-- Attendance History Card (Expandable) -->
             <androidx.cardview.widget.CardView
                 android:id="@+id/attendance_history_card"

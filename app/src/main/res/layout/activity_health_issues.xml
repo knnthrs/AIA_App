@@ -133,9 +133,9 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Heart Problems -->
+                <!-- Knee Injury -->
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardHeartProblems"
+                    android:id="@+id/cardKneeInjury"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
@@ -152,7 +152,7 @@
                         android:padding="16dp">
 
                         <CheckBox
-                            android:id="@+id/cbHeartProblems"
+                            android:id="@+id/cbKneeInjury"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
@@ -162,7 +162,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Heart Problems"
+                            android:text="Knee Injury"
                             android:textSize="16sp"
                             android:textColor="@color/black" />
 
@@ -170,9 +170,9 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- High Blood Pressure -->
+                <!-- Back Pain -->
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardBloodPressure"
+                    android:id="@+id/cardBackPain"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
@@ -189,7 +189,118 @@
                         android:padding="16dp">
 
                         <CheckBox
-                            android:id="@+id/cbBloodPressure"
+                            android:id="@+id/cbBackPain"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Back Pain"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Shoulder Injury -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardShoulderInjury"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbShoulderInjury"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Shoulder Injury"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Ankle Injury -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAnkleInjury"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbAnkleInjury"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Ankle Injury"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- High Blood Pressure -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardHighBloodPressure"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbHighBloodPressure"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
@@ -244,7 +355,155 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Joint/Bone Problems -->
+                <!-- Asthma -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardAsthma"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbAsthma"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Asthma"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Heart Condition -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardHeartCondition"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbHeartCondition"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Heart Condition"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Arthritis -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardArthritis"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbArthritis"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Arthritis"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Previous Surgery -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardPreviousSurgery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="12dp"
+                    app:cardCornerRadius="12dp"
+                    app:cardElevation="2dp"
+                    app:strokeWidth="2dp"
+                    app:strokeColor="@color/white">
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical"
+                        android:padding="16dp">
+
+                        <CheckBox
+                            android:id="@+id/cbPreviousSurgery"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="12dp"
+                            android:buttonTint="@color/black" />
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Previous Surgery"
+                            android:textSize="16sp"
+                            android:textColor="@color/black" />
+
+                    </LinearLayout>
+
+                </com.google.android.material.card.MaterialCardView>
+
+                <!-- Joint Problems -->
                 <com.google.android.material.card.MaterialCardView
                     android:id="@+id/cardJointProblems"
                     android:layout_width="match_parent"
@@ -273,7 +532,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Joint/Bone Problems"
+                            android:text="Joint Problems"
                             android:textSize="16sp"
                             android:textColor="@color/black" />
 
@@ -281,9 +540,9 @@
 
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Back Problems -->
+                <!-- Neck Pain -->
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardBackProblems"
+                    android:id="@+id/cardNeckPain"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="12dp"
@@ -300,7 +559,7 @@
                         android:padding="16dp">
 
                         <CheckBox
-                            android:id="@+id/cbBackProblems"
+                            android:id="@+id/cbNeckPain"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginEnd="12dp"
@@ -310,44 +569,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="Back Problems"
-                            android:textSize="16sp"
-                            android:textColor="@color/black" />
-
-                    </LinearLayout>
-
-                </com.google.android.material.card.MaterialCardView>
-
-                <!-- Respiratory Issues -->
-                <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/cardRespiratory"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginBottom="12dp"
-                    app:cardCornerRadius="12dp"
-                    app:cardElevation="2dp"
-                    app:strokeWidth="2dp"
-                    app:strokeColor="@color/white">
-
-                    <LinearLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        android:padding="16dp">
-
-                        <CheckBox
-                            android:id="@+id/cbRespiratory"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginEnd="12dp"
-                            android:buttonTint="@color/black" />
-
-                        <TextView
-                            android:layout_width="0dp"
-                            android:layout_height="wrap_content"
-                            android:layout_weight="1"
-                            android:text="Respiratory Issues (Asthma, etc.)"
+                            android:text="Neck Pain"
                             android:textSize="16sp"
                             android:textColor="@color/black" />
 

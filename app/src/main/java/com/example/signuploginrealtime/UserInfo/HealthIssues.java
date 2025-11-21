@@ -31,7 +31,9 @@ public class HealthIssues extends AppCompatActivity {
 
     private static final String TAG = "HealthIssues";
 
-    private CheckBox cbJointPain, cbBackPain, cbHeartCondition, cbHighBloodPressure, cbRespiratoryIssues, cbNone, cbOther;
+    private CheckBox cbNone, cbKneeInjury, cbBackPain, cbShoulderInjury, cbAnkleInjury,
+                     cbHighBloodPressure, cbDiabetes, cbAsthma, cbHeartCondition,
+                     cbArthritis, cbPreviousSurgery, cbJointProblems, cbNeckPain, cbOther;
     private EditText etOther;
     private Button btnNext;
     private UserProfile userProfile;
@@ -64,12 +66,19 @@ public class HealthIssues extends AppCompatActivity {
         }
 
         // Initialize checkboxes
-        cbJointPain = findViewById(R.id.cbJointProblems);
-        cbBackPain = findViewById(R.id.cbBackProblems);
-        cbHeartCondition = findViewById(R.id.cbHeartProblems);
-        cbHighBloodPressure = findViewById(R.id.cbBloodPressure);
-        cbRespiratoryIssues = findViewById(R.id.cbRespiratory);
         cbNone = findViewById(R.id.cbNone);
+        cbKneeInjury = findViewById(R.id.cbKneeInjury);
+        cbBackPain = findViewById(R.id.cbBackPain);
+        cbShoulderInjury = findViewById(R.id.cbShoulderInjury);
+        cbAnkleInjury = findViewById(R.id.cbAnkleInjury);
+        cbHighBloodPressure = findViewById(R.id.cbHighBloodPressure);
+        cbDiabetes = findViewById(R.id.cbDiabetes);
+        cbAsthma = findViewById(R.id.cbAsthma);
+        cbHeartCondition = findViewById(R.id.cbHeartCondition);
+        cbArthritis = findViewById(R.id.cbArthritis);
+        cbPreviousSurgery = findViewById(R.id.cbPreviousSurgery);
+        cbJointProblems = findViewById(R.id.cbJointProblems);
+        cbNeckPain = findViewById(R.id.cbNeckPain);
         cbOther = findViewById(R.id.cbOther);
         etOther = findViewById(R.id.etOther);
 
@@ -85,32 +94,53 @@ public class HealthIssues extends AppCompatActivity {
         // Handle "None" selection → uncheck others
         cbNone.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
-                cbJointPain.setChecked(false);
+                cbKneeInjury.setChecked(false);
                 cbBackPain.setChecked(false);
-                cbHeartCondition.setChecked(false);
+                cbShoulderInjury.setChecked(false);
+                cbAnkleInjury.setChecked(false);
                 cbHighBloodPressure.setChecked(false);
-                cbRespiratoryIssues.setChecked(false);
+                cbDiabetes.setChecked(false);
+                cbAsthma.setChecked(false);
+                cbHeartCondition.setChecked(false);
+                cbArthritis.setChecked(false);
+                cbPreviousSurgery.setChecked(false);
+                cbJointProblems.setChecked(false);
+                cbNeckPain.setChecked(false);
                 cbOther.setChecked(false);
             }
             updateButtonState();
         });
 
         // Update button state for all other checkboxes
-        cbJointPain.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbKneeInjury.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
         cbBackPain.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
-        cbHeartCondition.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbShoulderInjury.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbAnkleInjury.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
         cbHighBloodPressure.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
-        cbRespiratoryIssues.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbDiabetes.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbAsthma.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbHeartCondition.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbArthritis.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbPreviousSurgery.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbJointProblems.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
+        cbNeckPain.setOnCheckedChangeListener((buttonView, isChecked) -> updateButtonState());
 
         // Set button click listener
         btnNext.setOnClickListener(v -> {
             ArrayList<String> healthIssues = new ArrayList<>();
 
-            if (cbJointPain.isChecked()) healthIssues.add("Joint Pain");
+            if (cbKneeInjury.isChecked()) healthIssues.add("Knee Injury");
             if (cbBackPain.isChecked()) healthIssues.add("Back Pain");
-            if (cbHeartCondition.isChecked()) healthIssues.add("Heart Condition");
+            if (cbShoulderInjury.isChecked()) healthIssues.add("Shoulder Injury");
+            if (cbAnkleInjury.isChecked()) healthIssues.add("Ankle Injury");
             if (cbHighBloodPressure.isChecked()) healthIssues.add("High Blood Pressure");
-            if (cbRespiratoryIssues.isChecked()) healthIssues.add("Respiratory Issues");
+            if (cbDiabetes.isChecked()) healthIssues.add("Diabetes");
+            if (cbAsthma.isChecked()) healthIssues.add("Asthma");
+            if (cbHeartCondition.isChecked()) healthIssues.add("Heart Condition");
+            if (cbArthritis.isChecked()) healthIssues.add("Arthritis");
+            if (cbPreviousSurgery.isChecked()) healthIssues.add("Previous Surgery");
+            if (cbJointProblems.isChecked()) healthIssues.add("Joint Problems");
+            if (cbNeckPain.isChecked()) healthIssues.add("Neck Pain");
 
             // Capture free-text "Other" input
             if (cbOther.isChecked()) {
@@ -212,8 +242,11 @@ public class HealthIssues extends AppCompatActivity {
 
     // Helper method to enable/disable button based on selection
     private void updateButtonState() {
-        boolean anyChecked = cbJointPain.isChecked() || cbBackPain.isChecked() || cbHeartCondition.isChecked()
-                || cbHighBloodPressure.isChecked() || cbRespiratoryIssues.isChecked() || cbOther.isChecked() || cbNone.isChecked();
+        boolean anyChecked = cbNone.isChecked() || cbKneeInjury.isChecked() || cbBackPain.isChecked() ||
+                cbShoulderInjury.isChecked() || cbAnkleInjury.isChecked() ||
+                cbHighBloodPressure.isChecked() || cbDiabetes.isChecked() || cbAsthma.isChecked() ||
+                cbHeartCondition.isChecked() || cbArthritis.isChecked() || cbPreviousSurgery.isChecked() ||
+                cbJointProblems.isChecked() || cbNeckPain.isChecked() || cbOther.isChecked();
         btnNext.setEnabled(anyChecked);
         btnNext.setAlpha(anyChecked ? 1f : 0.5f);
     }

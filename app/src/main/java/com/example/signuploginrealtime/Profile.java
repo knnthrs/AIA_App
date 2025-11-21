@@ -13,6 +13,8 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.widget.CheckBox;
+import android.widget.ScrollView;
 import androidx.activity.OnBackPressedCallback;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -79,8 +81,8 @@ public class Profile extends AppCompatActivity {
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
 
     // Fitness profile fields
-    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight;
-    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight;
+    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight, tvHealthIssues;
+    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight, layoutHealthIssues;
 
     // Firestore references
     private FirebaseFirestore firestore;
@@ -126,10 +128,9 @@ public class Profile extends AppCompatActivity {
         FirebaseUser currentUser = mAuth.getCurrentUser();
         firestore = FirebaseFirestore.getInstance();
 
+        // Initialize Firestore reference (but don't setup listener yet)
         if (currentUser != null) {
-            // Initialize Firestore reference for current user
             userDocRef = firestore.collection("users").document(currentUser.getUid());
-            setupUserDataListener();
         }
 
         // ===== Initialize UI Components =====
@@ -175,9 +176,11 @@ public class Profile extends AppCompatActivity {
         tvAge = findViewById(R.id.tv_age);
         tvWeight = findViewById(R.id.tv_weight);
         tvHeight = findViewById(R.id.tv_height);
+        tvHealthIssues = findViewById(R.id.tv_health_issues);
         layoutAge = findViewById(R.id.layout_age);
         layoutWeight = findViewById(R.id.layout_weight);
         layoutHeight = findViewById(R.id.layout_height);
+        layoutHealthIssues = findViewById(R.id.layout_health_issues);
 
         // ===== Progress Dialog =====
         uploadProgressDialog = new ProgressDialog(this);
@@ -287,22 +290,42 @@ public class Profile extends AppCompatActivity {
 
         // ===== Logout Button =====
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
+
+        // ===== Setup Firestore Listener (AFTER all views are initialized) =====
+        if (currentUser != null && userDocRef != null) {
+            setupUserDataListener();
+        }
     }
 
 
     private void setupFitnessProfileEditing() {
         // Fitness Level click listener
-        layoutFitnessLevel.setOnClickListener(v -> showFitnessLevelDialog());
+        if (layoutFitnessLevel != null) {
+            layoutFitnessLevel.setOnClickListener(v -> showFitnessLevelDialog());
+        }
 
         // Fitness Goal click listener
-        layoutFitnessGoal.setOnClickListener(v -> showFitnessGoalDialog());
+        if (layoutFitnessGoal != null) {
+            layoutFitnessGoal.setOnClickListener(v -> showFitnessGoalDialog());
+        }
 
         // Workout Frequency click listener
-        layoutWorkoutFrequency.setOnClickListener(v -> showWorkoutFrequencyDialog());
+        if (layoutWorkoutFrequency != null) {
+            layoutWorkoutFrequency.setOnClickListener(v -> showWorkoutFrequencyDialog());
+        }
 
-        layoutAge.setOnClickListener(v -> showAgeDialog());
-        layoutWeight.setOnClickListener(v -> showWeightDialog());
-        layoutHeight.setOnClickListener(v -> showHeightDialog());
+        if (layoutAge != null) {
+            layoutAge.setOnClickListener(v -> showAgeDialog());
+        }
+        if (layoutWeight != null) {
+            layoutWeight.setOnClickListener(v -> showWeightDialog());
+        }
+        if (layoutHeight != null) {
+            layoutHeight.setOnClickListener(v -> showHeightDialog());
+        }
+        if (layoutHealthIssues != null) {
+            layoutHealthIssues.setOnClickListener(v -> showHealthIssuesDialog());
+        }
     }
 
     private void showFitnessLevelDialog() {
@@ -506,6 +529,29 @@ public class Profile extends AppCompatActivity {
                         tvHeight.setText(height + " cm");
                     } else {
                         tvHeight.setText("Not set");
+                    }
+
+                    // Load Health Issues - with safe type handling
+                    if (tvHealthIssues != null) {
+                        try {
+                            Object healthIssuesObj = snapshot.get("healthIssues");
+                            String healthIssues = null;
+
+                            if (healthIssuesObj instanceof String) {
+                                healthIssues = (String) healthIssuesObj;
+                            } else if (healthIssuesObj != null) {
+                                healthIssues = healthIssuesObj.toString();
+                            }
+
+                            if (healthIssues != null && !healthIssues.trim().isEmpty()) {
+                                tvHealthIssues.setText(healthIssues);
+                            } else {
+                                tvHealthIssues.setText("None");
+                            }
+                        } catch (Exception e) {
+                            Log.e("Profile", "Error loading health issues", e);
+                            tvHealthIssues.setText("None");
+                        }
                     }
                 }
 
@@ -1268,24 +1314,28 @@ public class Profile extends AppCompatActivity {
     }
 
     private void loadMembershipStatus(String userId) {
-        firestore.collection("memberships")
-                .document(userId)
-                .addSnapshotListener((snapshot, error) -> {
-                    if (error != null) {
-                        Log.e("Profile", "Error loading membership", error);
-                        tvStatus.setText("INACTIVE");
-                        updateMembershipStatusColor("Inactive");
-                        return;
-                    }
+        try {
+            firestore.collection("memberships")
+                    .document(userId)
+                    .addSnapshotListener((snapshot, error) -> {
+                        try {
+                            if (error != null) {
+                                Log.e("Profile", "Error loading membership", error);
+                                if (tvStatus != null) {
+                                    tvStatus.setText("INACTIVE");
+                                    updateMembershipStatusColor("Inactive");
+                                }
+                                return;
+                            }
 
-                    if (snapshot != null && snapshot.exists()) {
-                        String status = snapshot.getString("membershipStatus");
+                            if (snapshot != null && snapshot.exists()) {
+                                String status = snapshot.getString("membershipStatus");
 
-                        // Check expiration date
-                        Timestamp expirationTimestamp = snapshot.getTimestamp("membershipExpirationDate");
-                        boolean isExpired = false;
+                                // Check expiration date
+                                Timestamp expirationTimestamp = snapshot.getTimestamp("membershipExpirationDate");
+                                boolean isExpired = false;
 
-                        if (expirationTimestamp != null) {
+                                if (expirationTimestamp != null) {
                             Date expirationDate = expirationTimestamp.toDate();
                             Date now = new Date();
                             isExpired = now.after(expirationDate);
@@ -1316,8 +1366,10 @@ public class Profile extends AppCompatActivity {
                                     .putInt("cached_color", cachedStatusColor)
                                     .apply();
 
-                            tvStatus.setText("INACTIVE");
-                            updateMembershipStatusColor("Inactive");
+                            if (tvStatus != null) {
+                                tvStatus.setText("INACTIVE");
+                                updateMembershipStatusColor("Inactive");
+                            }
 
                             // Auto-update status in database if expired
                             if (isExpired && "active".equalsIgnoreCase(status)) {
@@ -1328,10 +1380,26 @@ public class Profile extends AppCompatActivity {
                         }
                     } else {
                         // No membership document = Inactive
+                        if (tvStatus != null) {
+                            tvStatus.setText("INACTIVE");
+                            updateMembershipStatusColor("Inactive");
+                        }
+                    }
+                } catch (Exception e) {
+                    Log.e("Profile", "Exception in membership listener", e);
+                    if (tvStatus != null) {
                         tvStatus.setText("INACTIVE");
                         updateMembershipStatusColor("Inactive");
                     }
-                });
+                }
+            });
+        } catch (Exception e) {
+            Log.e("Profile", "Exception setting up membership listener", e);
+            if (tvStatus != null) {
+                tvStatus.setText("INACTIVE");
+                updateMembershipStatusColor("Inactive");
+            }
+        }
     }
 
 
@@ -1341,13 +1409,15 @@ public class Profile extends AppCompatActivity {
         String displayName;
         if (name != null && !name.isEmpty()) {
             displayName = name;
-        } else if (currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
+        } else if (currentUser != null && currentUser.getDisplayName() != null && !currentUser.getDisplayName().isEmpty()) {
             displayName = currentUser.getDisplayName();
         } else {
             displayName = "Gym Member";
         }
 
-        profileName.setText(displayName);
+        if (profileName != null) {
+            profileName.setText(displayName);
+        }
 
         // ✅ SAVE TO CACHE
         cachedUserName = displayName;
@@ -1357,25 +1427,31 @@ public class Profile extends AppCompatActivity {
                 .apply();
 
         // Update Email
-        if (email != null && !email.isEmpty()) {
-            profileEmail.setText(email);
-        } else {
-            String currentEmail = currentUser.getEmail();
-            profileEmail.setText(currentEmail != null ? currentEmail : "No email");
-            if (currentEmail != null && userDocRef != null) userDocRef.update("email", currentEmail);
+        if (profileEmail != null) {
+            if (email != null && !email.isEmpty()) {
+                profileEmail.setText(email);
+            } else {
+                String currentEmail = currentUser != null ? currentUser.getEmail() : null;
+                profileEmail.setText(currentEmail != null ? currentEmail : "No email");
+                if (currentEmail != null && userDocRef != null) {
+                    userDocRef.update("email", currentEmail);
+                }
+            }
         }
 
         // Update Phone
-        if (phone != null && !phone.isEmpty()) {
-            tvPhone.setText(phone);
-        } else {
-            tvPhone.setText("Phone not set");
+        if (tvPhone != null) {
+            if (phone != null && !phone.isEmpty()) {
+                tvPhone.setText(phone);
+            } else {
+                tvPhone.setText("Phone not set");
+            }
         }
 
         // ✅ FIXED: Update Date of Birth - handle both formats with DEBUG LOGS
         Log.d("Profile", "Received dateOfBirth: " + dateOfBirth); // DEBUG
 
-        if (dateOfBirth != null && !dateOfBirth.isEmpty()) {
+        if (tvDob != null && dateOfBirth != null && !dateOfBirth.isEmpty()) {
             try {
                 Date parsedDate = null;
 
@@ -1406,11 +1482,15 @@ public class Profile extends AppCompatActivity {
                 }
             } catch (Exception e) {
                 Log.e("Profile", "Failed to parse date: " + dateOfBirth, e);
-                tvDob.setText(dateOfBirth); // Fallback: just show the text
+                if (tvDob != null) {
+                    tvDob.setText(dateOfBirth); // Fallback: just show the text
+                }
             }
         } else {
             Log.d("Profile", "dateOfBirth is null or empty"); // DEBUG
-            tvDob.setText("Select your date of birth");
+            if (tvDob != null) {
+                tvDob.setText("Select your date of birth");
+            }
         }
 
         // Load fitness profile data
@@ -1917,6 +1997,153 @@ public class Profile extends AppCompatActivity {
         }
     }
 
+    private void showHealthIssuesDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Health Issues");
+
+        // Create scrollable container
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
+        // Add instruction text
+        TextView instructions = new TextView(this);
+        instructions.setText("Select common conditions or add custom ones:");
+        instructions.setTextSize(14);
+        instructions.setTextColor(getResources().getColor(android.R.color.darker_gray));
+        instructions.setPadding(0, 0, 0, (int) (12 * getResources().getDisplayMetrics().density));
+        container.addView(instructions);
+
+        // Common health issues
+        String[] commonIssues = {
+            "Knee Injury", "Back Pain", "Shoulder Injury", "Ankle Injury",
+            "High Blood Pressure", "Diabetes", "Asthma", "Heart Condition",
+            "Arthritis", "Previous Surgery", "Joint Problems", "Neck Pain"
+        };
+
+        // Parse current health issues
+        String currentHealthIssues = tvHealthIssues.getText().toString();
+        List<String> selectedIssues = new ArrayList<>();
+        if (!currentHealthIssues.equals("None") && !currentHealthIssues.equals("Not set")) {
+            String[] current = currentHealthIssues.split(",");
+            for (String issue : current) {
+                selectedIssues.add(issue.trim());
+            }
+        }
+
+        // Create checkboxes
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        for (String issue : commonIssues) {
+            CheckBox checkBox = new CheckBox(this);
+            checkBox.setText(issue);
+            checkBox.setTextSize(14);
+            checkBox.setChecked(selectedIssues.contains(issue));
+            checkBoxes.add(checkBox);
+            container.addView(checkBox);
+        }
+
+        // Add divider
+        View divider = new View(this);
+        divider.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            (int) (1 * getResources().getDisplayMetrics().density)
+        ));
+        divider.setBackgroundColor(getResources().getColor(android.R.color.darker_gray));
+        LinearLayout.LayoutParams dividerParams = (LinearLayout.LayoutParams) divider.getLayoutParams();
+        dividerParams.setMargins(0, (int) (16 * getResources().getDisplayMetrics().density),
+                                  0, (int) (16 * getResources().getDisplayMetrics().density));
+        divider.setLayoutParams(dividerParams);
+        container.addView(divider);
+
+        // Add "Other" label
+        TextView otherLabel = new TextView(this);
+        otherLabel.setText("Other (Custom):");
+        otherLabel.setTextSize(14);
+        otherLabel.setTypeface(null, android.graphics.Typeface.BOLD);
+        otherLabel.setPadding(0, 0, 0, (int) (8 * getResources().getDisplayMetrics().density));
+        container.addView(otherLabel);
+
+        // Custom input field
+        final EditText customInput = new EditText(this);
+        customInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_MULTI_LINE | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        customInput.setHint("Add any other conditions not listed above");
+        customInput.setMinLines(2);
+        customInput.setMaxLines(3);
+        customInput.setGravity(android.view.Gravity.TOP | android.view.Gravity.START);
+        customInput.setBackground(getResources().getDrawable(R.drawable.spinner_background));
+        customInput.setPadding((int) (12 * getResources().getDisplayMetrics().density),
+                              (int) (12 * getResources().getDisplayMetrics().density),
+                              (int) (12 * getResources().getDisplayMetrics().density),
+                              (int) (12 * getResources().getDisplayMetrics().density));
+
+        // Check if there are custom issues (not in common list)
+        List<String> customIssues = new ArrayList<>();
+        for (String issue : selectedIssues) {
+            boolean isCommon = false;
+            for (String common : commonIssues) {
+                if (common.equalsIgnoreCase(issue)) {
+                    isCommon = true;
+                    break;
+                }
+            }
+            if (!isCommon) {
+                customIssues.add(issue);
+            }
+        }
+        if (!customIssues.isEmpty()) {
+            customInput.setText(String.join(", ", customIssues));
+        }
+
+        container.addView(customInput);
+
+        scrollView.addView(container);
+        builder.setView(scrollView);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            List<String> finalIssues = new ArrayList<>();
+
+            // Add selected checkboxes
+            for (CheckBox checkBox : checkBoxes) {
+                if (checkBox.isChecked()) {
+                    finalIssues.add(checkBox.getText().toString());
+                }
+            }
+
+            // Add custom issues
+            String customText = customInput.getText().toString().trim();
+            if (!customText.isEmpty()) {
+                String[] customs = customText.split(",");
+                for (String custom : customs) {
+                    String trimmed = custom.trim();
+                    if (!trimmed.isEmpty()) {
+                        finalIssues.add(trimmed);
+                    }
+                }
+            }
+
+            // Combine all issues
+            String healthIssues = finalIssues.isEmpty() ? "" : String.join(", ", finalIssues);
+            updateHealthIssues(healthIssues);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
+
     private void updateAge(int age) {
         if (userDocRef != null) {
             userDocRef.update("age", age)
@@ -1954,6 +2181,29 @@ public class Profile extends AppCompatActivity {
                         tvHeight.setText(height + " cm");
                         markProfileAsChanged();
                         Toast.makeText(this, "Height updated", Toast.LENGTH_SHORT).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    private void updateHealthIssues(String healthIssues) {
+        if (userDocRef != null) {
+            // Ensure we're always saving as a String, even if empty
+            String valueToSave = (healthIssues != null && !healthIssues.trim().isEmpty())
+                ? healthIssues.trim()
+                : "";
+
+            userDocRef.update("healthIssues", valueToSave)
+                    .addOnSuccessListener(aVoid -> {
+                        if (tvHealthIssues != null) {
+                            String displayText = valueToSave.isEmpty() ? "None" : valueToSave;
+                            tvHealthIssues.setText(displayText);
+                        }
+                        markProfileAsChanged();
+                        Toast.makeText(this, "Health issues updated", Toast.LENGTH_SHORT).show();
                     })
                     .addOnFailureListener(e -> {
                         Toast.makeText(this, "Failed to update: " + e.getMessage(),

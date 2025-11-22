@@ -22,6 +22,7 @@ import com.example.signuploginrealtime.models.ExerciseInfo;
 import com.example.signuploginrealtime.models.UserProfile;
 import com.example.signuploginrealtime.models.Workout;
 import com.example.signuploginrealtime.models.WorkoutExercise;
+import com.example.signuploginrealtime.utils.WarmUpExerciseSelector;
 
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -371,6 +372,18 @@ public class WorkoutList extends AppCompatActivity {
                         } else {
                             Log.d(TAG, "Loading existing workout (profile unchanged).");
                             currentWorkoutExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
+
+                            // ✅ CHECK IF WARM-UP EXERCISES ARE MISSING
+                            if (currentWorkoutExercises != null && !currentWorkoutExercises.isEmpty()) {
+                                int warmUpCount = detectWarmUpCount(currentWorkoutExercises);
+                                if (warmUpCount == 0) {
+                                    // No warm-up found, add it now
+                                    Log.d(TAG, "Existing workout has no warm-up. Adding warm-up exercises...");
+                                    addWarmUpToExistingWorkout();
+                                    return; // addWarmUpToExistingWorkout will handle UI update
+                                }
+                            }
+
                             showExercises(currentWorkoutExercises);
                             startWorkoutButton.setEnabled(true);
                             return;
@@ -404,7 +417,30 @@ public class WorkoutList extends AppCompatActivity {
 
                     if (finalWorkout != null && finalWorkout.getExercises() != null
                             && !finalWorkout.getExercises().isEmpty()) {
-                        currentWorkoutExercises = finalWorkout.getExercises();
+
+                        // ✅ GENERATE WARM-UP EXERCISES
+                        // Use ALL exercises from database for warm-up selection, not just the 6 picked for main workout
+                        List<WorkoutExercise> warmUpExercises = WarmUpExerciseSelector.selectWarmUpExercises(
+                                allExercises,  // ALL 1400 exercises, not just availableExercises (6)
+                                finalWorkout.getExercises(),
+                                modelProfile
+                        );
+
+                        // ✅ COMBINE WARM-UP + MAIN WORKOUT
+                        List<WorkoutExercise> completeWorkout = new ArrayList<>();
+                        completeWorkout.addAll(warmUpExercises);
+                        completeWorkout.addAll(finalWorkout.getExercises());
+
+                        // Re-order all exercises
+                        for (int i = 0; i < completeWorkout.size(); i++) {
+                            completeWorkout.get(i).setOrder(i + 1);
+                        }
+
+                        Log.d(TAG, "Generated workout with " + warmUpExercises.size() +
+                                " warm-up exercises and " + finalWorkout.getExercises().size() +
+                                " main exercises");
+
+                        currentWorkoutExercises = completeWorkout;
                         showExercises(currentWorkoutExercises);
                         startWorkoutButton.setEnabled(true);
 
@@ -519,6 +555,48 @@ public class WorkoutList extends AppCompatActivity {
         return modelProfile;
     }
 
+    /**
+     * Detect how many warm-up exercises are in the workout
+     * Warm-up exercises typically have 1 set and lower reps
+     */
+    private int detectWarmUpCount(List<WorkoutExercise> exercises) {
+        if (exercises == null || exercises.isEmpty()) return 0;
+
+        int warmUpCount = 0;
+        for (WorkoutExercise we : exercises) {
+            // Warm-up exercises have 1 set and typically 8-15 reps or are time-based
+            if (we.getSets() == 1 && we.getRestSeconds() <= 30) {
+                warmUpCount++;
+            } else {
+                // Once we hit a non-warm-up exercise, stop counting
+                break;
+            }
+        }
+        return warmUpCount;
+    }
+
+    /**
+     * Add a section header to the exercises container
+     */
+    private void addSectionHeader(String title, String subtitle) {
+        TextView headerTitle = new TextView(this);
+        headerTitle.setText(title);
+        headerTitle.setTextSize(18);
+        headerTitle.setTypeface(null, android.graphics.Typeface.BOLD);
+        headerTitle.setPadding(16, 32, 16, 8);
+        headerTitle.setTextColor(0xFF000000);
+        exercisesContainer.addView(headerTitle);
+
+        if (subtitle != null && !subtitle.isEmpty()) {
+            TextView headerSubtitle = new TextView(this);
+            headerSubtitle.setText(subtitle);
+            headerSubtitle.setTextSize(14);
+            headerSubtitle.setPadding(16, 0, 16, 16);
+            headerSubtitle.setTextColor(0xFF666666);
+            exercisesContainer.addView(headerSubtitle);
+        }
+    }
+
     private void showExercises(List<WorkoutExercise> workoutExercises) {
         // Lifecycle check
         if (isDestroyed() || isFinishing()) {
@@ -552,7 +630,18 @@ public class WorkoutList extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         int order = 1;
 
+        // ✅ DETECT WARM-UP EXERCISES
+        int warmUpCount = detectWarmUpCount(workoutExercises);
+        boolean hasWarmUp = warmUpCount > 0;
+
         for (int i = 0; i < workoutExercises.size(); i++) {
+            // ✅ ADD SECTION HEADERS
+            if (i == 0 && hasWarmUp) {
+                addSectionHeader("🔥 WARM-UP", "Prepare your body for the workout");
+            } else if (i == warmUpCount && hasWarmUp) {
+                addSectionHeader("💪 MAIN WORKOUT", "Give it your all!");
+            }
+
             WorkoutExercise we = workoutExercises.get(i);
             View card = inflater.inflate(R.layout.item_exercise_card, exercisesContainer, false);
 
@@ -948,6 +1037,76 @@ public class WorkoutList extends AppCompatActivity {
         }
     }
 
+    /**
+     * Add warm-up exercises to an existing workout that doesn't have them
+     */
+    private void addWarmUpToExistingWorkout() {
+        Log.d(TAG, "Adding warm-up to existing workout...");
+        loadingIndicator.setVisibility(View.VISIBLE);
+
+        // Fetch all exercises from Firebase
+        DatabaseReference dbRef = FirebaseDatabase.getInstance().getReference();
+        dbRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                List<ExerciseInfo> allExercises = new ArrayList<>();
+
+                for (DataSnapshot exerciseSnap : snapshot.getChildren()) {
+                    if (exerciseSnap.getKey() != null && exerciseSnap.getKey().matches("^[0-9]+$")) {
+                        ExerciseInfo e = exerciseSnap.getValue(ExerciseInfo.class);
+                        if (e != null) {
+                            if (e.getGifUrl() == null || e.getGifUrl().isEmpty()) {
+                                e.setGifUrl("https://via.placeholder.com/150");
+                            }
+                            allExercises.add(e);
+                        }
+                    }
+                }
+
+                if (!allExercises.isEmpty() && currentWorkoutExercises != null) {
+                    // Generate warm-up exercises
+                    com.example.signuploginrealtime.models.UserProfile modelProfile = convertToModel(userProfile);
+                    List<WorkoutExercise> warmUpExercises = WarmUpExerciseSelector.selectWarmUpExercises(
+                            allExercises,
+                            currentWorkoutExercises,
+                            modelProfile
+                    );
+
+                    if (!warmUpExercises.isEmpty()) {
+                        // Combine warm-up + existing workout
+                        List<WorkoutExercise> completeWorkout = new ArrayList<>();
+                        completeWorkout.addAll(warmUpExercises);
+                        completeWorkout.addAll(currentWorkoutExercises);
+
+                        // Re-order all exercises
+                        for (int i = 0; i < completeWorkout.size(); i++) {
+                            completeWorkout.get(i).setOrder(i + 1);
+                        }
+
+                        currentWorkoutExercises = completeWorkout;
+
+                        Log.d(TAG, "Added " + warmUpExercises.size() + " warm-up exercises to existing workout");
+
+                        // Save updated workout to Firestore
+                        saveWorkoutToFirestore();
+                    }
+                }
+
+                loadingIndicator.setVisibility(View.GONE);
+                showExercises(currentWorkoutExercises);
+                startWorkoutButton.setEnabled(true);
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e(TAG, "Error loading exercises for warm-up", error.toException());
+                loadingIndicator.setVisibility(View.GONE);
+                // Show workout without warm-up
+                showExercises(currentWorkoutExercises);
+                startWorkoutButton.setEnabled(true);
+            }
+        });
+    }
 
     private void saveWorkoutToFirestore() {
         if (currentUser == null) {

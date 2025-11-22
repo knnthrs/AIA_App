@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <!-- Weight Suggestion Text -->
+    <TextView
+        android:id="@+id/tv_weight_suggestion"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Suggested weight for this exercise:"
+        android:textSize="16sp"
+        android:textColor="#424242"
+        android:layout_marginBottom="16dp"
+        android:lineSpacingExtra="4dp" />
+
+    <!-- Weight Input Section -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Enter the weight you're using:"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:textColor="#1976D2"
+        android:layout_marginBottom="8dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <!-- Weight Input Field -->
+        <EditText
+            android:id="@+id/et_weight_input"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Enter weight"
+            android:inputType="numberDecimal"
+            android:textSize="16sp"
+            android:padding="12dp"
+            android:background="@drawable/edit_text_background"
+            android:layout_marginEnd="12dp" />
+
+        <!-- Unit Spinner -->
+        <Spinner
+            android:id="@+id/spinner_weight_unit"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="80dp"
+            android:padding="12dp"
+            android:background="@drawable/spinner_background" />
+
+    </LinearLayout>
+
+    <!-- Helper Text -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="This helps us calculate accurate calorie burn and track your progress!"
+        android:textSize="12sp"
+        android:textColor="#757575"
+        android:layout_marginTop="12dp"
+        android:fontFamily="sans-serif-light" />
+
+</LinearLayout>
+

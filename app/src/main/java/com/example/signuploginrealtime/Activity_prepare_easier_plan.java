@@ -89,9 +89,18 @@ public class Activity_prepare_easier_plan extends AppCompatActivity {
         // Done button
         btnDone.setOnClickListener(v -> {
             if (selectedOption.equals("No, just keep everything the same")) {
-                // No adjustment needed
-                Intent intent = new Intent(this, MainActivity.class);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                // No adjustment needed - show workout summary
+                Intent intent = new Intent(this, WorkoutSummaryActivity.class);
+
+                // Try to get workout data from the chain if available
+                Intent previousIntent = getIntent();
+                if (previousIntent.hasExtra("workoutDuration")) {
+                    intent.putExtra("workoutDuration", previousIntent.getIntExtra("workoutDuration", 0));
+                }
+                if (previousIntent.hasExtra("performanceData")) {
+                    intent.putExtra("performanceData", previousIntent.getSerializableExtra("performanceData"));
+                }
+
                 startActivity(intent);
                 finish();
             } else {
@@ -99,6 +108,22 @@ public class Activity_prepare_easier_plan extends AppCompatActivity {
                 Intent intent = new Intent(this, Activity_adjusting_workout.class);
                 intent.putExtra("adjustment_type", selectedOption);
                 intent.putExtra("original_feedback", originalFeedback);
+
+                // Pass workout data through
+                Intent previousIntent = getIntent();
+                if (previousIntent.hasExtra("workoutDuration")) {
+                    intent.putExtra("workoutDuration", previousIntent.getIntExtra("workoutDuration", 0));
+                }
+                if (previousIntent.hasExtra("performanceData")) {
+                    intent.putExtra("performanceData", previousIntent.getSerializableExtra("performanceData"));
+                }
+                if (previousIntent.hasExtra("workout_name")) {
+                    intent.putExtra("workout_name", previousIntent.getStringExtra("workout_name"));
+                }
+                if (previousIntent.hasExtra("total_exercises")) {
+                    intent.putExtra("total_exercises", previousIntent.getIntExtra("total_exercises", 0));
+                }
+
                 startActivity(intent);
                 finish();
             }

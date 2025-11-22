@@ -8,8 +8,10 @@ public class ExercisePerformanceData implements Serializable {
     private int actualReps;
     private int targetDurationSeconds;
     private int actualDurationSeconds;
-    private String status; // <<< NEW FIELD
-    // private double weight; // We can add this later
+    private String status; // completed, skipped, partial
+    private double weight; // weight used in kg (for weighted exercises)
+    private String exerciseType; // cardio, strength, flexibility
+    private int caloriesEstimate; // estimated calories for this exercise
 
     public ExercisePerformanceData(String exerciseName, int targetReps, int actualReps, int targetDurationSeconds, int actualDurationSeconds, String status) {
         this.exerciseName = exerciseName;
@@ -17,7 +19,19 @@ public class ExercisePerformanceData implements Serializable {
         this.actualReps = actualReps;
         this.targetDurationSeconds = targetDurationSeconds;
         this.actualDurationSeconds = actualDurationSeconds;
-        this.status = status; // <<< ASSIGN STATUS
+        this.status = status;
+        this.weight = 0.0; // Default bodyweight
+        this.exerciseType = "strength"; // Default
+        this.caloriesEstimate = 0;
+    }
+
+    // Enhanced constructor
+    public ExercisePerformanceData(String exerciseName, int targetReps, int actualReps,
+                                 int targetDurationSeconds, int actualDurationSeconds,
+                                 String status, double weight, String exerciseType) {
+        this(exerciseName, targetReps, actualReps, targetDurationSeconds, actualDurationSeconds, status);
+        this.weight = weight;
+        this.exerciseType = exerciseType;
     }
 
     // Getters
@@ -41,8 +55,20 @@ public class ExercisePerformanceData implements Serializable {
         return actualDurationSeconds;
     }
 
-    public String getStatus() { // <<< NEW GETTER
+    public String getStatus() {
         return status;
+    }
+
+    public double getWeight() {
+        return weight;
+    }
+
+    public String getExerciseType() {
+        return exerciseType;
+    }
+
+    public int getCaloriesEstimate() {
+        return caloriesEstimate;
     }
 
     // Setters (optional, but can be useful)
@@ -66,8 +92,20 @@ public class ExercisePerformanceData implements Serializable {
         this.actualDurationSeconds = actualDurationSeconds;
     }
 
-    public void setStatus(String status) { // <<< NEW SETTER (optional but good to have)
+    public void setStatus(String status) {
         this.status = status;
+    }
+
+    public void setWeight(double weight) {
+        this.weight = weight;
+    }
+
+    public void setExerciseType(String exerciseType) {
+        this.exerciseType = exerciseType;
+    }
+
+    public void setCaloriesEstimate(int caloriesEstimate) {
+        this.caloriesEstimate = caloriesEstimate;
     }
 
     @Override
@@ -78,7 +116,10 @@ public class ExercisePerformanceData implements Serializable {
                 ", actualReps=" + actualReps +
                 ", targetDurationSeconds=" + targetDurationSeconds +
                 ", actualDurationSeconds=" + actualDurationSeconds +
-                ", status='" + status + '\'' + // <<< ADD STATUS TO TOSTRING
+                ", status='" + status + '\'' +
+                ", weight=" + weight +
+                ", exerciseType='" + exerciseType + '\'' +
+                ", caloriesEstimate=" + caloriesEstimate +
                 '}';
     }
 }

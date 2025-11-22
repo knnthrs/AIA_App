@@ -64,7 +64,12 @@
             android:exported="false" />
         <activity
             android:name=".activity_workout_complete"
-            android:exported="false" /> <!-- Rest Timer Activity -->
+            android:exported="false" />
+        <!-- Workout Summary Activity -->
+        <activity
+            android:name=".WorkoutSummaryActivity"
+            android:exported="false" />
+        <!-- Rest Timer Activity -->
         <activity
             android:name=".RestTimerActivity"
             android:exported="false" /> <!-- Workout Session Activity -->

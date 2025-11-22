@@ -85,8 +85,18 @@ public class Activity_adjusting_workout extends AppCompatActivity {
         btnDone = findViewById(R.id.btnDone);
 
         btnDone.setOnClickListener(v -> {
-            Intent intent = new Intent(this, MainActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+            // Go to workout summary first to celebrate the completed workout
+            Intent intent = new Intent(this, WorkoutSummaryActivity.class);
+
+            // Try to pass any available workout data
+            Intent previousIntent = getIntent();
+            if (previousIntent.hasExtra("workoutDuration")) {
+                intent.putExtra("workoutDuration", previousIntent.getIntExtra("workoutDuration", 0));
+            }
+            if (previousIntent.hasExtra("performanceData")) {
+                intent.putExtra("performanceData", previousIntent.getSerializableExtra("performanceData"));
+            }
+
             startActivity(intent);
             finish();
         });

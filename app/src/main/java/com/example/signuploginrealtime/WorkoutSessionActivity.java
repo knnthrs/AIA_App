@@ -85,6 +85,11 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private boolean hasBodyweightAlternative = false;
     private boolean isReplacingExercise = false;
 
+    // Compact weight suggestion UI
+    private android.widget.LinearLayout weightSuggestionContainer;
+    private android.widget.EditText etWeightQuick;
+    private android.widget.Spinner spinnerWeightUnitQuick;
+
     private ArrayList<String> originalExerciseNames;
     private ArrayList<String> originalExerciseDetails;
     private ArrayList<String> originalExerciseImageUrls;
@@ -93,6 +98,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
     private ArrayList<Integer> totalSetsPerExercise; // Total sets needed for each exercise
     private long lastModeSwitch = 0;
     private static final long MODE_SWITCH_COOLDOWN = 500; // 500ms cooldown
+
+    // Track weights used for each exercise
+    private final java.util.Map<Integer, Double> exerciseWeights = new java.util.HashMap<>();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -270,6 +278,24 @@ public class WorkoutSessionActivity extends AppCompatActivity {
                 actualDurationAchievedSeconds,
                 status // MODIFIED: Pass status
         );
+
+        // Apply stored weight if available
+        Double storedWeight = exerciseWeights.get(currentIndex);
+        if (storedWeight != null) {
+            performance.setWeight(storedWeight);
+            Log.d(TAG, "Applied weight to performance: " + storedWeight + "kg");
+        }
+
+        // Set exercise type based on name
+        String exerciseName = name.toLowerCase();
+        if (exerciseName.contains("run") || exerciseName.contains("jump") || exerciseName.contains("cardio")) {
+            performance.setExerciseType("cardio");
+        } else if (exerciseName.contains("stretch") || exerciseName.contains("yoga")) {
+            performance.setExerciseType("flexibility");
+        } else {
+            performance.setExerciseType("strength");
+        }
+
         Log.d(TAG, "Recording performance: " + performance.toString());
         performanceDataList.add(performance);
     }
@@ -318,6 +344,9 @@ public class WorkoutSessionActivity extends AppCompatActivity {
 
         // Check if alternatives exist
         checkBodyweightAlternativeAvailability();
+
+        // Update weight suggestion display
+        updateWeightSuggestion();
 
         if (isTTSReady) {
             startReadyCountdown();
@@ -452,6 +481,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             isRepetitionBased = true;
         }
 
+        continueWithExercise();
+    }
+
+    /**
+     * Continue with the exercise after weight suggestion (or if no suggestion needed)
+     */
+    private void continueWithExercise() {
         // FIXED: Show timer only when actual exercise starts
         tvExerciseTimer.setVisibility(View.VISIBLE);
 
@@ -463,6 +499,154 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             } else {
                 startTimer(30);
             }
+        }
+    }
+
+    /**
+     * Show/hide and update the compact weight suggestion button
+     */
+    private void updateWeightSuggestion() {
+        String currentExerciseName = exerciseNames.get(currentIndex);
+
+        // Show only for exercises that need EXTERNAL WEIGHT (not just equipment)
+        if (!isNoEquipmentMode && requiresExternalWeight(currentExerciseName)) {
+            weightSuggestionContainer.setVisibility(View.VISIBLE);
+
+            // Get suggested weight
+            double suggestedWeight = getSuggestedWeightValue(currentExerciseName);
+            etWeightQuick.setText(String.valueOf((int) suggestedWeight));
+
+            // Listen for changes and store weight
+            etWeightQuick.setOnFocusChangeListener((v, hasFocus) -> {
+                if (!hasFocus) {
+                    saveWeightFromQuickInput();
+                }
+            });
+
+            spinnerWeightUnitQuick.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+                @Override
+                public void onItemSelected(android.widget.AdapterView<?> parent, View view, int position, long id) {
+                    saveWeightFromQuickInput();
+                }
+
+                @Override
+                public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+            });
+        } else {
+            weightSuggestionContainer.setVisibility(View.GONE);
+        }
+    }
+
+    /**
+     * Check if exercise requires EXTERNAL WEIGHT (barbells, dumbbells, etc.)
+     * Excludes bodyweight exercises that use equipment (dips, pull-ups, etc.)
+     */
+    private boolean requiresExternalWeight(String exerciseName) {
+        String nameLower = exerciseName.toLowerCase();
+
+        // EXCLUDE bodyweight exercises that use equipment
+        String[] bodyweightOnEquipment = {
+            "dip", "pull up", "pull-up", "pullup", "chin up", "chin-up", "chinup",
+            "push up", "push-up", "pushup", "handstand", "muscle up", "muscle-up",
+            "hanging", "leg raise", "knee raise", "toes to bar", "toe to bar",
+            "pike", "plank", "hyperextension", "back extension",
+            "inverted row", "australian pull", "incline push",
+            "decline push", "box jump", "step up", "step-up", "box step"
+        };
+
+        for (String bodyweight : bodyweightOnEquipment) {
+            if (nameLower.contains(bodyweight)) {
+                return false; // No weight needed
+            }
+        }
+
+        // INCLUDE exercises that need external weights
+        String[] externalWeightKeywords = {
+            "barbell", "dumbbell", "kettlebell", "ez bar", "ez-bar",
+            "weight", "plate", "loaded", "weighted",
+            "bench press", "squat", "deadlift", "row", "curl",
+            "press", "shrug", "lunge", "overhead",
+            "fly", "raise", "extension", "kickback",
+            "preacher", "hammer", "wrist", "calf raise",
+            "goblet", "sumo", "romanian", "rdl",
+            "skull crusher", "tricep press", "close grip"
+        };
+
+        for (String keyword : externalWeightKeywords) {
+            if (nameLower.contains(keyword)) {
+                return true; // Needs weight
+            }
+        }
+
+        return false; // Default: no weight needed
+    }
+
+    /**
+     * Save weight from the compact input
+     */
+    private void saveWeightFromQuickInput() {
+        try {
+            String weightStr = etWeightQuick.getText().toString();
+            if (!weightStr.isEmpty()) {
+                double weight = Double.parseDouble(weightStr);
+                String unit = spinnerWeightUnitQuick.getSelectedItem().toString();
+
+                // Convert to kg if needed
+                if ("lbs".equals(unit)) {
+                    weight = weight * 0.453592;
+                }
+
+                storeExerciseWeight(currentIndex, weight);
+            }
+        } catch (NumberFormatException e) {
+            Log.e(TAG, "Invalid weight input", e);
+        }
+    }
+
+    /**
+     * Get suggested weight value (just the number, not the formatted string)
+     */
+    private double getSuggestedWeightValue(String exerciseName) {
+        String nameLower = exerciseName.toLowerCase();
+
+        // Get user fitness level
+        String fitnessLevel = getSharedPreferences("UserProfile", MODE_PRIVATE)
+                .getString("fitnessLevel", "Moderately Active");
+
+        double multiplier = 1.0;
+        if (fitnessLevel.contains("Sedentary") || fitnessLevel.contains("Lightly")) {
+            multiplier = 0.7;
+        } else if (fitnessLevel.contains("Very Active") || fitnessLevel.contains("Extremely")) {
+            multiplier = 1.3;
+        }
+
+        // Base weights
+        int baseWeight = 20; // Default
+
+        if (nameLower.contains("bench press")) {
+            baseWeight = 40;
+        } else if (nameLower.contains("squat")) {
+            baseWeight = 50;
+        } else if (nameLower.contains("deadlift")) {
+            baseWeight = 60;
+        } else if (nameLower.contains("dumbbell") || nameLower.contains("curl")) {
+            baseWeight = 10;
+        } else if (nameLower.contains("row")) {
+            baseWeight = 35;
+        } else if (nameLower.contains("shoulder press") || nameLower.contains("overhead press")) {
+            baseWeight = 30;
+        }
+
+        return baseWeight * multiplier;
+    }
+
+    /**
+     * Store the weight used for this exercise
+     */
+    private void storeExerciseWeight(int exerciseIndex, double weightKg) {
+        if (exerciseIndex >= 0 && exerciseIndex < performanceDataList.size()) {
+            // Update the performance data with the weight
+            performanceDataList.get(exerciseIndex).setWeight(weightKg);
         }
     }
 
@@ -598,12 +782,12 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         int nextIndex = findNextExerciseWithSetsRemaining(currentIndex + 1);
 
         if (nextIndex == -1) {
-            // All done
+            // All done - Go to feedback first, then summary
             markWorkoutCompletedInFirestore();
-            Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
+            Intent intent = new Intent(WorkoutSessionActivity.this, Activity_workout_feedback.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
-            intent.putExtra("workout_duration", calculateWorkoutDuration());
+            intent.putExtra("workoutDuration", calculateWorkoutDuration()); // Duration in minutes
             intent.putExtra("performanceData", performanceDataList);
             startActivity(intent);
             finish();
@@ -711,10 +895,10 @@ public class WorkoutSessionActivity extends AppCompatActivity {
             // No more exercises with remaining sets - workout complete!
             markWorkoutCompletedInFirestore();
 
-            Intent intent = new Intent(WorkoutSessionActivity.this, activity_workout_complete.class);
+            Intent intent = new Intent(WorkoutSessionActivity.this, Activity_workout_feedback.class);
             intent.putExtra("workout_name", getIntent().getStringExtra("workout_name"));
             intent.putExtra("total_exercises", exerciseNames != null ? exerciseNames.size() : 0);
-            intent.putExtra("workout_duration", calculateWorkoutDuration());
+            intent.putExtra("workoutDuration", calculateWorkoutDuration()); // Duration in minutes
             intent.putExtra("performanceData", performanceDataList);
             startActivity(intent);
             finish();
@@ -829,6 +1013,18 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         btnEquipmentMode = findViewById(R.id.btn_equipment_mode);
         btnNoEquipmentMode = findViewById(R.id.btn_no_equipment_mode);
         btnSwitchWorkout = findViewById(R.id.btn_switch_workout);
+
+        // Initialize compact weight suggestion UI
+        weightSuggestionContainer = findViewById(R.id.weight_suggestion_container);
+        etWeightQuick = findViewById(R.id.et_weight_quick);
+        spinnerWeightUnitQuick = findViewById(R.id.spinner_weight_unit_quick);
+
+        // Setup unit spinner with white text
+        android.widget.ArrayAdapter<String> adapter = new android.widget.ArrayAdapter<>(
+            this, R.layout.spinner_item_white, new String[]{"kg", "lbs"}
+        );
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerWeightUnitQuick.setAdapter(adapter);
 
         // Start fresh each workout - default to Equipment mode
         updateModeUI(false);

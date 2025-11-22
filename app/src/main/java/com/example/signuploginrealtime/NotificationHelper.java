@@ -56,6 +56,26 @@ public class NotificationHelper {
         createNotification(userId, title, message, "general");
     }
 
+    public static void createMembershipExpirationNotification(String userId, int daysUntilExpiration) {
+        String title, message;
+
+        if (daysUntilExpiration == 7) {
+            title = "Membership Expiring Soon";
+            message = "Your membership expires in 7 days. Renew now to continue enjoying our services!";
+        } else if (daysUntilExpiration == 3) {
+            title = "Membership Expiring Soon";
+            message = "Your membership expires in 3 days. Don't miss out - renew today!";
+        } else if (daysUntilExpiration == 1) {
+            title = "Membership Expires Tomorrow";
+            message = "Your membership expires tomorrow! Renew now to avoid service interruption.";
+        } else {
+            title = "Membership Expiring Soon";
+            message = "Your membership expires in " + daysUntilExpiration + " days. Please renew to continue using our services.";
+        }
+
+        createNotification(userId, title, message, "membership_expiration");
+    }
+
     private static void createNotification(String userId, String title, String message, String type) {
         if (userId == null || userId.isEmpty()) {
             Log.e(TAG, "Cannot create notification, userId is null/empty");

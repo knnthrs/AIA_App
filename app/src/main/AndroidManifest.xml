@@ -139,6 +139,12 @@
         <activity
             android:name=".StreakCalendar"
             android:exported="false" />
+
+        <!-- Membership Expiration Service -->
+        <service
+            android:name=".services.MembershipExpirationService"
+            android:enabled="true"
+            android:exported="false" />
     </application>
 
 </manifest>

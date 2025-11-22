@@ -192,6 +192,8 @@ package com.example.signuploginrealtime;
             setupWorkoutListener();
             setupExpirationListener();
 
+            // 🔔 Start membership expiration check service
+            startMembershipExpirationService();
 
             new android.os.Handler().postDelayed(() -> {
                 //checkAndHandleMembershipExpiration();
@@ -2425,5 +2427,13 @@ package com.example.signuploginrealtime;
             }
         }
 
+        /**
+         * Start the membership expiration service to check for upcoming expirations
+         */
+        private void startMembershipExpirationService() {
+            Intent serviceIntent = new Intent(this, com.example.signuploginrealtime.services.MembershipExpirationService.class);
+            startService(serviceIntent);
+            Log.d(TAG, "🔔 Started membership expiration service");
+        }
 
     }// ← Closing brace ng MainActivity class

@@ -82,7 +82,9 @@ public class Profile extends AppCompatActivity {
 
     // Fitness profile fields
     private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight, tvHealthIssues, tvBodyFocus;
+    private TextView tvPreferredDays; // NEW
     private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight, layoutHealthIssues, layoutBodyFocus;
+    private LinearLayout layoutPreferredDays; // NEW
 
     // Firestore references
     private FirebaseFirestore firestore;
@@ -183,6 +185,8 @@ public class Profile extends AppCompatActivity {
         layoutHeight = findViewById(R.id.layout_height);
         layoutHealthIssues = findViewById(R.id.layout_health_issues);
         layoutBodyFocus = findViewById(R.id.layout_body_focus);
+        tvPreferredDays = findViewById(R.id.tv_preferred_days);           // NEW
+        layoutPreferredDays = findViewById(R.id.layout_preferred_days);   // NEW
 
         // ===== Progress Dialog =====
         uploadProgressDialog = new ProgressDialog(this);
@@ -330,6 +334,9 @@ public class Profile extends AppCompatActivity {
         }
         if (layoutBodyFocus != null) {
             layoutBodyFocus.setOnClickListener(v -> showBodyFocusDialog());
+        }
+        if (layoutPreferredDays != null) {
+            layoutPreferredDays.setOnClickListener(v -> showPreferredDaysDialog()); // NEW
         }
     }
 
@@ -578,6 +585,29 @@ public class Profile extends AppCompatActivity {
                             tvBodyFocus.setText("Not set");
                         }
                     }
+
+                    // NEW: Load preferred workout days
+                    if (tvPreferredDays != null) {
+                        try {
+                            Object field = snapshot.get("preferredWorkoutDays");
+                            List<String> codes = new ArrayList<>();
+                            if (field instanceof List) {
+                                for (Object o : (List<?>) field) {
+                                    if (o != null) codes.add(o.toString());
+                                }
+                            } else if (field instanceof String) {
+                                String[] parts = ((String) field).split(",");
+                                for (String p : parts) {
+                                    String s = p.trim();
+                                    if (!s.isEmpty()) codes.add(s);
+                                }
+                            }
+                            tvPreferredDays.setText(formatPreferredDaysForDisplay(codes));
+                        } catch (Exception e) {
+                            Log.e("Profile", "Error loading preferredWorkoutDays", e);
+                            tvPreferredDays.setText("Not set");
+                        }
+                    }
                 }
 
             });
@@ -618,6 +648,27 @@ public class Profile extends AppCompatActivity {
             default:
                 return goal;
         }
+    }
+
+    // NEW: helper to format preferred days list into a nice string
+    private String formatPreferredDaysForDisplay(List<String> codes) {
+        if (codes == null || codes.isEmpty()) return "Not set";
+        // order: Mon..Sun
+        String[] order = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        Map<String, String> map = new HashMap<>();
+        map.put("Mon", "Mon");
+        map.put("Tue", "Tue");
+        map.put("Wed", "Wed");
+        map.put("Thu", "Thu");
+        map.put("Fri", "Fri");
+        map.put("Sat", "Sat");
+        map.put("Sun", "Sun");
+        List<String> ordered = new ArrayList<>();
+        for (String o : order) {
+            if (codes.contains(o)) ordered.add(map.get(o));
+        }
+        if (ordered.isEmpty()) return "Not set";
+        return android.text.TextUtils.join(", ", ordered);
     }
 
     private void setupSecurityClickListeners() {
@@ -1582,6 +1633,13 @@ public class Profile extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload fitness profile data when returning from other activities
+        loadFitnessProfileData();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (userDataListener != null) {
@@ -2289,6 +2347,14 @@ public class Profile extends AppCompatActivity {
                 .addOnFailureListener(e ->
                     Log.e("Profile", "Failed to delete cached workout", e));
     }
+
+    // Show preferred workout days selection dialog
+    private void showPreferredDaysDialog() {
+        // Launch the dedicated activity instead of showing a dialog
+        Intent intent = new Intent(this, PreferredWorkoutDaysActivity.class);
+        startActivity(intent);
+    }
+
 
     private void updateAge(int age) {
         if (userDocRef != null) {

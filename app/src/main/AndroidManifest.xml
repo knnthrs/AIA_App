@@ -53,6 +53,9 @@
             android:name=".FeedbackActivity"
             android:exported="false" />
         <activity
+            android:name=".PreferredWorkoutDaysActivity"
+            android:exported="false" />
+        <activity
             android:name=".Client_workouts_details"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

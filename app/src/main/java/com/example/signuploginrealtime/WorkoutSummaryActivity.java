@@ -92,6 +92,9 @@ public class WorkoutSummaryActivity extends AppCompatActivity {
 
         // Set up continue button
         btnContinue.setOnClickListener(v -> {
+            // ✅ Save workout to history
+            saveWorkoutToHistory();
+
             // Go to MainActivity with celebration flags
             Intent intent = new Intent(this, MainActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
@@ -658,6 +661,134 @@ public class WorkoutSummaryActivity extends AppCompatActivity {
                     calculateAndDisplayMetrics();
                 });
     }
+
+    // ✅ Save workout to history using calculated metrics
+    private void saveWorkoutToHistory() {
+        if (mAuth.getCurrentUser() == null || userProfile == null) {
+            Log.e(TAG, "Cannot save workout history: user not authenticated or profile not loaded");
+            return;
+        }
+
+        String userId = mAuth.getCurrentUser().getUid();
+
+        try {
+            // ✅ Use the SAME metrics that are displayed in the UI
+            WorkoutMetrics metrics = calculateWorkoutMetrics();
+
+            Log.d(TAG, "💾 ========== SAVING WORKOUT TO HISTORY ==========");
+            Log.d(TAG, "💾 Metrics calculated:");
+            Log.d(TAG, "💾   Duration: " + metrics.durationMinutes + " minutes");
+            Log.d(TAG, "💾   Calories: " + metrics.caloriesBurned + " cal");
+            Log.d(TAG, "💾   Exercises completed (raw): " + metrics.exercisesCompleted);
+            Log.d(TAG, "💾   Performance data list size: " + (performanceDataList != null ? performanceDataList.size() : "null"));
+
+            // Get body focus from user profile
+            db.collection("users").document(userId).get()
+                    .addOnSuccessListener(snapshot -> {
+                        java.util.List<String> bodyFocus = new ArrayList<>();
+                        if (snapshot.exists() && snapshot.get("bodyFocus") != null) {
+                            try {
+                                bodyFocus = (java.util.List<String>) snapshot.get("bodyFocus");
+                            } catch (Exception e) {
+                                Log.e(TAG, "Error parsing bodyFocus", e);
+                            }
+                        }
+
+                        // Create workout history object
+                        java.util.Map<String, Object> workoutData = new java.util.HashMap<>();
+                        workoutData.put("timestamp", System.currentTimeMillis());
+                        workoutData.put("duration", metrics.durationMinutes);
+                        workoutData.put("exercisesCount", metrics.exercisesCompleted);
+                        workoutData.put("caloriesBurned", metrics.caloriesBurned);
+                        workoutData.put("weight", userProfile.getWeight());
+                        workoutData.put("height", userProfile.getHeight());
+                        workoutData.put("bmi", userProfile.calculateBMI());
+                        workoutData.put("bodyFocus", bodyFocus);
+                        workoutData.put("fitnessGoal", userProfile.getFitnessGoal() != null ? userProfile.getFitnessGoal() : "general fitness");
+                        workoutData.put("fitnessLevel", userProfile.getFitnessLevel());
+
+                        // Convert performance data to simple format for storage
+                        // 🚨 IMPORTANT: Aggregate by exercise name, because performanceDataList
+                        // may contain multiple entries per exercise (e.g., per set).
+                        java.util.Map<String, java.util.Map<String, Object>> aggregated = new java.util.LinkedHashMap<>();
+
+                        if (performanceDataList != null) {
+                            for (ExercisePerformanceData data : performanceDataList) {
+                                if (data == null || data.getExerciseName() == null) continue;
+                                String name = data.getExerciseName();
+
+                                java.util.Map<String, Object> existing = aggregated.get(name);
+                                if (existing == null) {
+                                    existing = new java.util.HashMap<>();
+                                    existing.put("name", name);
+                                    existing.put("sets", 1); // start with 1 set
+                                    existing.put("targetReps", data.getTargetReps());
+                                    existing.put("actualReps", data.getActualReps());
+                                    existing.put("status", data.getStatus());
+                                    existing.put("weight", data.getWeight());
+                                } else {
+                                    // Increment sets
+                                    Object setsObj = existing.get("sets");
+                                    int sets = setsObj instanceof Number ? ((Number) setsObj).intValue() : 1;
+                                    existing.put("sets", sets + 1);
+
+                                    // Accumulate reps (optional: you can choose max instead)
+                                    Object repsObj = existing.get("actualReps");
+                                    int repsSoFar = repsObj instanceof Number ? ((Number) repsObj).intValue() : 0;
+                                    existing.put("actualReps", repsSoFar + data.getActualReps());
+
+                                    // Keep latest status/weight as a simple heuristic
+                                    existing.put("status", data.getStatus());
+                                    existing.put("weight", data.getWeight());
+                                }
+                                aggregated.put(name, existing);
+                            }
+                        }
+
+                        java.util.List<java.util.Map<String, Object>> exercisesList = new ArrayList<>();
+
+                        Log.d(TAG, "💾 Aggregating performance into unique exercises: " + aggregated.size());
+                        int index = 1;
+                        for (java.util.Map.Entry<String, java.util.Map<String, Object>> entry : aggregated.entrySet()) {
+                            java.util.Map<String, Object> exerciseMap = entry.getValue();
+                            exercisesList.add(exerciseMap);
+
+                            Log.d(TAG, "  💾 Exercise " + (index++) + ": " + exerciseMap.get("name") +
+                                    " | Sets: " + exerciseMap.get("sets") +
+                                    " | Actual reps (total): " + exerciseMap.get("actualReps") +
+                                    " | Status: " + exerciseMap.get("status"));
+                        }
+
+                        workoutData.put("exercises", exercisesList);
+
+                        // ✅ Set exercisesCount to number of unique exercises, not raw performance entries
+                        workoutData.put("exercisesCount", aggregated.size());
+
+                        Log.d(TAG, "💾 Workout data prepared: " + exercisesList.size() + " unique exercises");
+                        Log.d(TAG, "💾 Total data keys: " + workoutData.keySet());
+
+                        // Save to Firestore
+                        db.collection("users")
+                                .document(userId)
+                                .collection("workoutHistory")
+                                .add(workoutData)
+                                .addOnSuccessListener(documentReference -> {
+                                    Log.d(TAG, "✅ Workout history saved successfully: " + documentReference.getId());
+                                    Log.d(TAG, "✅ Saved - Duration: " + metrics.durationMinutes + ", Calories: " + metrics.caloriesBurned);
+                                })
+                                .addOnFailureListener(e -> {
+                                    Log.e(TAG, "❌ Error saving workout history", e);
+                                });
+                    })
+                    .addOnFailureListener(e -> {
+                        Log.e(TAG, "Error loading user profile for history save", e);
+                    });
+
+        } catch (Exception e) {
+            Log.e(TAG, "Error in saveWorkoutToHistory", e);
+        }
+    }
+
 
 
 

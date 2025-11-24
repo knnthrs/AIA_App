@@ -77,6 +77,14 @@ public class WorkoutList extends AppCompatActivity {
             finish();
             overridePendingTransition(0, 0);
         });
+
+        ImageButton btnHistory = findViewById(R.id.btn_history);
+        btnHistory.setOnClickListener(v -> {
+            Intent intent = new Intent(WorkoutList.this, WorkoutHistoryActivity.class);
+            startActivity(intent);
+            overridePendingTransition(0, 0);
+        });
+
         ImageButton btnRegenerate = findViewById(R.id.btn_regenerate);
         btnRegenerate.setOnClickListener(v -> showRegenerateDialog());
         overridePendingTransition(0, 0);
@@ -536,6 +544,25 @@ public class WorkoutList extends AppCompatActivity {
                 Log.e(TAG, "Error loading health issues", e);
                 userProfile.setHealthIssues(new ArrayList<>());
             }
+
+            // ✅ UPDATE BODY FOCUS - CRITICAL FOR PERSONALIZED WORKOUTS
+            try {
+                Object bodyFocusObj = snapshot.get("bodyFocus");
+                List<String> bodyFocusList = new ArrayList<>();
+
+                if (bodyFocusObj instanceof List) {
+                    bodyFocusList = (List<String>) bodyFocusObj;
+                }
+
+                userProfile.setBodyFocus(bodyFocusList);
+                Log.d(TAG, "✅ Updated bodyFocus: " + bodyFocusList.size() + " areas loaded");
+                if (!bodyFocusList.isEmpty()) {
+                    Log.d(TAG, "Body focus: " + String.join(", ", bodyFocusList));
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error loading body focus", e);
+                userProfile.setBodyFocus(new ArrayList<>());
+            }
         }
     }private com.example.signuploginrealtime.models.UserProfile convertToModel(UserProfile firebaseProfile) {
         com.example.signuploginrealtime.models.UserProfile modelProfile =
@@ -551,6 +578,7 @@ public class WorkoutList extends AppCompatActivity {
             modelProfile.setWeight(firebaseProfile.getWeight());
             modelProfile.setDislikedExercises(firebaseProfile.getDislikedExercises());
             modelProfile.setWorkoutDaysPerWeek(firebaseProfile.getWorkoutDaysPerWeek());
+            modelProfile.setBodyFocus(firebaseProfile.getBodyFocus()); // ✅ ADD BODY FOCUS
         }
         return modelProfile;
     }

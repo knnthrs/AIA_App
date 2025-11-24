@@ -83,7 +83,16 @@
             android:name=".WorkoutList"
             android:exported="false" />
         <activity
+            android:name=".WorkoutHistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WorkoutHistoryDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".UserInfo.HealthIssues"
+            android:exported="false" />
+        <activity
+            android:name=".UserInfo.BodyFocusSelection"
             android:exported="false" />
         <activity
             android:name=".UserInfo.FitnessGoal"

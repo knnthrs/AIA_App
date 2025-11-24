@@ -42,8 +42,6 @@ import com.example.signuploginrealtime.logic.WorkoutAdjustmentHelper;
 import java.util.ArrayList;
 import java.util.List;
 
-
-
 public class WorkoutList extends AppCompatActivity {
 
     private static final String TAG = "WorkoutList";
@@ -107,8 +105,20 @@ public class WorkoutList extends AppCompatActivity {
             userProfile.setAge(25);
             userProfile.setGender("not specified");
             userProfile.setFitnessGoal("general fitness");
+            // ✅ ensure fitnessLevel is never null
             userProfile.setFitnessLevel("beginner");
             userProfile.setHealthIssues(new ArrayList<>());
+        } else {
+            // ✅ extra safety: normalize null fields
+            if (userProfile.getFitnessLevel() == null) {
+                userProfile.setFitnessLevel("beginner");
+            }
+            if (userProfile.getFitnessGoal() == null) {
+                userProfile.setFitnessGoal("general fitness");
+            }
+            if (userProfile.getHealthIssues() == null) {
+                userProfile.setHealthIssues(new ArrayList<>());
+            }
         }
 
         startWorkoutButton.setEnabled(false);
@@ -151,7 +161,11 @@ public class WorkoutList extends AppCompatActivity {
                 exerciseDetails.add(detailsBuilder.toString());
 
                 int baseRest = we.getRestSeconds() > 0 ? we.getRestSeconds() : 20;
-                exerciseRests.add(adaptRestTime(baseRest, userProfile.getFitnessLevel()));
+                // ✅ null-safe fitnessLevel usage
+                String safeLevel = userProfile.getFitnessLevel() != null
+                        ? userProfile.getFitnessLevel()
+                        : "beginner";
+                exerciseRests.add(adaptRestTime(baseRest, safeLevel));
 
                 if (we.getSets() > 0 && we.getReps() > 0) {
                     int estimatedTime = we.getSets() * we.getReps() * 3;
@@ -378,23 +392,19 @@ public class WorkoutList extends AppCompatActivity {
                                     Toast.LENGTH_LONG).show();
                             shouldRegenerate = true;
                         } else {
-                            Log.d(TAG, "Loading existing workout (profile unchanged).");
-                            currentWorkoutExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
-
-                            // ✅ CHECK IF WARM-UP EXERCISES ARE MISSING
-                            if (currentWorkoutExercises != null && !currentWorkoutExercises.isEmpty()) {
-                                int warmUpCount = detectWarmUpCount(currentWorkoutExercises);
-                                if (warmUpCount == 0) {
-                                    // No warm-up found, add it now
-                                    Log.d(TAG, "Existing workout has no warm-up. Adding warm-up exercises...");
-                                    addWarmUpToExistingWorkout();
-                                    return; // addWarmUpToExistingWorkout will handle UI update
+                            // ✅ Safe deserialization with logging
+                            try {
+                                WorkoutWrapper wrapper = workoutSnapshot.toObject(WorkoutWrapper.class);
+                                if (wrapper == null) {
+                                    Log.w(TAG, "WorkoutWrapper is null from Firestore snapshot, regenerating.");
+                                    shouldRegenerate = true;
+                                } else {
+                                    currentWorkoutExercises = wrapper.toWorkoutExercises();
                                 }
+                            } catch (Exception ex) {
+                                Log.e(TAG, "Error parsing WorkoutWrapper from Firestore", ex);
+                                shouldRegenerate = true;
                             }
-
-                            showExercises(currentWorkoutExercises);
-                            startWorkoutButton.setEnabled(true);
-                            return;
                         }
                     }
                 }
@@ -658,16 +668,15 @@ public class WorkoutList extends AppCompatActivity {
         LayoutInflater inflater = LayoutInflater.from(this);
         int order = 1;
 
-        // ✅ DETECT WARM-UP EXERCISES
         int warmUpCount = detectWarmUpCount(workoutExercises);
         boolean hasWarmUp = warmUpCount > 0;
 
         for (int i = 0; i < workoutExercises.size(); i++) {
-            // ✅ ADD SECTION HEADERS
+            // ✅ Use plain text headers (no emoji) to avoid font/emoji crashes
             if (i == 0 && hasWarmUp) {
-                addSectionHeader("🔥 WARM-UP", "Prepare your body for the workout");
+                addSectionHeader("WARM-UP", "Prepare your body for the workout");
             } else if (i == warmUpCount && hasWarmUp) {
-                addSectionHeader("💪 MAIN WORKOUT", "Give it your all!");
+                addSectionHeader("MAIN WORKOUT", "Give it your all!");
             }
 
             WorkoutExercise we = workoutExercises.get(i);
@@ -1163,17 +1172,20 @@ public class WorkoutList extends AppCompatActivity {
     public static class WorkoutWrapper {
         public List<WorkoutExercise> exercises;
         public boolean completed;
-        public Long createdAt; // ✅ ADD THIS FIELD
+        public Long createdAt;
 
-        public WorkoutWrapper() {}
+        public WorkoutWrapper() {
+            // Firestore needs a public no-arg constructor
+        }
 
         public WorkoutWrapper(List<WorkoutExercise> exercises, boolean completed) {
             this.exercises = exercises;
             this.completed = completed;
-            this.createdAt = System.currentTimeMillis(); // ✅ Initialize timestamp
+            this.createdAt = System.currentTimeMillis();
         }
 
         public List<WorkoutExercise> toWorkoutExercises() {
+            // ✅ null-safe
             return exercises != null ? exercises : new ArrayList<>();
         }
     }
@@ -1208,6 +1220,7 @@ public class WorkoutList extends AppCompatActivity {
 
             workoutRef.get().addOnSuccessListener(workoutSnapshot -> {
                 boolean needsRegeneration = false;
+                List<WorkoutExercise> existingExercises = null;
 
                 if (!workoutSnapshot.exists()) {
                     Log.d(TAG, "No workout exists, need to generate");
@@ -1216,28 +1229,36 @@ public class WorkoutList extends AppCompatActivity {
                     Log.d(TAG, "Workout completed, need to regenerate");
                     needsRegeneration = true;
                 } else {
-                    // ✅ CHECK IF WORKOUT HAS NO EXERCISES
-                    List<WorkoutExercise> existingExercises = workoutSnapshot.toObject(WorkoutWrapper.class).toWorkoutExercises();
-                    if (existingExercises == null || existingExercises.isEmpty()) {
-                        Log.d(TAG, "Workout exists but empty, need to regenerate");
-                        needsRegeneration = true;
-                    } else {
-                        Long workoutCreatedAt = workoutSnapshot.getLong("createdAt");
-
-                        // Check if profile changed
-                        if (profileLastModified != null && workoutCreatedAt != null
-                                && profileLastModified > workoutCreatedAt) {
-                            Log.d(TAG, "Profile changed, need to regenerate");
+                    try {
+                        WorkoutWrapper wrapper = workoutSnapshot.toObject(WorkoutWrapper.class);
+                        if (wrapper == null) {
+                            Log.w(TAG, "WorkoutWrapper null in checkExistingWorkout, regenerating");
                             needsRegeneration = true;
                         } else {
-                            // Check if difficulty was adjusted
+                            existingExercises = wrapper.toWorkoutExercises();
+                        }
+                    } catch (Exception ex) {
+                        Log.e(TAG, "Error parsing WorkoutWrapper in checkExistingWorkout", ex);
+                        needsRegeneration = true;
+                    }
+
+                    if (!needsRegeneration) {
+                        if (existingExercises == null || existingExercises.isEmpty()) {
+                            Log.d(TAG, "Workout exists but empty, need to regenerate");
+                            needsRegeneration = true;
+                        } else {
+                            Long workoutCreatedAt = workoutSnapshot.getLong("createdAt");
                             Long lastAdjustmentTime = workoutPrefs.getLong("last_adjustment_timestamp", 0);
-                            if (lastAdjustmentTime > 0 && workoutCreatedAt != null
+
+                            if (profileLastModified != null && workoutCreatedAt != null
+                                    && profileLastModified > workoutCreatedAt) {
+                                Log.d(TAG, "Profile changed, need to regenerate");
+                                needsRegeneration = true;
+                            } else if (lastAdjustmentTime > 0 && workoutCreatedAt != null
                                     && lastAdjustmentTime > workoutCreatedAt) {
                                 Log.d(TAG, "Difficulty adjusted, need to regenerate");
                                 needsRegeneration = true;
                             } else {
-                                // ✅ WORKOUT IS VALID - LOAD IT IMMEDIATELY (FAST PATH!)
                                 Log.d(TAG, "✅ Loading existing valid workout - NO FETCH NEEDED");
                                 currentWorkoutExercises = existingExercises;
                                 loadingIndicator.setVisibility(View.GONE);
@@ -1249,7 +1270,6 @@ public class WorkoutList extends AppCompatActivity {
                     }
                 }
 
-                // ✅ Only fetch exercises if we actually need to regenerate
                 if (needsRegeneration) {
                     Log.d(TAG, "Fetching exercises for workout generation");
                     fetchAllExercises();
@@ -1274,4 +1294,3 @@ public class WorkoutList extends AppCompatActivity {
 
 
 }
-

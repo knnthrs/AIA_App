@@ -130,6 +130,10 @@ public class AdvancedWorkoutDecisionMaker {
         List<ExerciseInfo> prioritized = new ArrayList<>();
         List<ExerciseInfo> others = new ArrayList<>();
 
+        // Log for debugging
+        System.out.println("🎯 Body Focus Filter - Selected: " + bodyFocus);
+        System.out.println("🎯 Total exercises to filter: " + exercises.size());
+
         // Separate exercises based on body focus
         for (ExerciseInfo exercise : exercises) {
             if (exercise == null || exercise.getName() == null) continue;
@@ -142,45 +146,132 @@ public class AdvancedWorkoutDecisionMaker {
             for (String focus : bodyFocus) {
                 String focusLower = focus.toLowerCase();
 
-                // Check exercise name directly (e.g., "abs", "legs")
+                // ✅ SPECIAL: Check exercise name for common patterns FIRST
+                // This helps when targetMuscles are missing or wrong
+                if (focusLower.equals("arms") || focusLower.equals("arm")) {
+                    // Common arm exercise names
+                    if (nameLower.contains("curl") || nameLower.contains("extension") ||
+                        nameLower.contains("tricep") || nameLower.contains("bicep") ||
+                        nameLower.contains("preacher") || nameLower.contains("hammer") ||
+                        nameLower.contains("concentration") || nameLower.contains("overhead extension") ||
+                        nameLower.contains("skull crusher") || nameLower.contains("dip") ||
+                        nameLower.contains("close grip")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                if (focusLower.equals("legs") || focusLower.equals("leg")) {
+                    // Common leg exercise names
+                    if (nameLower.contains("squat") || nameLower.contains("lunge") ||
+                        nameLower.contains("leg press") || nameLower.contains("leg curl") ||
+                        nameLower.contains("leg extension") || nameLower.contains("calf raise") ||
+                        nameLower.contains("romanian deadlift") || nameLower.contains("step up")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                if (focusLower.equals("abs") || focusLower.equals("core") || focusLower.equals("ab")) {
+                    // Common abs exercise names
+                    if (nameLower.contains("crunch") || nameLower.contains("sit up") ||
+                        nameLower.contains("plank") || nameLower.contains("leg raise") ||
+                        nameLower.contains("russian twist") || nameLower.contains("bicycle") ||
+                        nameLower.contains("mountain climber") || nameLower.contains("v-up")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                if (focusLower.equals("chest") || focusLower.equals("pecs")) {
+                    // Common chest exercise names
+                    if (nameLower.contains("bench press") || nameLower.contains("push up") ||
+                        nameLower.contains("chest fly") || nameLower.contains("cable crossover") ||
+                        nameLower.contains("dumbbell press") || nameLower.contains("incline") ||
+                        nameLower.contains("decline")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                if (focusLower.equals("back")) {
+                    // Common back exercise names
+                    if (nameLower.contains("row") || nameLower.contains("pull up") ||
+                        nameLower.contains("lat pulldown") || nameLower.contains("deadlift") ||
+                        nameLower.contains("pull down") || nameLower.contains("face pull")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                if (focusLower.equals("shoulders") || focusLower.equals("shoulder")) {
+                    // Common shoulder exercise names
+                    if (nameLower.contains("shoulder press") || nameLower.contains("lateral raise") ||
+                        nameLower.contains("front raise") || nameLower.contains("overhead press") ||
+                        nameLower.contains("arnold press") || nameLower.contains("military press")) {
+                        matchesBodyFocus = true;
+                        break;
+                    }
+                }
+
+                // Check exercise name directly for focus word
                 if (nameLower.contains(focusLower)) {
                     matchesBodyFocus = true;
                     break;
                 }
 
-                // Check target muscles
-                if (targets != null) {
+                // Check target muscles with VERY LENIENT matching
+                if (targets != null && !targets.isEmpty()) {
                     for (String target : targets) {
                         String targetLower = target.toLowerCase();
 
-                        // Map focus to muscle groups
-                        if (focusLower.equals("chest") &&
-                            (targetLower.contains("chest") || targetLower.contains("pectorals"))) {
+                        // ✅ CHEST - match any chest variation
+                        if ((focusLower.equals("chest") || focusLower.equals("pecs")) &&
+                            (targetLower.contains("chest") || targetLower.contains("pec"))) {
                             matchesBodyFocus = true;
                             break;
-                        } else if (focusLower.equals("back") &&
-                            (targetLower.contains("back") || targetLower.contains("lats") || targetLower.contains("spine") ||
-                                    targetLower.contains("upper back") || targetLower.contains("rhomboid") || targetLower.contains("trapezius"))) {
+                        }
+
+                        // ✅ BACK - match any back variation
+                        else if (focusLower.equals("back") &&
+                            (targetLower.contains("back") || targetLower.contains("lat") ||
+                             targetLower.contains("spine") || targetLower.contains("rhomboid") ||
+                             targetLower.contains("trapezius") || targetLower.contains("trap"))) {
                             matchesBodyFocus = true;
                             break;
-                        } else if (focusLower.equals("shoulders") &&
-                            (targetLower.contains("shoulder") || targetLower.contains("deltoid"))) {
+                        }
+
+                        // ✅ SHOULDERS - match any shoulder variation
+                        else if ((focusLower.equals("shoulders") || focusLower.equals("shoulder")) &&
+                            (targetLower.contains("shoulder") || targetLower.contains("deltoid") ||
+                             targetLower.contains("delt"))) {
                             matchesBodyFocus = true;
                             break;
-                        } else if (focusLower.equals("arms") &&
+                        }
+
+                        // ✅ ARMS - match any arm variation
+                        else if ((focusLower.equals("arms") || focusLower.equals("arm")) &&
                             (targetLower.contains("bicep") || targetLower.contains("tricep") ||
-                             targetLower.contains("forearms") || targetLower.contains("arm"))) {
+                             targetLower.contains("forearm") || targetLower.contains("arm"))) {
                             matchesBodyFocus = true;
                             break;
-                        } else if (focusLower.equals("legs") &&
-                            (targetLower.contains("quads") || targetLower.contains("hamstrings") ||
-                             targetLower.contains("calves") || targetLower.contains("leg") ||
-                             targetLower.contains("glutes"))) {
+                        }
+
+                        // ✅ LEGS - match ANY leg-related term
+                        else if ((focusLower.equals("legs") || focusLower.equals("leg")) &&
+                            (targetLower.contains("quad") || targetLower.contains("hamstring") ||
+                             targetLower.contains("calf") || targetLower.contains("calves") ||
+                             targetLower.contains("leg") || targetLower.contains("glute") ||
+                             targetLower.contains("thigh") || targetLower.contains("lower body"))) {
                             matchesBodyFocus = true;
                             break;
-                        } else if (focusLower.equals("abs") &&
-                            (targetLower.contains("abdominals") || targetLower.contains("core") ||
-                             targetLower.contains("oblique"))) {
+                        }
+
+                        // ✅ ABS - match ANY abs-related term
+                        else if ((focusLower.equals("abs") || focusLower.equals("core") || focusLower.equals("ab")) &&
+                            (targetLower.contains("ab") || targetLower.contains("core") ||
+                             targetLower.contains("oblique") || targetLower.contains("stomach") ||
+                             targetLower.contains("waist"))) {
                             matchesBodyFocus = true;
                             break;
                         }
@@ -192,25 +283,35 @@ public class AdvancedWorkoutDecisionMaker {
 
             if (matchesBodyFocus) {
                 prioritized.add(exercise);
+                System.out.println("  ✅ MATCH: " + exercise.getName() + " | Targets: " + targets);
             } else {
                 others.add(exercise);
             }
         }
 
+        System.out.println("🎯 Matched exercises: " + prioritized.size());
+        System.out.println("🎯 Skipped exercises: " + others.size());
+
         // Shuffle focused exercises
         Collections.shuffle(prioritized);
 
-        // ✅ STRICT MODE: only body-focus-matching exercises are returned.
-        // We cap at 6 to avoid overly long sessions, but we DO NOT
-        // fill with non-focused "others".
+        // ✅ STRICT MODE: only body-focus-matching exercises
         List<ExerciseInfo> result = new ArrayList<>();
         for (int i = 0; i < Math.min(6, prioritized.size()); i++) {
             result.add(prioritized.get(i));
         }
 
-        // NOTE: if there are fewer than 6 matching exercises, result will
-        // simply have fewer items. No chest/back/etc will be added when
-        // focus is Legs or Abs.
+        // ⚠️ FALLBACK: If body focus found 0 exercises, return a few general exercises
+        // so the user gets SOMETHING instead of a complete failure
+        if (result.isEmpty() && !others.isEmpty()) {
+            System.out.println("⚠️ WARNING: No exercises matched body focus! Using general exercises as fallback.");
+            Collections.shuffle(others);
+            for (int i = 0; i < Math.min(3, others.size()); i++) {
+                result.add(others.get(i));
+            }
+        }
+
+        System.out.println("🎯 Final result: " + result.size() + " exercises for main workout");
 
         return result;
     }
@@ -410,4 +511,5 @@ public class AdvancedWorkoutDecisionMaker {
         return new Workout(exercises, exercises.size() * 5);
     }
 }
+
 

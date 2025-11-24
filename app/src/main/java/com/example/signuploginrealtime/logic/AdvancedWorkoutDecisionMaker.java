@@ -121,7 +121,7 @@ public class AdvancedWorkoutDecisionMaker {
 
         List<String> bodyFocus = userProfile.getBodyFocus();
 
-        // If no body focus is set, just shuffle and return
+        // If no body focus is set, just shuffle and return all exercises
         if (bodyFocus == null || bodyFocus.isEmpty()) {
             Collections.shuffle(exercises);
             return exercises;
@@ -142,7 +142,7 @@ public class AdvancedWorkoutDecisionMaker {
             for (String focus : bodyFocus) {
                 String focusLower = focus.toLowerCase();
 
-                // Check exercise name
+                // Check exercise name directly (e.g., "abs", "legs")
                 if (nameLower.contains(focusLower)) {
                     matchesBodyFocus = true;
                     break;
@@ -155,12 +155,12 @@ public class AdvancedWorkoutDecisionMaker {
 
                         // Map focus to muscle groups
                         if (focusLower.equals("chest") &&
-                            (targetLower.contains("chest") || targetLower.contains("pectoral"))) {
+                            (targetLower.contains("chest") || targetLower.contains("pectorals"))) {
                             matchesBodyFocus = true;
                             break;
                         } else if (focusLower.equals("back") &&
-                            (targetLower.contains("back") || targetLower.contains("lat") ||
-                             targetLower.contains("rhomboid") || targetLower.contains("trapezius"))) {
+                            (targetLower.contains("back") || targetLower.contains("lats") || targetLower.contains("spine") ||
+                                    targetLower.contains("upper back") || targetLower.contains("rhomboid") || targetLower.contains("trapezius"))) {
                             matchesBodyFocus = true;
                             break;
                         } else if (focusLower.equals("shoulders") &&
@@ -169,17 +169,17 @@ public class AdvancedWorkoutDecisionMaker {
                             break;
                         } else if (focusLower.equals("arms") &&
                             (targetLower.contains("bicep") || targetLower.contains("tricep") ||
-                             targetLower.contains("forearm") || targetLower.contains("arm"))) {
+                             targetLower.contains("forearms") || targetLower.contains("arm"))) {
                             matchesBodyFocus = true;
                             break;
                         } else if (focusLower.equals("legs") &&
-                            (targetLower.contains("quad") || targetLower.contains("hamstring") ||
-                             targetLower.contains("calf") || targetLower.contains("leg") ||
-                             targetLower.contains("glute"))) {
+                            (targetLower.contains("quads") || targetLower.contains("hamstrings") ||
+                             targetLower.contains("calves") || targetLower.contains("leg") ||
+                             targetLower.contains("glutes"))) {
                             matchesBodyFocus = true;
                             break;
                         } else if (focusLower.equals("abs") &&
-                            (targetLower.contains("ab") || targetLower.contains("core") ||
+                            (targetLower.contains("abdominals") || targetLower.contains("core") ||
                              targetLower.contains("oblique"))) {
                             matchesBodyFocus = true;
                             break;
@@ -200,21 +200,17 @@ public class AdvancedWorkoutDecisionMaker {
         // Shuffle focused exercises
         Collections.shuffle(prioritized);
 
-        // ✅ RETURN ONLY FOCUSED EXERCISES (100% focused workout)
+        // ✅ STRICT MODE: only body-focus-matching exercises are returned.
+        // We cap at 6 to avoid overly long sessions, but we DO NOT
+        // fill with non-focused "others".
         List<ExerciseInfo> result = new ArrayList<>();
-
-        // Add up to 6 exercises from focused areas ONLY
         for (int i = 0; i < Math.min(6, prioritized.size()); i++) {
             result.add(prioritized.get(i));
         }
 
-        // If not enough focused exercises, shuffle others as fallback
-        if (result.size() < 6) {
-            Collections.shuffle(others);
-            for (int i = 0; i < others.size() && result.size() < 6; i++) {
-                result.add(others.get(i));
-            }
-        }
+        // NOTE: if there are fewer than 6 matching exercises, result will
+        // simply have fewer items. No chest/back/etc will be added when
+        // focus is Legs or Abs.
 
         return result;
     }
@@ -414,5 +410,4 @@ public class AdvancedWorkoutDecisionMaker {
         return new Workout(exercises, exercises.size() * 5);
     }
 }
-
 

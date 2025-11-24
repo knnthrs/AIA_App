@@ -414,6 +414,98 @@
 
                     </androidx.cardview.widget.CardView>
 
+                    <!-- Daily Challenge Card -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/daily_challenge_card"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="20dp"
+                        android:backgroundTint="#FFFFFF"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="4dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <!-- Header -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="16dp">
+
+                                <TextView
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Daily Challenge"
+                                    android:textColor="#333333"
+                                    android:textSize="20sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:id="@+id/daily_challenge_emoji"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="🎯"
+                                    android:textSize="24sp" />
+
+                            </LinearLayout>
+
+                            <!-- Challenge Description -->
+                            <TextView
+                                android:id="@+id/daily_challenge_description"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Loading challenge..."
+                                android:textColor="#666666"
+                                android:textSize="16sp"
+                                android:layout_marginBottom="16dp"
+                                android:minHeight="48dp" />
+
+                            <!-- Progress Bar -->
+                            <ProgressBar
+                                android:id="@+id/daily_challenge_progress"
+                                android:layout_width="match_parent"
+                                android:layout_height="8dp"
+                                android:layout_marginBottom="8dp"
+                                style="@style/Widget.AppCompat.ProgressBar.Horizontal"
+                                android:progressTint="#4CAF50"
+                                android:max="100"
+                                android:progress="0" />
+
+                            <!-- Progress Text -->
+                            <TextView
+                                android:id="@+id/daily_challenge_progress_text"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="0/10"
+                                android:textColor="#666666"
+                                android:textSize="14sp"
+                                android:layout_marginBottom="16dp" />
+
+                            <!-- Complete Button -->
+                            <Button
+                                android:id="@+id/btn_complete_challenge"
+                                android:layout_width="match_parent"
+                                android:layout_height="50dp"
+                                android:text="Complete Challenge"
+                                android:textColor="@color/white"
+                                android:backgroundTint="#4CAF50"
+                                android:textStyle="bold"
+                                android:textSize="16sp" />
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
 
                     <!-- existing "Today's Activities" CardView with this updated version -->
 

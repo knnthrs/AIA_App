@@ -297,11 +297,6 @@ public class Profile extends AppCompatActivity {
         // ===== Logout Button =====
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
 
-        // ===== TEMPORARY: Seed Foods Button =====
-        findViewById(R.id.btn_seed_foods).setOnClickListener(v -> {
-            Intent intent = new Intent(Profile.this, FoodSeederActivity.class);
-            startActivity(intent);
-        });
 
         // ===== Setup Firestore Listener (AFTER all views are initialized) =====
         if (currentUser != null && userDocRef != null) {

@@ -414,6 +414,238 @@
 
                     </androidx.cardview.widget.CardView>
 
+                    <!-- Daily Challenge Card -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/daily_challenge_card"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="20dp"
+                        android:backgroundTint="#2b2b2b"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="4dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="20dp">
+
+                            <!-- Header -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+
+                                <TextView
+                                    android:id="@+id/daily_challenge_emoji"
+                                    android:layout_width="40dp"
+                                    android:layout_height="40dp"
+                                    android:text="🎯"
+                                    android:textSize="28sp"
+                                    android:gravity="center"
+                                    android:layout_marginEnd="12dp" />
+
+                                <LinearLayout
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:orientation="vertical">
+
+                                    <TextView
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Daily Challenge"
+                                        android:textColor="@color/white"
+                                        android:textSize="18sp"
+                                        android:textStyle="bold" />
+
+                                    <TextView
+                                        android:id="@+id/daily_challenge_description"
+                                        android:layout_width="wrap_content"
+                                        android:layout_height="wrap_content"
+                                        android:text="Complete 10 push-ups"
+                                        android:textColor="#CCCCCC"
+                                        android:textSize="14sp"
+                                        android:layout_marginTop="4dp" />
+
+                                </LinearLayout>
+
+                            </LinearLayout>
+
+                            <!-- Progress Bar -->
+                            <LinearLayout
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:layout_marginBottom="12dp">
+
+                                <ProgressBar
+                                    android:id="@+id/daily_challenge_progress"
+                                    style="?android:attr/progressBarStyleHorizontal"
+                                    android:layout_width="0dp"
+                                    android:layout_height="8dp"
+                                    android:layout_weight="1"
+                                    android:progressTint="#FFC107"
+                                    android:progressBackgroundTint="#555555"
+                                    android:max="100"
+                                    android:progress="0" />
+
+                                <TextView
+                                    android:id="@+id/daily_challenge_progress_text"
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="0/1"
+                                    android:textColor="@color/white"
+                                    android:textSize="14sp"
+                                    android:textStyle="bold"
+                                    android:layout_marginStart="12dp" />
+
+                            </LinearLayout>
+
+                            <!-- Complete Button -->
+                            <Button
+                                android:id="@+id/btn_complete_challenge"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:text="Complete Challenge"
+                                android:textColor="@color/white"
+                                android:textStyle="bold"
+                                android:backgroundTint="#4CAF50"
+                                android:padding="12dp"
+                                android:textSize="16sp" />
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- Food Recommendation Card -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/food_recommendation_card"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="20dp"
+                        android:backgroundTint="#2b2b2b"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="4dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="20dp"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:text="🍎"
+                                android:textSize="28sp"
+                                android:gravity="center"
+                                android:layout_marginEnd="16dp" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Food Recommendations"
+                                    android:textColor="@color/white"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="Discover healthy food options"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="14sp"
+                                    android:layout_marginTop="4dp" />
+
+                            </LinearLayout>
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="#888888"
+                                android:contentDescription="Open food recommendations" />
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
+                    <!-- My Meal Plan Card -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/meal_plan_card"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="20dp"
+                        android:backgroundTint="#2b2b2b"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="4dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:padding="20dp"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:layout_width="40dp"
+                                android:layout_height="40dp"
+                                android:text="📋"
+                                android:textSize="28sp"
+                                android:gravity="center"
+                                android:layout_marginEnd="16dp" />
+
+                            <LinearLayout
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:orientation="vertical">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="My Meal Plan"
+                                    android:textColor="@color/white"
+                                    android:textSize="18sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:text="View your personalized meal plan"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="14sp"
+                                    android:layout_marginTop="4dp" />
+
+                            </LinearLayout>
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_chevron_right"
+                                app:tint="#888888"
+                                android:contentDescription="Open meal plan" />
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
 
                     <!-- existing "Today's Activities" CardView with this updated version -->
 

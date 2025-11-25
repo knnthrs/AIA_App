@@ -22,4 +22,11 @@
     <color name="borderColor">#E0E0E0</color>
     <color name="textPrimary">#212121</color>
 
+    <!-- Food Recommendation Colors -->
+    <color name="primary">#2196F3</color>
+    <color name="background_color">#F5F5F5</color>
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+    <color name="chip_background">#E3F2FD</color>
+
 </resources>

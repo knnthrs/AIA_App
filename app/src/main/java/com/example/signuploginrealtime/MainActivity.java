@@ -521,6 +521,26 @@ package com.example.signuploginrealtime;
                 });
             }
 
+            // Food Recommendation Card Click Listener
+            CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
+            if (foodRecommendationCard != null) {
+                foodRecommendationCard.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, UserFoodRecommendationsActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
+
+            // My Meal Plan Card Click Listener
+            CardView mealPlanCard = findViewById(R.id.meal_plan_card);
+            if (mealPlanCard != null) {
+                mealPlanCard.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, UserMealPlanActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
+
             ImageView bellIcon = findViewById(R.id.bell_icon);
             if (bellIcon != null) {
                 bellIcon.setOnClickListener(v -> {
@@ -2434,6 +2454,32 @@ package com.example.signuploginrealtime;
             Intent serviceIntent = new Intent(this, com.example.signuploginrealtime.services.MembershipExpirationService.class);
             startService(serviceIntent);
             Log.d(TAG, "🔔 Started membership expiration service");
+        }
+
+        private void seedFoodsIfNeeded() {
+            FirebaseFirestore db = FirebaseFirestore.getInstance();
+            Log.d("FoodSeeder","Checking foods collection existence...");
+            db.collection("foods").limit(1).get().addOnSuccessListener(snap -> {
+                Log.d("FoodSeeder","foods query success; empty=" + snap.isEmpty());
+                if (snap.isEmpty()) {
+                    Log.d("FoodSeeder", "Foods collection empty. Seeding 500 foods NOW...");
+                    FoodSeeder.seed(db)
+                            .addOnSuccessListener(v -> Log.d("FoodSeeder", "Seeding complete. seed_marker should exist."))
+                            .addOnFailureListener(e -> Log.e("FoodSeeder", "Seeding failed", e));
+                } else {
+                    // Check if only coach docs present and seed_marker absent
+                    db.collection("foods").document("seed_marker").get().addOnSuccessListener(marker -> {
+                        if (!marker.exists()) {
+                            Log.d("FoodSeeder","seed_marker missing; attempting fallback seed (rules may allow initial batch)...");
+                            FoodSeeder.seed(db)
+                                    .addOnSuccessListener(v -> Log.d("FoodSeeder","Fallback seeding complete."))
+                                    .addOnFailureListener(e -> Log.e("FoodSeeder","Fallback seeding failed", e));
+                        } else {
+                            Log.d("FoodSeeder","seed_marker present; skipping seeding.");
+                        }
+                    });
+                }
+            }).addOnFailureListener(e -> Log.e("FoodSeeder","Initial foods query failed", e));
         }
 
     }// ← Closing brace ng MainActivity class

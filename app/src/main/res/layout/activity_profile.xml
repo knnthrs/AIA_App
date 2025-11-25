@@ -1002,6 +1002,45 @@
                     android:gravity="center"
                     android:layout_marginBottom="20dp">
 
+                    <!-- TEMPORARY: Food Seeder Button (remove after seeding) -->
+                    <androidx.cardview.widget.CardView
+                        android:id="@+id/btn_seed_foods"
+                        android:layout_width="200dp"
+                        android:layout_height="wrap_content"
+                        android:backgroundTint="#4CAF50"
+                        app:cardCornerRadius="24dp"
+                        app:cardElevation="4dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:foreground="?attr/selectableItemBackground"
+                        android:layout_marginBottom="16dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="56dp"
+                            android:orientation="horizontal"
+                            android:gravity="center"
+                            android:paddingHorizontal="28dp">
+
+                            <ImageView
+                                android:layout_width="24dp"
+                                android:layout_height="24dp"
+                                android:src="@drawable/ic_star"
+                                android:layout_marginEnd="12dp"
+                                app:tint="#FFFFFF" />
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="Seed Foods DB"
+                                android:textSize="16sp"
+                                android:textColor="#FFFFFF"
+                                android:textStyle="bold" />
+
+                        </LinearLayout>
+
+                    </androidx.cardview.widget.CardView>
+
                     <androidx.cardview.widget.CardView
                         android:id="@+id/btn_logout"
                         android:layout_width="200dp"

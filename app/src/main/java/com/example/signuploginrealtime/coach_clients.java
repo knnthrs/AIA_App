@@ -185,7 +185,7 @@ public class coach_clients extends AppCompatActivity {
         clientsAdapter = new ClientsAdapter(this, filteredClientsList, new ClientsAdapter.OnClientLongClickListener() {
             @Override
             public void onClientLongClick(Client client) {
-                showArchiveDialog(client);
+                showClientOptionsDialog(client);
             }
         });
         assignedClientsRecyclerView.setLayoutManager(new LinearLayoutManager(this));
@@ -229,6 +229,14 @@ public class coach_clients extends AppCompatActivity {
     private void setupSidebarListeners() {
         findViewById(R.id.menu_archive).setOnClickListener(v -> {
             Intent intent = new Intent(coach_clients.this, CoachArchiveActivity.class);
+            startActivity(intent);
+            drawerLayout.closeDrawer(GravityCompat.END);
+        });
+
+        findViewById(R.id.menu_food_recommendations).setOnClickListener(v -> {
+            Intent intent = new Intent(coach_clients.this, CoachFoodManagementActivity.class);
+            intent.putExtra("clientId", (String) null); // General recommendations
+            intent.putExtra("clientName", (String) null);
             startActivity(intent);
             drawerLayout.closeDrawer(GravityCompat.END);
         });
@@ -570,6 +578,27 @@ public class coach_clients extends AppCompatActivity {
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
         startActivity(intent);
         finish();
+    }
+
+    private void showClientOptionsDialog(Client client) {
+        String[] options = {"Add Food Recommendation", "Archive Client"};
+
+        new AlertDialog.Builder(this)
+                .setTitle(client.getName())
+                .setItems(options, (dialog, which) -> {
+                    if (which == 0) {
+                        // Add Food Recommendation
+                        Intent intent = new Intent(coach_clients.this, CoachAddFoodActivity.class);
+                        intent.putExtra("clientId", client.getUid());
+                        intent.putExtra("clientName", client.getName());
+                        startActivity(intent);
+                    } else if (which == 1) {
+                        // Archive Client
+                        showArchiveDialog(client);
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void showArchiveDialog(Client client) {

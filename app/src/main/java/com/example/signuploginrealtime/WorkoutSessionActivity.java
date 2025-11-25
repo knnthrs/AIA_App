@@ -408,13 +408,35 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         if (imageUrl != null && !imageUrl.isEmpty()) {
             tvNoImage.setVisibility(View.GONE);
             ivExerciseImage.setVisibility(View.VISIBLE);
-            Glide.with(this).asGif().load(imageUrl)
+
+            Glide.with(this)
+                    .asGif()
+                    .load(imageUrl)
                     .diskCacheStrategy(DiskCacheStrategy.ALL)
-                    .dontTransform().override(800, 800)
+                    .dontTransform()
+                    .override(800, 800)
+                    .listener(new com.bumptech.glide.request.RequestListener<com.bumptech.glide.load.resource.gif.GifDrawable>() {
+                        @Override
+                        public boolean onLoadFailed(@androidx.annotation.Nullable com.bumptech.glide.load.engine.GlideException e, Object model, com.bumptech.glide.request.target.Target<com.bumptech.glide.load.resource.gif.GifDrawable> target, boolean isFirstResource) {
+                            Log.e("WorkoutSession", "Failed to load GIF: " + imageUrl, e);
+                            runOnUiThread(() -> {
+                                ivExerciseImage.setVisibility(View.GONE);
+                                tvNoImage.setVisibility(View.VISIBLE);
+                                tvNoImage.setText("Image failed to load\nPlease check your connection");
+                            });
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(com.bumptech.glide.load.resource.gif.GifDrawable resource, Object model, com.bumptech.glide.request.target.Target<com.bumptech.glide.load.resource.gif.GifDrawable> target, com.bumptech.glide.load.DataSource dataSource, boolean isFirstResource) {
+                            return false;
+                        }
+                    })
                     .into(ivExerciseImage);
         } else {
             ivExerciseImage.setVisibility(View.GONE);
             tvNoImage.setVisibility(View.VISIBLE);
+            tvNoImage.setText("No exercise image available");
         }
     }
 

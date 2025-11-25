@@ -49,6 +49,19 @@
         <activity
             android:name=".CoachSpecializationsActivity"
             android:exported="false" />
+        <!-- Food Recommendation Activities -->
+        <activity
+            android:name=".UserFoodRecommendationsActivity"
+            android:exported="false" />
+        <activity
+            android:name=".UserMealPlanActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CoachFoodManagementActivity"
+            android:exported="false" />
+        <activity
+            android:name=".CoachAddFoodActivity"
+            android:exported="false" />
         <activity
             android:name=".FeedbackActivity"
             android:exported="false" />
@@ -143,6 +156,9 @@
             android:exported="false" />
         <activity
             android:name=".StreakCalendar"
+            android:exported="false" />
+        <activity
+            android:name=".FoodSeederActivity"
             android:exported="false" />
 
         <!-- Membership Expiration Service -->

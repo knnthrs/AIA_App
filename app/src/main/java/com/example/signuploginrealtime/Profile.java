@@ -102,7 +102,7 @@ public class Profile extends AppCompatActivity {
     private static final int MIN_PASSWORD_LENGTH = 8;
     // Email and phone validation patterns
     private static final Pattern EMAIL_PATTERN = Pattern.compile(
-            "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-Za-z]{2,})$"
+            "^[A-Za-z0-9+_.-]+@([A-Za-z0-9.-]+\\.[A-ZaZ]{2,})$"
     );
     private static final Pattern PHONE_PATTERN = Pattern.compile(
             "^0\\d{10}$" // Philippine format: 0 followed by 10 digits (e.g., 09123456789)
@@ -290,6 +290,12 @@ public class Profile extends AppCompatActivity {
 
         // ===== Logout Button =====
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
+
+        // ===== TEMPORARY: Seed Foods Button =====
+        findViewById(R.id.btn_seed_foods).setOnClickListener(v -> {
+            Intent intent = new Intent(Profile.this, FoodSeederActivity.class);
+            startActivity(intent);
+        });
 
         // ===== Setup Firestore Listener (AFTER all views are initialized) =====
         if (currentUser != null && userDocRef != null) {

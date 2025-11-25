@@ -275,6 +275,17 @@
             </LinearLayout>
 
             <LinearLayout
+                android:id="@+id/menu_food_recommendations"
+                style="@style/SidebarMenuItem">
+                <ImageView
+                    style="@style/SidebarMenuIcon"
+                    android:src="@drawable/ic_restaurant" />
+                <TextView
+                    style="@style/SidebarMenuText"
+                    android:text="Food Recommendations" />
+            </LinearLayout>
+
+            <LinearLayout
                 android:id="@+id/menu_specializations"
                 style="@style/SidebarMenuItem">
                 <ImageView

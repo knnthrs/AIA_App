@@ -247,12 +247,13 @@ package com.example.signuploginrealtime;
             membershipCtaContainer = findViewById(R.id.membership_cta_container);
 
             // Initialize daily challenge views (may be null on some layouts)
-            dailyChallengeCard = findViewById(R.id.daily_challenge_card);
-            dailyChallengeEmoji = findViewById(R.id.daily_challenge_emoji);
-            dailyChallengeDescription = findViewById(R.id.daily_challenge_description);
-            dailyChallengeProgress = findViewById(R.id.daily_challenge_progress);
-            dailyChallengeProgressText = findViewById(R.id.daily_challenge_progress_text);
-            btnCompleteChallenge = findViewById(R.id.btn_complete_challenge);
+            // TODO: Add daily challenge UI to layout
+            // dailyChallengeCard = findViewById(R.id.daily_challenge_card);
+            // dailyChallengeEmoji = findViewById(R.id.daily_challenge_emoji);
+            // dailyChallengeDescription = findViewById(R.id.daily_challenge_description);
+            // dailyChallengeProgress = findViewById(R.id.daily_challenge_progress);
+            // dailyChallengeProgressText = findViewById(R.id.daily_challenge_progress_text);
+            // btnCompleteChallenge = findViewById(R.id.btn_complete_challenge);
         }
 
         private void showExitDialog() {
@@ -541,25 +542,26 @@ package com.example.signuploginrealtime;
                 });
             }
 
+            // TODO: Add food recommendation and meal plan cards to layout
             // Food Recommendation Card Click Listener
-            CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
-            if (foodRecommendationCard != null) {
-                foodRecommendationCard.setOnClickListener(v -> {
-                    Intent intent = new Intent(MainActivity.this, UserFoodRecommendationsActivity.class);
-                    startActivity(intent);
-                    overridePendingTransition(0, 0);
-                });
-            }
+            // CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
+            // if (foodRecommendationCard != null) {
+            //     foodRecommendationCard.setOnClickListener(v -> {
+            //         Intent intent = new Intent(MainActivity.this, UserFoodRecommendationsActivity.class);
+            //         startActivity(intent);
+            //         overridePendingTransition(0, 0);
+            //     });
+            // }
 
             // My Meal Plan Card Click Listener
-            CardView mealPlanCard = findViewById(R.id.meal_plan_card);
-            if (mealPlanCard != null) {
-                mealPlanCard.setOnClickListener(v -> {
-                    Intent intent = new Intent(MainActivity.this, UserMealPlanActivity.class);
-                    startActivity(intent);
-                    overridePendingTransition(0, 0);
-                });
-            }
+            // CardView mealPlanCard = findViewById(R.id.meal_plan_card);
+            // if (mealPlanCard != null) {
+            //     mealPlanCard.setOnClickListener(v -> {
+            //         Intent intent = new Intent(MainActivity.this, UserMealPlanActivity.class);
+            //         startActivity(intent);
+            //         overridePendingTransition(0, 0);
+            //     });
+            // }
 
             ImageView bellIcon = findViewById(R.id.bell_icon);
             if (bellIcon != null) {
@@ -612,11 +614,12 @@ package com.example.signuploginrealtime;
             if (scheduleIcon != null) {
                 scheduleIcon.setOnClickListener(v -> {
                     // Open schedule selection - get current coach and membership info
-                    dbFirestore.collection("memberships").document(mAuth.getCurrentUser().getUid())
-                        .get()
-                        .addOnSuccessListener(doc -> {
-                            if (doc.exists()) {
-                                String coachId = doc.getString("coachId");
+                    if (mAuth.getCurrentUser() != null) {
+                        dbFirestore.collection("memberships").document(mAuth.getCurrentUser().getUid())
+                            .get()
+                            .addOnSuccessListener(doc -> {
+                                if (doc.exists()) {
+                                    String coachId = doc.getString("coachId");
                                 String coachName = doc.getString("coachName");
                                 Long sessions = doc.getLong("sessions");
 
@@ -632,6 +635,7 @@ package com.example.signuploginrealtime;
                                 }
                             }
                         });
+                    }
                 });
             }
         }
@@ -1666,6 +1670,11 @@ package com.example.signuploginrealtime;
         }
 
         private void updateChallengeUI(boolean completed) {
+            // Check if UI elements exist
+            if (dailyChallengeProgress == null || dailyChallengeProgressText == null || btnCompleteChallenge == null) {
+                return;
+            }
+
             if (completed) {
                 dailyChallengeProgress.setProgress(100);
                 dailyChallengeProgressText.setText("✓ Completed");

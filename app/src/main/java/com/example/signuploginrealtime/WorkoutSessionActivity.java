@@ -193,8 +193,13 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         initializeEquipmentModeCard();
         initializeSetsTracking();
 
+        // ✅ STEP 5.5: Initialize performance tracking
+        performanceDataList = getIntent().hasExtra("performanceData")
+                ? (ArrayList<ExercisePerformanceData>) getIntent().getSerializableExtra("performanceData")
+                : new ArrayList<>();
+
         // STEP 6: Set time and index (DO THIS ONLY ONCE)
-        workoutStartTime = System.currentTimeMillis();
+        workoutStartTime = getIntent().getLongExtra("workoutStartTime", System.currentTimeMillis());
         currentIndex = getIntent().getIntExtra("currentIndex", 0);
 
         // STEP 7: Show exercise (DO THIS ONLY ONCE AT THE END)
@@ -1001,11 +1006,18 @@ public class WorkoutSessionActivity extends AppCompatActivity {
         }
     }
 
-    private String calculateWorkoutDuration() {
+    // ✅ Calculate actual workout duration in minutes
+    private int calculateWorkoutDuration() {
         long durationMillis = System.currentTimeMillis() - workoutStartTime;
-        long minutes = (durationMillis / 1000) / 60;
-        long seconds = (durationMillis / 1000) % 60;
-        return String.format(Locale.getDefault(), "%02d:%02d", minutes, seconds);
+        int minutes = (int) ((durationMillis / 1000) / 60);
+
+        // Ensure minimum 1 minute
+        minutes = Math.max(1, minutes);
+
+        Log.d(TAG, "📊 Workout duration calculated: " + minutes + " minutes");
+        Log.d(TAG, "📊 Start time: " + workoutStartTime + ", End time: " + System.currentTimeMillis());
+
+        return minutes;
     }
 
     private void stopAllTTS() {
@@ -1817,6 +1829,7 @@ private void fetchAnyAlternativeExercise() {
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
     }
+
 
     private void showInstructionsDialog(String instructions) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);

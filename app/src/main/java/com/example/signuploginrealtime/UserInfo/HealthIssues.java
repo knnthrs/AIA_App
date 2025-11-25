@@ -195,6 +195,7 @@ public class HealthIssues extends AppCompatActivity {
         userProfileData.put("healthIssues", userProfile.getHealthIssues());
         userProfileData.put("otherHealthIssue", userProfile.getOtherHealthIssue());
         userProfileData.put("workoutDaysPerWeek", userProfile.getWorkoutDaysPerWeek());
+        userProfileData.put("bodyFocus", userProfile.getBodyFocus());
         userProfileData.put("birthdate", userProfile.getBirthdate());
 
 

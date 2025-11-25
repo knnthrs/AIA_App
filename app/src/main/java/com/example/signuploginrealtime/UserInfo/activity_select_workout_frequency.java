@@ -58,9 +58,11 @@ public class activity_select_workout_frequency extends AppCompatActivity {
             // Save to Firestore immediately
             saveWorkoutFrequencyToFirestore(selectedFrequency);
 
-            // Move to HealthIssues activity
-            Intent intent = new Intent(activity_select_workout_frequency.this, HealthIssues.class);
+            // Move to PreferredWorkoutDaysActivity (NEW)
+            Intent intent = new Intent(activity_select_workout_frequency.this, com.example.signuploginrealtime.PreferredWorkoutDaysActivity.class);
             intent.putExtra("userProfile", userProfile);
+            intent.putExtra("requiredDays", selectedFrequency); // Pass how many days they must select
+            intent.putExtra("fromOnboarding", true); // Flag to indicate this is onboarding flow
             startActivity(intent);
         });
     }

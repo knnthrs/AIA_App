@@ -43,6 +43,7 @@ public class Client_workouts_details extends AppCompatActivity {
 
     private TextView clientName, clientWeight, clientHeight, clientGoal, workoutFrequency;
     private TextView clientRemainingSessions;
+    private TextView clientFitnessLevel, clientAge, clientHealthIssues, clientBodyFocus;
     private Button markSessionCompleteButton;
     private Set<String> alreadyAddedNames = new HashSet<>();
     private SearchResultsAdapter searchAdapter;
@@ -85,6 +86,10 @@ public class Client_workouts_details extends AppCompatActivity {
         clientGoal = findViewById(R.id.client_goal);
         workoutFrequency = findViewById(R.id.workout_frequency);
         clientRemainingSessions = findViewById(R.id.client_remaining_sessions);
+        clientFitnessLevel = findViewById(R.id.client_fitness_level);
+        clientAge = findViewById(R.id.client_age);
+        clientHealthIssues = findViewById(R.id.client_health_issues);
+        clientBodyFocus = findViewById(R.id.client_body_focus);
         markSessionCompleteButton = findViewById(R.id.btn_mark_session_complete);
         saveButton = findViewById(R.id.btn_save_changes);
         saveButton.setVisibility(View.GONE);
@@ -131,11 +136,44 @@ public class Client_workouts_details extends AppCompatActivity {
                 .addOnSuccessListener(snapshot -> {
                     if (snapshot.exists()) {
                         clientName.setText(snapshot.getString("fullname"));
-                        clientWeight.setText(String.valueOf(snapshot.get("weight")));
-                        clientHeight.setText(String.valueOf(snapshot.get("height")));
+
+                        // ✅ height / weight can be number or string
+                        Object wObj = snapshot.get("weight");
+                        Object hObj = snapshot.get("height");
+                        clientWeight.setText(formatNumberField(wObj, "kg"));
+                        clientHeight.setText(formatNumberField(hObj, "cm"));
+
                         clientGoal.setText(snapshot.getString("fitnessGoal"));
                         workoutFrequency.setText(snapshot.getString("fitnessLevel"));
+
+                        // Fitness Level
+                        String fitnessLevel = snapshot.getString("fitnessLevel");
+                        clientFitnessLevel.setText(
+                                fitnessLevel != null && !fitnessLevel.isEmpty() ? fitnessLevel : "Not set"
+                        );
+
+                        // ✅ age can be number or string
+                        Object ageObj = snapshot.get("age");
+                        String ageText = formatNumberField(ageObj, "years");
+                        clientAge.setText(!ageText.isEmpty() ? ageText : "Not set");
+
+                        // ✅ healthIssues may be List<String> or String
+                        Object healthIssuesObj = snapshot.get("healthIssues");
+                        String healthDisplay = formatFlexibleStringOrList(healthIssuesObj, "None");
+                        clientHealthIssues.setText(healthDisplay);
+
+                        // ✅ bodyFocus may be List<String> or String
+                        Object bodyFocusObj = snapshot.get("bodyFocus");
+                        String bodyFocusDisplay = formatFlexibleStringOrList(bodyFocusObj, "Not set");
+                        clientBodyFocus.setText(bodyFocusDisplay);
+                    } else {
+                        Log.w(TAG, "Client document does not exist: " + clientUid);
+                        Toast.makeText(this, "Client data not found", Toast.LENGTH_SHORT).show();
                     }
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading client data: " + e.getMessage(), e);
+                    Toast.makeText(this, "Failed to load client data: " + e.getMessage(), Toast.LENGTH_LONG).show();
                 });
 
         // --- Load PT Sessions ---
@@ -165,9 +203,9 @@ public class Client_workouts_details extends AppCompatActivity {
 
                             WorkoutExercise workoutExercise = new WorkoutExercise();
                             workoutExercise.setExerciseInfo(info);
-                            workoutExercise.setReps(((Long) exerciseMap.get("reps")).intValue());
-                            workoutExercise.setSets(((Long) exerciseMap.get("sets")).intValue());
-                            workoutExercise.setRestSeconds(((Long) exerciseMap.get("restSeconds")).intValue());
+                            workoutExercise.setReps(safeInt(exerciseMap.get("reps"), 0));
+                            workoutExercise.setSets(safeInt(exerciseMap.get("sets"), 0));
+                            workoutExercise.setRestSeconds(safeInt(exerciseMap.get("restSeconds"), 60));
 
                             workoutExercises.add(workoutExercise);
 
@@ -177,6 +215,8 @@ public class Client_workouts_details extends AppCompatActivity {
                         }
                     }
                 }
+            } else {
+                Log.d(TAG, "No workout document found for client, showing empty state");
             }
 
             workoutAdapter = new WorkoutExerciseAdapter(this, workoutExercises, true);
@@ -186,6 +226,14 @@ public class Client_workouts_details extends AppCompatActivity {
             if (searchAdapter != null) {
                 searchAdapter.setAlreadyAdded(alreadyAddedNames);
             }
+        }).addOnFailureListener(e -> {
+            Log.e(TAG, "Error loading workout exercises: " + e.getMessage(), e);
+            Toast.makeText(this, "Failed to load workouts: " + e.getMessage(), Toast.LENGTH_LONG).show();
+
+            // Still initialize adapter with empty list so UI doesn't break
+            workoutAdapter = new WorkoutExerciseAdapter(this, workoutExercises, true);
+            workoutAdapter.setOnWorkoutChangedListener(() -> onWorkoutChanged());
+            recyclerView.setAdapter(workoutAdapter);
         });
 
         // --- 3) Setup search bar (Realtime DB) ---
@@ -466,5 +514,64 @@ public class Client_workouts_details extends AppCompatActivity {
         if (imm != null) {
             imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
+    }
+
+    // Helper method to safely convert Object to int, preventing crashes from type mismatches
+    private int safeInt(Object value, int defaultValue) {
+        if (value == null) return defaultValue;
+        if (value instanceof Long) return ((Long) value).intValue();
+        if (value instanceof Double) return ((Double) value).intValue();
+        if (value instanceof Integer) return (Integer) value;
+        try {
+            return Integer.parseInt(value.toString());
+        } catch (NumberFormatException e) {
+            Log.w(TAG, "Could not parse int from: " + value + ", using default: " + defaultValue);
+            return defaultValue;
+        }
+    }
+
+    // ✅ helper to format numeric fields that might be Long / Double / String / null
+    private String formatNumberField(Object value, String unit) {
+        if (value == null) return "";
+        try {
+            double num;
+            if (value instanceof Long) num = ((Long) value).doubleValue();
+            else if (value instanceof Double) num = (Double) value;
+            else if (value instanceof Integer) num = ((Integer) value).doubleValue();
+            else num = Double.parseDouble(value.toString());
+            if (unit == null || unit.isEmpty()) {
+                return String.valueOf((int) num);
+            } else {
+                return ((int) num) + " " + unit;
+            }
+        } catch (Exception e) {
+            Log.w(TAG, "formatNumberField: could not parse " + value, e);
+            return value.toString();
+        }
+    }
+
+    // ✅ helper to safely handle String or List<String> Firestore fields
+    private String formatFlexibleStringOrList(Object field, String defaultText) {
+        if (field == null) return defaultText;
+        if (field instanceof String) {
+            String s = ((String) field).trim();
+            if (s.isEmpty()) return defaultText;
+            return s;
+        }
+        if (field instanceof List) {
+            @SuppressWarnings("unchecked")
+            List<Object> list = (List<Object>) field;
+            if (list.isEmpty()) return defaultText;
+            List<String> parts = new ArrayList<>();
+            for (Object o : list) {
+                if (o != null) {
+                    String s = o.toString().trim();
+                    if (!s.isEmpty()) parts.add(s);
+                }
+            }
+            if (parts.isEmpty()) return defaultText;
+            return android.text.TextUtils.join(", ", parts);
+        }
+        return field.toString();
     }
 }

@@ -22,6 +22,7 @@ public class UserProfile implements Serializable {
     private List<String> availableEquipment;
     private List<String> preferredMuscleGroups;
     private List<String> dislikedExercises;
+    private List<String> bodyFocus; // NEW: user's body focus areas (Chest, Back, Shoulders, Arms, Legs, Abs)
     private int workoutDaysPerWeek;
     private int preferredWorkoutDuration; // in minutes
     private String workoutTimePreference; // morning, afternoon, evening
@@ -37,6 +38,7 @@ public class UserProfile implements Serializable {
         this.availableEquipment = new ArrayList<>();
         this.preferredMuscleGroups = new ArrayList<>();
         this.dislikedExercises = new ArrayList<>();
+        this.bodyFocus = new ArrayList<>();
     }
 
 
@@ -133,6 +135,9 @@ public class UserProfile implements Serializable {
 
     public List<String> getDislikedExercises() { return dislikedExercises; }
     public void setDislikedExercises(List<String> dislikedExercises) { this.dislikedExercises = dislikedExercises; }
+
+    public List<String> getBodyFocus() { return bodyFocus; }
+    public void setBodyFocus(List<String> bodyFocus) { this.bodyFocus = bodyFocus; }
 
     public int getWorkoutDaysPerWeek() { return workoutDaysPerWeek; }
     public void setWorkoutDaysPerWeek(int workoutDaysPerWeek) { this.workoutDaysPerWeek = workoutDaysPerWeek; }

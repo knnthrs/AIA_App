@@ -26,11 +26,16 @@ public class Achievement extends AppCompatActivity {
     private String userId;
     private int workoutsCompleted = 0;
     private int currentStreak = 0;
+    private int dailyChallengesCompleted = 0;
 
     // Badge views
     private LinearLayout firstStepsBadge, gettingStrongBadge, fitnessProBadge, warriorBadge, legendBadge;
     private TextView firstStepsProgress, gettingStrongProgress, fitnessProProgress, warriorProgress, legendProgress;
     private TextView onFireProgress, lightningProgress, championProgress;
+
+    // Daily Challenge badge views
+    private LinearLayout challengeStarterBadge, challengeEnthusiastBadge, challengeMasterBadge, challengeLegendBadge;
+    private TextView challengeStarterProgress, challengeEnthusiastProgress, challengeMasterProgress, challengeLegendProgress;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,6 +81,18 @@ public class Achievement extends AppCompatActivity {
         onFireProgress = findViewById(R.id.on_fire_progress);
         lightningProgress = findViewById(R.id.lightning_progress);
         championProgress = findViewById(R.id.champion_progress);
+
+        // Daily Challenge badges
+        challengeStarterBadge = findViewById(R.id.challenge_starter_badge);
+        challengeEnthusiastBadge = findViewById(R.id.challenge_enthusiast_badge);
+        challengeMasterBadge = findViewById(R.id.challenge_master_badge);
+        challengeLegendBadge = findViewById(R.id.challenge_legend_badge);
+
+        // Daily Challenge progress text views
+        challengeStarterProgress = findViewById(R.id.challenge_starter_progress);
+        challengeEnthusiastProgress = findViewById(R.id.challenge_enthusiast_progress);
+        challengeMasterProgress = findViewById(R.id.challenge_master_progress);
+        challengeLegendProgress = findViewById(R.id.challenge_legend_progress);
     }
 
     private void setupBottomNavigation() {
@@ -136,6 +153,8 @@ public class Achievement extends AppCompatActivity {
                                 snapshot.getLong("workoutsCompleted").intValue() : 0;
                         currentStreak = snapshot.getLong("currentStreak") != null ?
                                 snapshot.getLong("currentStreak").intValue() : 0;
+                        dailyChallengesCompleted = snapshot.getLong("dailyChallengesCompleted") != null ?
+                                snapshot.getLong("dailyChallengesCompleted").intValue() : 0;
 
                         // Update UI with latest progress
                         updateBadgesUI();
@@ -163,6 +182,12 @@ public class Achievement extends AppCompatActivity {
         if (championProgress != null) {
             updateStreakProgress(championProgress, currentStreak, 30);
         }
+
+        // Update daily challenge badges
+        updateBadgeProgress(challengeStarterBadge, challengeStarterProgress, dailyChallengesCompleted, 1);
+        updateBadgeProgress(challengeEnthusiastBadge, challengeEnthusiastProgress, dailyChallengesCompleted, 10);
+        updateBadgeProgress(challengeMasterBadge, challengeMasterProgress, dailyChallengesCompleted, 100);
+        updateBadgeProgress(challengeLegendBadge, challengeLegendProgress, dailyChallengesCompleted, 1000);
     }
 
     private void updateBadgeProgress(LinearLayout badge, TextView progressText, int current, int target) {

@@ -81,8 +81,10 @@ public class Profile extends AppCompatActivity {
     private LinearLayout layoutDob, layoutEmail, layoutPhone;
 
     // Fitness profile fields
-    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight, tvHealthIssues;
-    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight, layoutHealthIssues;
+    private TextView tvFitnessLevel, tvFitnessGoal, tvWorkoutFrequency, tvAge, tvWeight, tvHeight, tvHealthIssues, tvBodyFocus;
+    private TextView tvPreferredDays; // NEW
+    private LinearLayout layoutFitnessLevel, layoutFitnessGoal, layoutWorkoutFrequency, layoutAge, layoutWeight, layoutHeight, layoutHealthIssues, layoutBodyFocus;
+    private LinearLayout layoutPreferredDays; // NEW
 
     // Firestore references
     private FirebaseFirestore firestore;
@@ -177,10 +179,14 @@ public class Profile extends AppCompatActivity {
         tvWeight = findViewById(R.id.tv_weight);
         tvHeight = findViewById(R.id.tv_height);
         tvHealthIssues = findViewById(R.id.tv_health_issues);
+        tvBodyFocus = findViewById(R.id.tv_body_focus);
         layoutAge = findViewById(R.id.layout_age);
         layoutWeight = findViewById(R.id.layout_weight);
         layoutHeight = findViewById(R.id.layout_height);
         layoutHealthIssues = findViewById(R.id.layout_health_issues);
+        layoutBodyFocus = findViewById(R.id.layout_body_focus);
+        tvPreferredDays = findViewById(R.id.tv_preferred_days);           // NEW
+        layoutPreferredDays = findViewById(R.id.layout_preferred_days);   // NEW
 
         // ===== Progress Dialog =====
         uploadProgressDialog = new ProgressDialog(this);
@@ -331,6 +337,12 @@ public class Profile extends AppCompatActivity {
         }
         if (layoutHealthIssues != null) {
             layoutHealthIssues.setOnClickListener(v -> showHealthIssuesDialog());
+        }
+        if (layoutBodyFocus != null) {
+            layoutBodyFocus.setOnClickListener(v -> showBodyFocusDialog());
+        }
+        if (layoutPreferredDays != null) {
+            layoutPreferredDays.setOnClickListener(v -> showPreferredDaysDialog()); // NEW
         }
     }
 
@@ -559,6 +571,49 @@ public class Profile extends AppCompatActivity {
                             tvHealthIssues.setText("None");
                         }
                     }
+
+                    // Load Body Focus
+                    if (tvBodyFocus != null) {
+                        try {
+                            Object bodyFocusObj = snapshot.get("bodyFocus");
+                            if (bodyFocusObj instanceof List) {
+                                List<String> bodyFocusList = (List<String>) bodyFocusObj;
+                                if (!bodyFocusList.isEmpty()) {
+                                    tvBodyFocus.setText(String.join(", ", bodyFocusList));
+                                } else {
+                                    tvBodyFocus.setText("Not set");
+                                }
+                            } else {
+                                tvBodyFocus.setText("Not set");
+                            }
+                        } catch (Exception e) {
+                            Log.e("Profile", "Error loading body focus", e);
+                            tvBodyFocus.setText("Not set");
+                        }
+                    }
+
+                    // NEW: Load preferred workout days
+                    if (tvPreferredDays != null) {
+                        try {
+                            Object field = snapshot.get("preferredWorkoutDays");
+                            List<String> codes = new ArrayList<>();
+                            if (field instanceof List) {
+                                for (Object o : (List<?>) field) {
+                                    if (o != null) codes.add(o.toString());
+                                }
+                            } else if (field instanceof String) {
+                                String[] parts = ((String) field).split(",");
+                                for (String p : parts) {
+                                    String s = p.trim();
+                                    if (!s.isEmpty()) codes.add(s);
+                                }
+                            }
+                            tvPreferredDays.setText(formatPreferredDaysForDisplay(codes));
+                        } catch (Exception e) {
+                            Log.e("Profile", "Error loading preferredWorkoutDays", e);
+                            tvPreferredDays.setText("Not set");
+                        }
+                    }
                 }
 
             });
@@ -599,6 +654,27 @@ public class Profile extends AppCompatActivity {
             default:
                 return goal;
         }
+    }
+
+    // NEW: helper to format preferred days list into a nice string
+    private String formatPreferredDaysForDisplay(List<String> codes) {
+        if (codes == null || codes.isEmpty()) return "Not set";
+        // order: Mon..Sun
+        String[] order = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+        Map<String, String> map = new HashMap<>();
+        map.put("Mon", "Mon");
+        map.put("Tue", "Tue");
+        map.put("Wed", "Wed");
+        map.put("Thu", "Thu");
+        map.put("Fri", "Fri");
+        map.put("Sat", "Sat");
+        map.put("Sun", "Sun");
+        List<String> ordered = new ArrayList<>();
+        for (String o : order) {
+            if (codes.contains(o)) ordered.add(map.get(o));
+        }
+        if (ordered.isEmpty()) return "Not set";
+        return android.text.TextUtils.join(", ", ordered);
     }
 
     private void setupSecurityClickListeners() {
@@ -1563,6 +1639,13 @@ public class Profile extends AppCompatActivity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        // Reload fitness profile data when returning from other activities
+        loadFitnessProfileData();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (userDataListener != null) {
@@ -2149,6 +2232,135 @@ public class Profile extends AppCompatActivity {
             dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
         }
     }
+
+    private void showBodyFocusDialog() {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this, R.style.RoundedDialogStyle);
+        builder.setTitle("Body Focus");
+
+        // Create scrollable container
+        ScrollView scrollView = new ScrollView(this);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        int padding = (int) (20 * getResources().getDisplayMetrics().density);
+        container.setPadding(padding, padding / 2, padding, padding);
+
+        // Add instruction text
+        TextView instructions = new TextView(this);
+        instructions.setText("Select the body parts you want to focus on:");
+        instructions.setTextSize(14);
+        instructions.setTextColor(getResources().getColor(android.R.color.darker_gray));
+        instructions.setPadding(0, 0, 0, (int) (12 * getResources().getDisplayMetrics().density));
+        container.addView(instructions);
+
+        // Body focus options
+        String[] bodyParts = {"Chest", "Back", "Shoulders", "Arms", "Legs", "Abs"};
+
+        // Parse current body focus
+        String currentBodyFocus = tvBodyFocus.getText().toString();
+        List<String> selectedFocus = new ArrayList<>();
+        if (!currentBodyFocus.equals("Not set")) {
+            String[] current = currentBodyFocus.split(",");
+            for (String focus : current) {
+                selectedFocus.add(focus.trim());
+            }
+        }
+
+        // Create checkboxes
+        List<CheckBox> checkBoxes = new ArrayList<>();
+        for (String part : bodyParts) {
+            CheckBox checkBox = new CheckBox(this);
+            checkBox.setText(part);
+            checkBox.setTextSize(16);
+            checkBox.setPadding(0, (int) (8 * getResources().getDisplayMetrics().density),
+                               0, (int) (8 * getResources().getDisplayMetrics().density));
+            checkBox.setChecked(selectedFocus.contains(part));
+            checkBoxes.add(checkBox);
+            container.addView(checkBox);
+        }
+
+        scrollView.addView(container);
+        builder.setView(scrollView);
+
+        builder.setPositiveButton("Save", (dialog, which) -> {
+            List<String> finalFocus = new ArrayList<>();
+
+            // Add selected checkboxes
+            for (CheckBox checkBox : checkBoxes) {
+                if (checkBox.isChecked()) {
+                    finalFocus.add(checkBox.getText().toString());
+                }
+            }
+
+            // Update body focus
+            updateBodyFocus(finalFocus);
+        });
+
+        builder.setNegativeButton("Cancel", (dialog, which) -> dialog.cancel());
+
+        AlertDialog dialog = builder.create();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setBackgroundDrawableResource(R.drawable.dialog_rounded_background);
+        }
+        dialog.show();
+
+        if (dialog.getButton(AlertDialog.BUTTON_POSITIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setTextColor(getResources().getColor(android.R.color.holo_green_dark));
+        }
+        if (dialog.getButton(AlertDialog.BUTTON_NEGATIVE) != null) {
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setTextColor(getResources().getColor(android.R.color.holo_red_dark));
+        }
+    }
+
+    private void updateBodyFocus(List<String> bodyFocus) {
+        if (userDocRef != null) {
+            userDocRef.update("bodyFocus", bodyFocus)
+                    .addOnSuccessListener(aVoid -> {
+                        String displayText = bodyFocus.isEmpty() ? "Not set" : String.join(", ", bodyFocus);
+                        tvBodyFocus.setText(displayText);
+                        markProfileAsChanged();
+
+                        // ✅ DELETE CACHED WORKOUT TO FORCE REGENERATION
+                        deleteCachedWorkout();
+
+                        Toast.makeText(this, "Body focus updated. Your next workout will reflect these changes!", Toast.LENGTH_LONG).show();
+                    })
+                    .addOnFailureListener(e -> {
+                        Toast.makeText(this, "Failed to update: " + e.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    });
+        }
+    }
+
+    // ✅ NEW METHOD: Delete cached workout to force regeneration
+    private void deleteCachedWorkout() {
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) return;
+
+        String userId = currentUser.getUid();
+
+        // Get user's current week from preferences or default to 1
+        SharedPreferences prefs = getSharedPreferences("workout_prefs_" + userId, MODE_PRIVATE);
+        int currentWeek = prefs.getInt("current_week", 1);
+
+        // Delete the cached workout document
+        firestore.collection("users")
+                .document(userId)
+                .collection("currentWorkout")
+                .document("week_" + currentWeek)
+                .delete()
+                .addOnSuccessListener(aVoid ->
+                    Log.d("Profile", "✅ Cached workout deleted. Will regenerate on next visit."))
+                .addOnFailureListener(e ->
+                    Log.e("Profile", "Failed to delete cached workout", e));
+    }
+
+    // Show preferred workout days selection dialog
+    private void showPreferredDaysDialog() {
+        // Launch the dedicated activity instead of showing a dialog
+        Intent intent = new Intent(this, PreferredWorkoutDaysActivity.class);
+        startActivity(intent);
+    }
+
 
     private void updateAge(int age) {
         if (userDocRef != null) {

@@ -66,6 +66,9 @@
             android:name=".FeedbackActivity"
             android:exported="false" />
         <activity
+            android:name=".PreferredWorkoutDaysActivity"
+            android:exported="false" />
+        <activity
             android:name=".Client_workouts_details"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
@@ -96,7 +99,16 @@
             android:name=".WorkoutList"
             android:exported="false" />
         <activity
+            android:name=".WorkoutHistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".WorkoutHistoryDetailActivity"
+            android:exported="false" />
+        <activity
             android:name=".UserInfo.HealthIssues"
+            android:exported="false" />
+        <activity
+            android:name=".UserInfo.BodyFocusSelection"
             android:exported="false" />
         <activity
             android:name=".UserInfo.FitnessGoal"

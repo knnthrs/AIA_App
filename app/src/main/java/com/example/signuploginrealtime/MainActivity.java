@@ -98,7 +98,17 @@ package com.example.signuploginrealtime;
         FirebaseAuth mAuth;
         BottomNavigationView bottomNavigationView;
         SharedPreferences workoutPrefs;
-    
+
+        // Daily Challenge views
+        CardView dailyChallengeCard;
+        TextView dailyChallengeEmoji;
+        TextView dailyChallengeDescription;
+        android.widget.ProgressBar dailyChallengeProgress;
+        TextView dailyChallengeProgressText;
+        android.widget.Button btnCompleteChallenge;
+        private int challengeCurrentProgress = 0;
+        private int challengeTargetProgress = 0;
+
         FirebaseFirestore dbFirestore;
         DocumentReference userDocRefFS;
         ListenerRegistration userDataListenerRegistrationFS;
@@ -151,6 +161,8 @@ package com.example.signuploginrealtime;
 
 
             initializeViews();
+
+            setupDailyChallenge();
 
             coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
 
@@ -233,6 +245,14 @@ package com.example.signuploginrealtime;
             // Initialize membership CTA views
             membershipCardView = findViewById(R.id.membershipCard);
             membershipCtaContainer = findViewById(R.id.membership_cta_container);
+
+            // Initialize daily challenge views (may be null on some layouts)
+            dailyChallengeCard = findViewById(R.id.daily_challenge_card);
+            dailyChallengeEmoji = findViewById(R.id.daily_challenge_emoji);
+            dailyChallengeDescription = findViewById(R.id.daily_challenge_description);
+            dailyChallengeProgress = findViewById(R.id.daily_challenge_progress);
+            dailyChallengeProgressText = findViewById(R.id.daily_challenge_progress_text);
+            btnCompleteChallenge = findViewById(R.id.btn_complete_challenge);
         }
 
         private void showExitDialog() {
@@ -1579,6 +1599,173 @@ package com.example.signuploginrealtime;
 
             Log.d(TAG, "📱 MainActivity paused - keeping schedule cache");
         }
+
+        // ==================== DAILY CHALLENGE METHODS ====================
+
+        private void setupDailyChallenge() {
+            // If any required daily challenge views are missing, skip setup to avoid crashes
+            if (dailyChallengeEmoji == null ||
+                    dailyChallengeDescription == null ||
+                    dailyChallengeProgress == null ||
+                    dailyChallengeProgressText == null ||
+                    btnCompleteChallenge == null) {
+                Log.w(TAG, "Daily challenge views not found in this layout. Skipping daily challenge setup.");
+                return;
+            }
+
+            FirebaseUser currentUser = mAuth.getCurrentUser();
+            if (currentUser == null) return;
+
+            String userId = currentUser.getUid();
+            Calendar calendar = Calendar.getInstance();
+            int dayOfYear = calendar.get(Calendar.DAY_OF_YEAR);
+
+            // Get today's challenge
+            DailyChallengeHelper.Challenge todayChallenge = DailyChallengeHelper.getChallengeForDay(dayOfYear);
+
+            // Update UI
+            dailyChallengeEmoji.setText(todayChallenge.emoji);
+            dailyChallengeDescription.setText(todayChallenge.description);
+            challengeTargetProgress = todayChallenge.targetCount;
+
+            // Load progress from Firestore
+            loadDailyChallengeProgress(userId, todayChallenge);
+        }
+
+        private void loadDailyChallengeProgress(String userId, DailyChallengeHelper.Challenge challenge) {
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+
+            dbFirestore.collection("users")
+                .document(userId)
+                .collection("dailyChallenges")
+                .document(today)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists() && doc.getBoolean("completed") == Boolean.TRUE) {
+                        // Challenge already completed today
+                        challengeCurrentProgress = challengeTargetProgress;
+                        updateChallengeUI(true);
+                    } else {
+                        // Challenge not completed
+                        challengeCurrentProgress = 0;
+                        updateChallengeUI(false);
+                    }
+
+                    // Setup button click listener
+                    btnCompleteChallenge.setOnClickListener(v -> {
+                        if (challengeCurrentProgress < challengeTargetProgress) {
+                            completeDailyChallenge(userId, challenge);
+                        }
+                    });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error loading daily challenge", e);
+                    challengeCurrentProgress = 0;
+                    updateChallengeUI(false);
+                });
+        }
+
+        private void updateChallengeUI(boolean completed) {
+            if (completed) {
+                dailyChallengeProgress.setProgress(100);
+                dailyChallengeProgressText.setText("✓ Completed");
+                btnCompleteChallenge.setEnabled(false);
+                btnCompleteChallenge.setText("Completed Today!");
+                btnCompleteChallenge.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(0xFF9E9E9E)); // Gray
+            } else {
+                int progressPercent = (int) ((challengeCurrentProgress / (float) challengeTargetProgress) * 100);
+                dailyChallengeProgress.setProgress(progressPercent);
+                dailyChallengeProgressText.setText(challengeCurrentProgress + "/" + challengeTargetProgress);
+                btnCompleteChallenge.setEnabled(true);
+                btnCompleteChallenge.setText("Complete Challenge");
+                btnCompleteChallenge.setBackgroundTintList(
+                    android.content.res.ColorStateList.valueOf(0xFF4CAF50)); // Green
+            }
+        }
+
+        private void completeDailyChallenge(String userId, DailyChallengeHelper.Challenge challenge) {
+            String today = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+
+            // Mark challenge as completed
+            Map<String, Object> challengeData = new HashMap<>();
+            challengeData.put("completed", true);
+            challengeData.put("completedAt", com.google.firebase.firestore.FieldValue.serverTimestamp());
+            challengeData.put("challengeDescription", challenge.description);
+            challengeData.put("emoji", challenge.emoji);
+
+            dbFirestore.collection("users")
+                .document(userId)
+                .collection("dailyChallenges")
+                .document(today)
+                .set(challengeData)
+                .addOnSuccessListener(aVoid -> {
+                    // Increment total challenges completed
+                    dbFirestore.collection("users")
+                        .document(userId)
+                        .update("dailyChallengesCompleted",
+                            com.google.firebase.firestore.FieldValue.increment(1))
+                        .addOnSuccessListener(aVoid2 -> {
+                            // Update UI
+                            challengeCurrentProgress = challengeTargetProgress;
+                            updateChallengeUI(true);
+
+                            // Show success toast
+                            Toast.makeText(MainActivity.this,
+                                "🎉 Daily Challenge Completed!", Toast.LENGTH_SHORT).show();
+
+                            // Check for achievement unlocks
+                            checkDailyChallengeAchievements(userId);
+                        });
+                })
+                .addOnFailureListener(e -> {
+                    Log.e(TAG, "Error completing challenge", e);
+                    Toast.makeText(MainActivity.this,
+                        "Failed to complete challenge", Toast.LENGTH_SHORT).show();
+                });
+        }
+
+        private void checkDailyChallengeAchievements(String userId) {
+            dbFirestore.collection("users")
+                .document(userId)
+                .get()
+                .addOnSuccessListener(doc -> {
+                    if (doc.exists()) {
+                        Long totalChallenges = doc.getLong("dailyChallengesCompleted");
+                        if (totalChallenges != null) {
+                            int count = totalChallenges.intValue();
+                            // Check milestone achievements
+                            if (count == 1 || count == 10 || count == 100 || count == 1000) {
+                                // Create notification in Firestore
+                                Map<String, Object> notification = new HashMap<>();
+                                notification.put("userId", userId);
+                                notification.put("title", "Achievement Unlocked! 🎉");
+                                notification.put("message", getAchievementMessage(count));
+                                notification.put("type", "achievement");
+                                notification.put("timestamp", System.currentTimeMillis());
+                                notification.put("read", false);
+
+                                dbFirestore.collection("notifications")
+                                    .add(notification)
+                                    .addOnSuccessListener(docRef -> {
+                                        Log.d(TAG, "Achievement notification created");
+                                    });
+                            }
+                        }
+                    }
+                });
+        }
+
+        private String getAchievementMessage(int totalChallenges) {
+            switch (totalChallenges) {
+                case 1: return "🎯 Challenge Starter - Completed your first daily challenge!";
+                case 10: return "⭐ Challenge Enthusiast - Completed 10 daily challenges!";
+                case 100: return "🏆 Challenge Master - Completed 100 daily challenges!";
+                case 1000: return "👑 Challenge Legend - Completed 1000 daily challenges!";
+                default: return "Completed " + totalChallenges + " daily challenges!";
+            }
+        }
+
 
         private void goToLogin(){
             Intent intent = new Intent(MainActivity.this, LoginActivity.class);

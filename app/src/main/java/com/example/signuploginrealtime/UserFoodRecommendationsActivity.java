@@ -14,6 +14,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.example.signuploginrealtime.adapters.MealPlanAdapter;
 import com.example.signuploginrealtime.adapters.UserFoodAdapter;
 import com.example.signuploginrealtime.models.FoodRecommendation;
 import com.example.signuploginrealtime.models.UserMealPlan;
@@ -35,16 +36,25 @@ import java.util.Locale;
 
 public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
-    private RecyclerView recyclerView;
-    private UserFoodAdapter adapter;
+    // Food Recommendations
+    private RecyclerView recyclerViewRecommendations;
+    private UserFoodAdapter recommendationsAdapter;
     private List<FoodRecommendation> foodList;
     private ProgressBar progressBar;
     private LinearLayout emptyState;
+
+    // Meal Plan
+    private RecyclerView recyclerViewMealPlan;
+    private MealPlanAdapter mealPlanAdapter;
+    private List<UserMealPlan> mealPlanList;
+    private LinearLayout emptyStateMealPlan;
+
+    // Common
     private ImageView btnBack;
-    private TextView tvGoalInfo;
+    private TextView tvGoalInfo, tvMealPlanCount, tvRecommendationCount;
 
     private FirebaseFirestore db;
-    private DatabaseReference realtimeDb; // Add Realtime Database reference
+    private DatabaseReference realtimeDb;
     private String userId;
     private String coachId;
     private String fitnessGoal;
@@ -56,25 +66,36 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
         initializeViews();
         loadUserProfile();
-        setupRecyclerView();
+        setupRecyclerViews();
         setupListeners();
+        loadMealPlan();
     }
 
     private void initializeViews() {
-        recyclerView = findViewById(R.id.recyclerViewFoodRecommendations);
+        // Recommendations
+        recyclerViewRecommendations = findViewById(R.id.recyclerViewFoodRecommendations);
         progressBar = findViewById(R.id.progressBar);
         emptyState = findViewById(R.id.emptyState);
+        tvRecommendationCount = findViewById(R.id.tvRecommendationCount);
+
+        // Meal Plan
+        recyclerViewMealPlan = findViewById(R.id.recyclerViewMealPlan);
+        emptyStateMealPlan = findViewById(R.id.emptyStateMealPlan);
+        tvMealPlanCount = findViewById(R.id.tvMealPlanCount);
+
+        // Common
         btnBack = findViewById(R.id.btnBack);
         tvGoalInfo = findViewById(R.id.tvGoalInfo);
 
         db = FirebaseFirestore.getInstance();
-        realtimeDb = FirebaseDatabase.getInstance().getReference(); // Initialize Realtime DB
+        realtimeDb = FirebaseDatabase.getInstance().getReference();
         if (FirebaseAuth.getInstance().getCurrentUser() != null) {
             userId = FirebaseAuth.getInstance().getCurrentUser().getUid();
         } else {
             userId = null;
         }
         foodList = new ArrayList<>();
+        mealPlanList = new ArrayList<>();
     }
 
     private void loadUserProfile() {
@@ -170,8 +191,19 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         tvGoalInfo.setText(resultsMessage);
     }
 
-    private void setupRecyclerView() {
-        adapter = new UserFoodAdapter(foodList, new UserFoodAdapter.OnFoodActionListener() {
+    private void setupRecyclerViews() {
+        // Setup Meal Plan RecyclerView
+        mealPlanAdapter = new MealPlanAdapter(mealPlanList, new MealPlanAdapter.OnMealPlanActionListener() {
+            @Override
+            public void onRemoveFromMealPlan(UserMealPlan mealPlan) {
+                removeFromMealPlan(mealPlan);
+            }
+        });
+        recyclerViewMealPlan.setLayoutManager(new LinearLayoutManager(this));
+        recyclerViewMealPlan.setAdapter(mealPlanAdapter);
+
+        // Setup Food Recommendations RecyclerView
+        recommendationsAdapter = new UserFoodAdapter(foodList, new UserFoodAdapter.OnFoodActionListener() {
             @Override
             public void onAddToMealPlan(FoodRecommendation food) {
                 showMealTypeDialog(food);
@@ -182,13 +214,17 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                 showFoodDetailsDialog(food);
             }
         });
-
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(adapter);
+        recyclerViewRecommendations.setLayoutManager(new LinearLayoutManager(this));
+        recyclerViewRecommendations.setAdapter(recommendationsAdapter);
     }
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
+    }
+
+    private void updateCounts() {
+        tvMealPlanCount.setText(mealPlanList.size() + " items");
+        tvRecommendationCount.setText(foodList.size() + " items");
     }
 
     private void loadFoodRecommendations() {
@@ -317,8 +353,9 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         android.util.Log.d("FoodRecommendations", "Foods filtered out: " + filteredCount);
         android.util.Log.d("FoodRecommendations", "User goal: " + fitnessGoal);
 
-        adapter.notifyDataSetChanged();
+        recommendationsAdapter.notifyDataSetChanged();
         progressBar.setVisibility(View.GONE);
+        updateCounts();
 
         if (foodList.isEmpty()) {
             emptyState.setVisibility(View.VISIBLE);
@@ -413,8 +450,9 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                     android.util.Log.d("FoodRecommendations", "Foods filtered out: " + filteredCount);
                     android.util.Log.d("FoodRecommendations", "User goal: " + fitnessGoal);
 
-                    adapter.notifyDataSetChanged();
+                    recommendationsAdapter.notifyDataSetChanged();
                     progressBar.setVisibility(View.GONE);
+                    updateCounts();
 
                     if (foodList.isEmpty()) {
                         emptyState.setVisibility(View.VISIBLE);
@@ -492,6 +530,8 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                             .addOnSuccessListener(documentReference -> {
                                 android.util.Log.d("MealPlanAdd", "✅ Successfully added! Doc ID: " + documentReference.getId());
                                 Toast.makeText(this, "Added to " + mealType, Toast.LENGTH_SHORT).show();
+                                // Reload the meal plan to show the newly added item
+                                loadMealPlan();
                             })
                             .addOnFailureListener(e -> {
                                 android.util.Log.e("MealPlanAdd", "❌ Failed to add to meal plan", e);
@@ -502,6 +542,83 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                     android.util.Log.e("MealPlanAdd", "❌ Failed to check for duplicates", e);
                     Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 });
+    }
+
+    private void loadMealPlan() {
+        // Format date as yyyy-MM-dd
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+        String today = sdf.format(new Date());
+
+        android.util.Log.d("MealPlan", "Loading meal plan for date: " + today);
+
+        db.collection("users")
+                .document(userId)
+                .collection("mealPlan")
+                .whereEqualTo("date", today)
+                .get()
+                .addOnSuccessListener(queryDocumentSnapshots -> {
+                    mealPlanList.clear();
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
+                        UserMealPlan mealPlan = document.toObject(UserMealPlan.class);
+                        mealPlan.setId(document.getId());
+                        mealPlanList.add(mealPlan);
+                        android.util.Log.d("MealPlan", "Loaded meal: " + mealPlan.getFoodName() + " - " + mealPlan.getMealType());
+                    }
+
+                    mealPlanAdapter.notifyDataSetChanged();
+                    updateCounts();
+
+                    // Show/hide empty state
+                    if (mealPlanList.isEmpty()) {
+                        emptyStateMealPlan.setVisibility(View.VISIBLE);
+                        recyclerViewMealPlan.setVisibility(View.GONE);
+                    } else {
+                        emptyStateMealPlan.setVisibility(View.GONE);
+                        recyclerViewMealPlan.setVisibility(View.VISIBLE);
+                    }
+
+                    android.util.Log.d("MealPlan", "Total meals loaded: " + mealPlanList.size());
+                })
+                .addOnFailureListener(e -> {
+                    android.util.Log.e("MealPlan", "Failed to load meal plan", e);
+                    Toast.makeText(this, "Error loading meal plan: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                });
+    }
+
+    private void removeFromMealPlan(UserMealPlan mealPlan) {
+        new AlertDialog.Builder(this)
+                .setTitle("Remove from Meal Plan")
+                .setMessage("Remove " + mealPlan.getFoodName() + " from your meal plan?")
+                .setPositiveButton("Remove", (dialog, which) -> {
+                    db.collection("users")
+                            .document(userId)
+                            .collection("mealPlan")
+                            .document(mealPlan.getId())
+                            .delete()
+                            .addOnSuccessListener(aVoid -> {
+                                mealPlanList.remove(mealPlan);
+                                mealPlanAdapter.notifyDataSetChanged();
+                                updateCounts();
+
+                                // Show/hide empty state
+                                if (mealPlanList.isEmpty()) {
+                                    emptyStateMealPlan.setVisibility(View.VISIBLE);
+                                    recyclerViewMealPlan.setVisibility(View.GONE);
+                                } else {
+                                    emptyStateMealPlan.setVisibility(View.GONE);
+                                    recyclerViewMealPlan.setVisibility(View.VISIBLE);
+                                }
+
+                                Toast.makeText(this, "Removed from meal plan", Toast.LENGTH_SHORT).show();
+                                android.util.Log.d("MealPlan", "Successfully removed: " + mealPlan.getFoodName());
+                            })
+                            .addOnFailureListener(e -> {
+                                Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                                android.util.Log.e("MealPlan", "Failed to remove meal", e);
+                            });
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     private void showFoodDetailsDialog(FoodRecommendation food) {

@@ -64,7 +64,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="2dp">
 
@@ -78,7 +78,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Workout Badges"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:layout_marginBottom="16dp" />
@@ -123,7 +123,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="First Steps"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -131,7 +131,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete your first workout"
-                                    android:textColor="#666666"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -187,7 +187,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Getting Strong"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -195,7 +195,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 10 workouts"
-                                    android:textColor="#666666"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -251,7 +251,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Fitness Pro"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -259,7 +259,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 25 workouts"
-                                    android:textColor="#666666"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -287,7 +287,7 @@
                             android:clickable="true"
                             android:focusable="true"
                             android:layout_marginBottom="12dp"
-                            android:alpha="0.6">
+                            >
 
                             <androidx.cardview.widget.CardView
                                 android:layout_width="50dp"
@@ -316,7 +316,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Warrior"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -324,7 +324,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 50 workouts"
-                                    android:textColor="#666666"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -351,7 +351,7 @@
                             android:background="?attr/selectableItemBackground"
                             android:clickable="true"
                             android:focusable="true"
-                            android:alpha="0.6">
+                            >
 
                             <androidx.cardview.widget.CardView
                                 android:layout_width="50dp"
@@ -380,7 +380,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Legend"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -388,7 +388,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 100 workouts"
-                                    android:textColor="#666666"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -412,7 +412,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="2dp">
 
@@ -426,7 +426,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Streak Badges"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:layout_marginBottom="16dp" />
@@ -471,7 +471,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="On Fire"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -479,7 +479,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="3-day workout streak"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -535,7 +535,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Lightning"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -543,7 +543,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="7-day workout streak"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -570,7 +570,7 @@
                             android:background="?attr/selectableItemBackground"
                             android:clickable="true"
                             android:focusable="true"
-                            android:alpha="0.6">
+                            >
 
                             <androidx.cardview.widget.CardView
                                 android:layout_width="50dp"
@@ -599,7 +599,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Champion"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -607,7 +607,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="30-day workout streak"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -633,7 +633,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="4dp">
 
@@ -647,7 +647,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:text="Daily Challenges"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:textSize="18sp"
                             android:textStyle="bold"
                             android:layout_marginBottom="16dp" />
@@ -692,7 +692,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Challenge Starter"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -700,7 +700,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 1 daily challenge"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -756,7 +756,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Challenge Enthusiast"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -764,7 +764,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 10 daily challenges"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -820,7 +820,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Challenge Master"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -828,7 +828,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 100 daily challenges"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>
@@ -883,7 +883,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Challenge Legend"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:textSize="16sp"
                                     android:textStyle="bold" />
 
@@ -891,7 +891,7 @@
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
                                     android:text="Complete 1000 daily challenges"
-                                    android:textColor="#666666"
+                                    android:textColor="#CCCCCC"
                                     android:textSize="12sp" />
 
                             </LinearLayout>

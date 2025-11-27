@@ -85,6 +85,23 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
+            <!-- Search Bar Card -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardCornerRadius="8dp"
+                app:cardElevation="2dp">
+
+                <androidx.appcompat.widget.SearchView
+                    android:id="@+id/searchView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:queryHint="Search foods..."
+                    android:iconifiedByDefault="false"
+                    android:background="@android:color/white"/>
+            </androidx.cardview.widget.CardView>
+
             <!-- My Meal Plan Card -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"

@@ -40,8 +40,10 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
     private RecyclerView recyclerViewRecommendations;
     private UserFoodAdapter recommendationsAdapter;
     private List<FoodRecommendation> foodList;
+    private List<FoodRecommendation> originalFoodList; // For search filtering
     private ProgressBar progressBar;
     private LinearLayout emptyState;
+    private androidx.appcompat.widget.SearchView searchView;
 
     // Meal Plan
     private RecyclerView recyclerViewMealPlan;
@@ -77,6 +79,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         progressBar = findViewById(R.id.progressBar);
         emptyState = findViewById(R.id.emptyState);
         tvRecommendationCount = findViewById(R.id.tvRecommendationCount);
+        searchView = findViewById(R.id.searchView);
 
         // Meal Plan
         recyclerViewMealPlan = findViewById(R.id.recyclerViewMealPlan);
@@ -95,6 +98,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
             userId = null;
         }
         foodList = new ArrayList<>();
+        originalFoodList = new ArrayList<>();
         mealPlanList = new ArrayList<>();
     }
 
@@ -220,6 +224,50 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
+
+        // Setup search functionality
+        searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
+            @Override
+            public boolean onQueryTextSubmit(String query) {
+                filterFoods(query);
+                return false;
+            }
+
+            @Override
+            public boolean onQueryTextChange(String newText) {
+                filterFoods(newText);
+                return false;
+            }
+        });
+    }
+
+    private void filterFoods(String query) {
+        if (query == null || query.trim().isEmpty()) {
+            // Show all foods
+            foodList.clear();
+            foodList.addAll(originalFoodList);
+        } else {
+            // Filter based on query
+            String lowerQuery = query.toLowerCase().trim();
+            foodList.clear();
+            for (FoodRecommendation food : originalFoodList) {
+                if (food.getName().toLowerCase().contains(lowerQuery) ||
+                    (food.getTags() != null && food.getTags().toString().toLowerCase().contains(lowerQuery))) {
+                    foodList.add(food);
+                }
+            }
+        }
+        recommendationsAdapter.notifyDataSetChanged();
+        updateCounts();
+
+        if (foodList.isEmpty() && !originalFoodList.isEmpty()) {
+            // Search returned no results
+            emptyState.setVisibility(View.VISIBLE);
+        } else if (foodList.isEmpty()) {
+            emptyState.setVisibility(View.VISIBLE);
+        } else {
+            emptyState.setVisibility(View.GONE);
+        }
     }
 
     private void updateCounts() {
@@ -231,6 +279,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         progressBar.setVisibility(View.VISIBLE);
         emptyState.setVisibility(View.GONE);
         foodList.clear();
+        originalFoodList.clear();
 
         android.util.Log.d("FoodRecommendations", "Loading foods for userId: " + userId + ", coachId: " + coachId);
 
@@ -255,6 +304,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
                             if (foodIsVerified) {
                                 foodList.add(food);
+                                originalFoodList.add(food);
                                 android.util.Log.d("FoodRecommendations", "Added personalized food: " + food.getName());
                             } else {
                                 android.util.Log.d("FoodRecommendations", "Skipped unverified food: " + food.getName());
@@ -328,6 +378,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
                         if (shouldInclude) {
                             foodList.add(food);
+                            originalFoodList.add(food);
                             addedCount++;
 
                             if (matchesGoal) goalMatchCount++;
@@ -423,6 +474,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                                 }
                                 if (!alreadyAdded) {
                                     foodList.add(food);
+                                    originalFoodList.add(food);
                                     addedCount++;
 
                                     if (matchesGoal) goalMatchCount++;

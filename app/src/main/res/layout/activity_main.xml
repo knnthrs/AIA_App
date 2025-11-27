@@ -566,7 +566,7 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="Discover healthy food options"
+                                    android:text="Browse foods from your coach"
                                     android:textColor="#CCCCCC"
                                     android:textSize="14sp"
                                     android:layout_marginTop="4dp" />
@@ -629,7 +629,7 @@
                                 <TextView
                                     android:layout_width="wrap_content"
                                     android:layout_height="wrap_content"
-                                    android:text="View your personalized meal plan"
+                                    android:text="View your daily meal plan"
                                     android:textColor="#CCCCCC"
                                     android:textSize="14sp"
                                     android:layout_marginTop="4dp" />

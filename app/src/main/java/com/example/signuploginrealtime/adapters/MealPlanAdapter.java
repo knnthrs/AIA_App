@@ -41,6 +41,18 @@ public class MealPlanAdapter extends RecyclerView.Adapter<MealPlanAdapter.ViewHo
         UserMealPlan mealPlan = mealPlanList.get(position);
 
         holder.tvFoodName.setText(mealPlan.getFoodName());
+
+        // NEW: show meal type like "Breakfast", "Lunch", etc.
+        String mealType = mealPlan.getMealType();
+        if (mealType != null && !mealType.isEmpty()) {
+            holder.tvMealType.setVisibility(View.VISIBLE);
+            // Capitalize nicely just in case
+            String pretty = mealType.substring(0, 1).toUpperCase() + mealType.substring(1).toLowerCase();
+            holder.tvMealType.setText(pretty);
+        } else {
+            holder.tvMealType.setVisibility(View.GONE);
+        }
+
         holder.tvServingSize.setText(mealPlan.getServingSize() != null ? mealPlan.getServingSize() : "100g");
         holder.tvCalories.setText(mealPlan.getCalories() + " cal");
         holder.tvProtein.setText("P: " + String.format("%.1f", mealPlan.getProtein()) + "g");
@@ -60,7 +72,7 @@ public class MealPlanAdapter extends RecyclerView.Adapter<MealPlanAdapter.ViewHo
     }
 
     public static class ViewHolder extends RecyclerView.ViewHolder {
-        TextView tvFoodName, tvServingSize, tvCalories, tvProtein, tvCarbs, tvFats;
+        TextView tvFoodName, tvServingSize, tvCalories, tvProtein, tvCarbs, tvFats, tvMealType;
         ImageView btnDelete;
 
         public ViewHolder(@NonNull View itemView) {
@@ -71,8 +83,8 @@ public class MealPlanAdapter extends RecyclerView.Adapter<MealPlanAdapter.ViewHo
             tvProtein = itemView.findViewById(R.id.tvProtein);
             tvCarbs = itemView.findViewById(R.id.tvCarbs);
             tvFats = itemView.findViewById(R.id.tvFats);
+            tvMealType = itemView.findViewById(R.id.tvMealType);
             btnDelete = itemView.findViewById(R.id.btnDelete);
         }
     }
 }
-

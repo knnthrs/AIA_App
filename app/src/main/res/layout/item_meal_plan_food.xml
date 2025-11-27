@@ -29,6 +29,16 @@
                 android:textColor="@color/text_primary"/>
 
             <TextView
+                android:id="@+id/tvMealType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Breakfast"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:textColor="@color/primary"
+                android:layout_marginTop="2dp"/>
+
+            <TextView
                 android:id="@+id/tvServingSize"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

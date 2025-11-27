@@ -555,8 +555,7 @@ package com.example.signuploginrealtime;
             CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
             if (foodRecommendationCard != null) {
                 foodRecommendationCard.setOnClickListener(v -> {
-                    Intent intent = new Intent(MainActivity.this, CoachFoodManagementActivity.class);
-                    intent.putExtra("viewMode", "user"); // User browsing foods
+                    Intent intent = new Intent(MainActivity.this, UserFoodRecommendationsActivity.class);
                     startActivity(intent);
                     overridePendingTransition(0, 0);
                 });

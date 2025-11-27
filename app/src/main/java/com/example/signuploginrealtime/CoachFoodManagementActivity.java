@@ -112,13 +112,12 @@ public class CoachFoodManagementActivity extends AppCompatActivity {
     private void loadFoods() {
         progressBar.setVisibility(View.VISIBLE);
         emptyState.setVisibility(View.GONE);
-        foodList.clear();
+        foodList.clear(); // ✅ Always start from a clean list
 
         android.util.Log.d("CoachFoodMgmt", "=== LOADING COACH FOODS ===");
         android.util.Log.d("CoachFoodMgmt", "coachId: " + coachId);
         android.util.Log.d("CoachFoodMgmt", "clientId: " + clientId);
 
-        // Build query based on whether we're filtering by client
         if (clientId != null) {
             // Load foods for specific client
             android.util.Log.d("CoachFoodMgmt", "Mode: Loading foods for specific client");
@@ -130,24 +129,31 @@ public class CoachFoodManagementActivity extends AppCompatActivity {
                     .addOnFailureListener(this::handleLoadError);
         } else {
             // Load general recommendations (userId is null)
-            // Firestore doesn't support direct null queries, so we filter manually
             android.util.Log.d("CoachFoodMgmt", "Mode: Loading GENERAL foods (userId == null)");
             db.collection("foods")
                     .whereEqualTo("coachId", coachId)
                     .get()
                     .addOnSuccessListener(queryDocumentSnapshots -> {
                         android.util.Log.d("CoachFoodMgmt", "Query returned " + queryDocumentSnapshots.size() + " foods from coach");
-                        for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                            android.util.Log.d("CoachFoodMgmt", "Doc ID: " + document.getId() + ", data: " + document.getData());
 
+                        for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                             FoodRecommendation food = document.toObject(FoodRecommendation.class);
+
                             // Only include foods with null userId (general recommendations)
                             if (food.getUserId() == null) {
                                 food.setId(document.getId());
+
+                                // ✅ Avoid duplicates by ID or name
+                                if (isAlreadyInList(food)) {
+                                    android.util.Log.d("CoachFoodMgmt", "Skipped duplicate general food: " + food.getName());
+                                    continue;
+                                }
+
                                 foodList.add(food);
                                 android.util.Log.d("CoachFoodMgmt", "✅ Added general food: " + food.getName());
                             } else {
-                                android.util.Log.d("CoachFoodMgmt", "⏭️ Skipped personalized food: " + food.getName() + " (userId: " + food.getUserId() + ")");
+                                android.util.Log.d("CoachFoodMgmt", "⏭️ Skipped personalized food: " + food.getName() +
+                                        " (userId: " + food.getUserId() + ")");
                             }
                         }
 
@@ -164,10 +170,34 @@ public class CoachFoodManagementActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Helper to prevent duplicates in the coach list when loadFoods runs multiple times
+     */
+    private boolean isAlreadyInList(FoodRecommendation candidate) {
+        if (candidate == null) return false;
+        String id = candidate.getId();
+        String name = candidate.getName() != null ? candidate.getName().trim().toLowerCase() : null;
+
+        for (FoodRecommendation existing : foodList) {
+            if (existing == null) continue;
+            if (id != null && id.equals(existing.getId())) return true;
+            if (name != null && existing.getName() != null &&
+                    existing.getName().trim().equalsIgnoreCase(name)) return true;
+        }
+        return false;
+    }
+
     private void processFoodResults(com.google.firebase.firestore.QuerySnapshot queryDocumentSnapshots) {
+        foodList.clear(); // ✅ Ensure no stale entries before adding
         for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
             FoodRecommendation food = document.toObject(FoodRecommendation.class);
             food.setId(document.getId());
+
+            if (isAlreadyInList(food)) {
+                android.util.Log.d("CoachFoodMgmt", "Skipped duplicate client food: " + food.getName());
+                continue;
+            }
+
             foodList.add(food);
         }
 
@@ -215,4 +245,3 @@ public class CoachFoodManagementActivity extends AppCompatActivity {
                 });
     }
 }
-

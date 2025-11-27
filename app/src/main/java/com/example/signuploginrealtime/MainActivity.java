@@ -218,7 +218,7 @@ package com.example.signuploginrealtime;
             startMembershipExpirationService();
 
             new android.os.Handler().postDelayed(() -> {
-                //checkAndHandleMembershipExpiration();
+                checkAndHandleMembershipExpiration();
                 checkAndSendWorkoutReminder();
             }, 800);
 
@@ -1167,143 +1167,123 @@ package com.example.signuploginrealtime;
                                     Date expDate = expirationTimestamp.toDate();
                                     String newExpiryDate = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault()).format(expDate);
 
-                                    // ✅ Use server time for accurate comparison
-                                    Map<String, Object> serverTimeData = new HashMap<>();
-                                    serverTimeData.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
+                                    // Use device time for comparison
+                                    Date currentDate = new Date();
 
-                                    dbFirestore.collection("server_time").document("current")
-                                            .set(serverTimeData)
-                                            .addOnSuccessListener(aVoid -> {
-                                                dbFirestore.collection("server_time").document("current")
-                                                        .get()
-                                                        .addOnSuccessListener(serverDoc -> {
-                                                            Timestamp serverTimestamp = serverDoc.getTimestamp("timestamp");
-                                                            Date currentDate = (serverTimestamp != null) ? serverTimestamp.toDate() : new Date();
+                                    long diffInMillis = expDate.getTime() - currentDate.getTime();
+                                    long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                                    long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
-                                                            long diffInMillis = expDate.getTime() - currentDate.getTime();
-                                                            long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
-                                                            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
+                                    // ✅ Calculate new status
+                                    String newStatus;
+                                    int newColor;
+                                    String newPlanText;
 
-                                                            // ✅ Calculate new status
-                                                            String newStatus;
-                                                            int newColor;
-                                                            String newPlanText;
+                                    if (diffInMillis < 0) {
+                                        newStatus = "EXPIRED";
+                                        newColor = getColor(R.color.red);
+                                        newPlanText = displayName + " (Expired)";
+                                    } else if (diffInHours <= 6) {
+                                        newStatus = "EXPIRING SOON";
+                                        newColor = getColor(R.color.orange);
+                                        if (diffInHours > 0) {
+                                            newPlanText = displayName + " (Expires in " + diffInHours + "h)";
+                                        } else {
+                                            long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
+                                            newPlanText = displayName + " (Expires in " + diffInMinutes + "m)";
+                                        }
+                                    } else if (diffInDays >= 1 && diffInDays <= 3) {
+                                        newStatus = "EXPIRING SOON";
+                                        newColor = getColor(R.color.orange);
+                                        newPlanText = displayName + " (" + diffInDays + " day(s) left)";
+                                    } else {
+                                        newStatus = "ACTIVE";
+                                        newColor = getColor(R.color.green);
+                                        newPlanText = displayName;
+                                    }
 
-                                                            if (diffInMillis < 0) {
-                                                                newStatus = "EXPIRED";
-                                                                newColor = getColor(R.color.red);
-                                                                newPlanText = displayName + " (Expired)";
-                                                            } else if (diffInHours <= 6) {
-                                                                newStatus = "EXPIRING SOON";
-                                                                newColor = getColor(R.color.orange);
-                                                                if (diffInHours > 0) {
-                                                                    newPlanText = displayName + " (Expires in " + diffInHours + "h)";
-                                                                } else {
-                                                                    long diffInMinutes = TimeUnit.MILLISECONDS.toMinutes(diffInMillis);
-                                                                    newPlanText = displayName + " (Expires in " + diffInMinutes + "m)";
-                                                                }
-                                                            } else if (diffInDays >= 1 && diffInDays <= 3) {
-                                                                newStatus = "EXPIRING SOON";
-                                                                newColor = getColor(R.color.orange);
-                                                                newPlanText = displayName + " (" + diffInDays + " day(s) left)";
-                                                            } else {
-                                                                newStatus = "ACTIVE";
-                                                                newColor = getColor(R.color.green);
-                                                                newPlanText = displayName;
-                                                            }
+                                    // ✅ ONLY UPDATE IF DATA CHANGED
+                                    boolean statusChanged = !newStatus.equals(cachedMembershipStatus);
+                                    boolean planChanged = !newPlanText.equals(cachedPlanType);
+                                    boolean expiryChanged = !newExpiryDate.equals(cachedExpiryDate);
 
-                                                            // ✅ ONLY UPDATE IF DATA CHANGED
-                                                            boolean statusChanged = !newStatus.equals(cachedMembershipStatus);
-                                                            boolean planChanged = !newPlanText.equals(cachedPlanType);
-                                                            boolean expiryChanged = !newExpiryDate.equals(cachedExpiryDate);
+                                    if (statusChanged || planChanged || expiryChanged) {
+                                        Log.d(TAG, "📊 Membership data changed, updating UI");
 
-                                                            if (statusChanged || planChanged || expiryChanged) {
-                                                                Log.d(TAG, "📊 Membership data changed, updating UI");
+                                        // Update cache
+                                        cachedMembershipStatus = newStatus;
+                                        cachedStatusColor = newColor;
+                                        cachedPlanType = newPlanText;
+                                        cachedExpiryDate = newExpiryDate;
 
-                                                                // Update cache
-                                                                cachedMembershipStatus = newStatus;
-                                                                cachedStatusColor = newColor;
-                                                                cachedPlanType = newPlanText;
-                                                                cachedExpiryDate = newExpiryDate;
+                                        // Save to SharedPreferences
+                                        if (membershipCache == null) {
+                                            membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
+                                        }
+                                        membershipCache.edit()
+                                                .putString("cached_status", newStatus)
+                                                .putString("cached_plan", newPlanText)
+                                                .putString("cached_expiry", newExpiryDate)
+                                                .putInt("cached_color", newColor)
+                                                .apply();
 
-                                                                // Save to SharedPreferences
-                                                                if (membershipCache == null) {
-                                                                    membershipCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
-                                                                }
-                                                                membershipCache.edit()
-                                                                        .putString("cached_status", newStatus)
-                                                                        .putString("cached_plan", newPlanText)
-                                                                        .putString("cached_expiry", newExpiryDate)
-                                                                        .putInt("cached_color", newColor)
-                                                                        .apply();
+                                        // Update UI
+                                        membershipStatus.setText(newStatus);
+                                        membershipStatus.setTextColor(newColor);
+                                        planType.setText(newPlanText);
+                                        expiryDate.setText(newExpiryDate);
 
-                                                                // Update UI
-                                                                membershipStatus.setText(newStatus);
-                                                                membershipStatus.setTextColor(newColor);
-                                                                planType.setText(newPlanText);
-                                                                expiryDate.setText(newExpiryDate);
+                                        // Hide CTA when membership is not inactive
+                                        if (!"INACTIVE".equals(newStatus)) {
+                                            hideMembershipCta();
+                                        }
+                                    } else {
+                                        Log.d(TAG, "📊 Membership data unchanged, skipping UI update");
+                                    }
 
-                                                                // Hide CTA when membership is not inactive
-                                                                if (!"INACTIVE".equals(newStatus)) {
-                                                                    hideMembershipCta();
-                                                                }
-                                                            } else {
-                                                                Log.d(TAG, "📊 Membership data unchanged, skipping UI update");
-                                                            }
+                                    // Always check and display schedule (even if membership data unchanged)
+                                    String scheduleDate = documentSnapshot.getString("scheduleDate");
+                                    String scheduleTime = documentSnapshot.getString("scheduleTime");
 
-                                                            // Always check and display schedule (even if membership data unchanged)
-                                                            String scheduleDate = documentSnapshot.getString("scheduleDate");
-                                                            String scheduleTime = documentSnapshot.getString("scheduleTime");
+                                    // Only update if schedule changed
+                                    boolean scheduleChanged = false;
+                                    if (scheduleDate != null && scheduleTime != null && sessions != null && sessions > 0) {
+                                        // User has schedule booked
+                                        if (!scheduleDate.equals(cachedScheduleDate) || !scheduleTime.equals(cachedScheduleTime)) {
+                                            scheduleChanged = true;
+                                            displaySchedule(scheduleDate, scheduleTime);
+                                        } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
+                                            // Schedule exists but container not visible - show it
+                                            displaySchedule(scheduleDate, scheduleTime);
+                                        }
+                                    } else if (sessions != null && sessions > 0) {
+                                        // User has PT sessions but NO schedule - show prompt to book
+                                        // Only show if we're not already showing it (check cache)
+                                        if (cachedScheduleDate != null || cachedScheduleTime != null) {
+                                            // Had a schedule before, now needs prompt
+                                            scheduleChanged = true;
+                                            cachedScheduleDate = null;
+                                            cachedScheduleTime = null;
+                                            showBookNextSchedulePrompt();
+                                        } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
+                                            // Container is hidden, need to show prompt
+                                            scheduleChanged = true;
+                                            showBookNextSchedulePrompt();
+                                        }
+                                    } else {
+                                        // No PT sessions or expired - hide schedule
+                                        if (cachedScheduleDate != null || cachedScheduleTime != null) {
+                                            scheduleChanged = true;
+                                            hideSchedule();
+                                        } else if (scheduleContainer != null && scheduleContainer.getVisibility() == View.VISIBLE) {
+                                            // No schedule but container is visible - hide it
+                                            hideSchedule();
+                                        }
+                                    }
 
-                                                            // Only update if schedule changed
-                                                            boolean scheduleChanged = false;
-                                                            if (scheduleDate != null && scheduleTime != null && sessions != null && sessions > 0) {
-                                                                // User has schedule booked
-                                                                if (!scheduleDate.equals(cachedScheduleDate) || !scheduleTime.equals(cachedScheduleTime)) {
-                                                                    scheduleChanged = true;
-                                                                    displaySchedule(scheduleDate, scheduleTime);
-                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
-                                                                    // Schedule exists but container not visible - show it
-                                                                    displaySchedule(scheduleDate, scheduleTime);
-                                                                }
-                                                            } else if (sessions != null && sessions > 0) {
-                                                                // User has PT sessions but NO schedule - show prompt to book
-                                                                // Only show if we're not already showing it (check cache)
-                                                                if (cachedScheduleDate != null || cachedScheduleTime != null) {
-                                                                    // Had a schedule before, now needs prompt
-                                                                    scheduleChanged = true;
-                                                                    cachedScheduleDate = null;
-                                                                    cachedScheduleTime = null;
-                                                                    showBookNextSchedulePrompt();
-                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() != View.VISIBLE) {
-                                                                    // Container is hidden, need to show prompt
-                                                                    scheduleChanged = true;
-                                                                    showBookNextSchedulePrompt();
-                                                                }
-                                                            } else {
-                                                                // No PT sessions or expired - hide schedule
-                                                                if (cachedScheduleDate != null || cachedScheduleTime != null) {
-                                                                    scheduleChanged = true;
-                                                                    hideSchedule();
-                                                                } else if (scheduleContainer != null && scheduleContainer.getVisibility() == View.VISIBLE) {
-                                                                    // No schedule but container is visible - hide it
-                                                                    hideSchedule();
-                                                                }
-                                                            }
-
-                                                            if (scheduleChanged) {
-                                                                Log.d(TAG, "📅 Schedule updated");
-                                                            }
-                                                        })
-                                                        .addOnFailureListener(serverError -> {
-                                                            // Fallback to system time
-                                                            updateMembershipUI(displayName, newExpiryDate, expDate, new Date());
-                                                        });
-                                            })
-                                            .addOnFailureListener(setError -> {
-                                                // Fallback to system time
-                                                updateMembershipUI(displayName, newExpiryDate, expDate, new Date());
-                                            });
+                                    if (scheduleChanged) {
+                                        Log.d(TAG, "📅 Schedule updated");
+                                    }
                                 } else {
                                     updateMembershipToInactive();
                                 }
@@ -1894,15 +1874,20 @@ package com.example.signuploginrealtime;
                             Date today = new Date();
                             long diffInMillis = expirationDate.getTime() - today.getTime();
                             long diffInDays = TimeUnit.MILLISECONDS.toDays(diffInMillis);
+                            long diffInHours = TimeUnit.MILLISECONDS.toHours(diffInMillis);
 
-                            Log.d(TAG, "Membership expires in " + diffInDays + " days");
+                            Log.d(TAG, "📊 Membership Expiration Check:");
+                            Log.d(TAG, "   Current Time: " + today);
+                            Log.d(TAG, "   Expiration Time: " + expirationDate);
+                            Log.d(TAG, "   Time Remaining: " + diffInDays + " days, " + diffInHours + " hours");
 
                             if (diffInMillis < 0) {
                                 // 🔴 EXPIRED - Update status and set plan to "None"
+                                Log.d(TAG, "🔴 Membership EXPIRED! Triggering expiration flow...");
                                 Map<String, Object> updates = new HashMap<>();
                                 updates.put("membershipStatus", "expired");
                                 updates.put("membershipPlanLabel", "None");
-                                updates.put("membershipPlanType", "None");  // ✅ ADD THIS
+                                updates.put("membershipPlanType", "None");
                                 updates.put("membershipPlanCode", null);
 
                                 db.collection("memberships").document(user.getUid())
@@ -1913,7 +1898,7 @@ package com.example.signuploginrealtime;
                                             userUpdates.put("membershipStatus", "expired");
                                             userUpdates.put("membershipActive", false);
                                             userUpdates.put("membershipPlanLabel", "None");
-                                            userUpdates.put("membershipPlanType", "None");  // ✅ ADD THIS
+                                            userUpdates.put("membershipPlanType", "None");
                                             userUpdates.put("membershipPlanCode", null);
 
                                             db.collection("users").document(user.getUid())
@@ -1927,9 +1912,20 @@ package com.example.signuploginrealtime;
                                         })
                                         .addOnFailureListener(e -> Log.e(TAG, "Failed to update membership to expired", e));
 
-                            } else if (diffInDays <= 3 && diffInDays >= 0) {
-                                // 🟠 EXPIRING SOON - Notify ONCE per day
+                            } else if (diffInHours <= 3 && diffInHours > 0) {
+                                // 🟠 EXPIRING IN 3 HOURS OR LESS - Critical notification
+                                Log.d(TAG, "🟠 Membership expiring in " + diffInHours + " hours - sending critical notification");
+                                saveNotificationToFirestore("expiring_3_hours", (int) diffInHours);
+                            } else if (diffInHours <= 24 && diffInHours > 3) {
+                                // 🟡 EXPIRING WITHIN 24 HOURS - Important for daily memberships
+                                Log.d(TAG, "🟡 Membership expiring in " + diffInHours + " hours - sending 24h notification");
+                                saveNotificationToFirestore("expiring_24_hours", (int) diffInHours);
+                            } else if (diffInDays <= 3 && diffInDays > 0) {
+                                // 🟠 EXPIRING SOON (1-3 DAYS) - Notify once per day
+                                Log.d(TAG, "🟠 Membership expiring in " + diffInDays + " days - sending expiring soon notification");
                                 saveNotificationToFirestore("expiring_soon", (int) diffInDays);
+                            } else {
+                                Log.d(TAG, "✅ Membership is active with " + diffInDays + " days remaining");
                             }
                         }
                     })
@@ -1972,53 +1968,21 @@ package com.example.signuploginrealtime;
 
                             Date expirationDate = expirationTimestamp.toDate();
 
-                            // ✅ FIX: Use server timestamp instead of system date to prevent manual date changes
-                            // Get server timestamp from Firestore to compare
-                            Map<String, Object> serverTimeData = new HashMap<>();
-                            serverTimeData.put("timestamp", com.google.firebase.firestore.FieldValue.serverTimestamp());
+                            // Use device time for expiration check
+                            Date currentDate = new Date();
 
-                            dbFirestore.collection("server_time").document("current")
-                                    .set(serverTimeData)
-                                    .addOnSuccessListener(aVoid -> {
-                                        // Now get the server timestamp we just set
-                                        dbFirestore.collection("server_time").document("current")
-                                                .get()
-                                                .addOnSuccessListener(serverDoc -> {
-                                                    Timestamp serverTimestamp = serverDoc.getTimestamp("timestamp");
-                                                    Date currentDate = (serverTimestamp != null) ? serverTimestamp.toDate() : new Date();
+                            Log.d(TAG, "📅 Checking expiration (using device time):");
+                            Log.d(TAG, "   Device Date: " + currentDate);
+                            Log.d(TAG, "   Expiration Date: " + expirationDate);
+                            Log.d(TAG, "   Is Expired? " + currentDate.after(expirationDate));
 
-                                                    Log.d(TAG, "📅 Checking expiration (using server time):");
-                                                    Log.d(TAG, "   Server Date: " + currentDate);
-                                                    Log.d(TAG, "   Expiration Date: " + expirationDate);
-                                                    Log.d(TAG, "   Is Expired? " + currentDate.after(expirationDate));
-
-                                                    // Check if expired using server time
-                                                    if (currentDate.after(expirationDate)) {
-                                                        Log.d(TAG, "⏰ Membership has EXPIRED (confirmed with server time)! Resetting...");
-                                                        handleExpiredMembership(doc);
-                                                    } else {
-                                                        Log.d(TAG, "✅ Membership is still active (confirmed with server time)");
-                                                    }
-                                                })
-                                                .addOnFailureListener(e -> {
-                                                    Log.e(TAG, "❌ Failed to get server time, using system time as fallback", e);
-                                                    // Fallback to system time if server time fails
-                                                    Date currentDate = new Date();
-                                                    if (currentDate.after(expirationDate)) {
-                                                        Log.d(TAG, "⏰ Membership has EXPIRED (fallback to system time)! Resetting...");
-                                                        handleExpiredMembership(doc);
-                                                    }
-                                                });
-                                    })
-                                    .addOnFailureListener(e -> {
-                                        Log.e(TAG, "❌ Failed to set server timestamp, using system time as fallback", e);
-                                        // Fallback to system time if server timestamp fails
-                                        Date currentDate = new Date();
-                                        if (currentDate.after(expirationDate)) {
-                                            Log.d(TAG, "⏰ Membership has EXPIRED (fallback to system time)! Resetting...");
-                                            handleExpiredMembership(doc);
-                                        }
-                                    });
+                            // Check if expired using device time
+                            if (currentDate.after(expirationDate)) {
+                                Log.d(TAG, "⏰ Membership has EXPIRED! Resetting...");
+                                handleExpiredMembership(doc);
+                            } else {
+                                Log.d(TAG, "✅ Membership is still active");
+                            }
 
                         } else if ("inactive".equals(status) || "None".equals(planType)) {
                             Log.d(TAG, "Membership already inactive or is 'None'");
@@ -2193,6 +2157,52 @@ package com.example.signuploginrealtime;
                                 // Create notification
                                 createNotificationWithDate(user.getUid(), title, message, notificationType, todayDateStr);
 
+                            } else if ("expiring_3_hours".equals(notificationType)) {
+                                title = "⚠️ Urgent: Membership Expiring Soon!";
+
+                                // Get the actual expiration date from Firestore
+                                db.collection("memberships")
+                                        .document(user.getUid())
+                                        .get()
+                                        .addOnSuccessListener(doc -> {
+                                            if (doc.exists()) {
+                                                Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
+                                                if (expirationTimestamp != null) {
+                                                    Date expDate = expirationTimestamp.toDate();
+                                                    SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault());
+                                                    String formattedDate = sdf.format(expDate);
+
+                                                    String msg = "⏰ Your membership expires in " + daysRemaining + " hour(s) at " + formattedDate + ". Renew now to avoid interruption!";
+
+                                                    // Create notification with date tracking
+                                                    createNotificationWithDate(user.getUid(), title, msg, notificationType, todayDateStr);
+                                                }
+                                            }
+                                        });
+
+                            } else if ("expiring_24_hours".equals(notificationType)) {
+                                title = "⚠️ Membership Expiring Soon!";
+
+                                // Get the actual expiration date from Firestore
+                                db.collection("memberships")
+                                        .document(user.getUid())
+                                        .get()
+                                        .addOnSuccessListener(doc -> {
+                                            if (doc.exists()) {
+                                                Timestamp expirationTimestamp = doc.getTimestamp("membershipExpirationDate");
+                                                if (expirationTimestamp != null) {
+                                                    Date expDate = expirationTimestamp.toDate();
+                                                    SimpleDateFormat sdf = new SimpleDateFormat("MMM dd, yyyy hh:mm a", Locale.getDefault());
+                                                    String formattedDate = sdf.format(expDate);
+
+                                                    String msg = "Your membership expires in " + daysRemaining + " hour(s) at " + formattedDate + ". Renew soon to continue your gym access!";
+
+                                                    // Create notification with date tracking
+                                                    createNotificationWithDate(user.getUid(), title, msg, notificationType, todayDateStr);
+                                                }
+                                            }
+                                        });
+
                             } else {
                                 title = "Membership Expiring Soon";
 
@@ -2231,6 +2241,10 @@ package com.example.signuploginrealtime;
             String userId = user.getUid();
             String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
 
+            // Get current day of week (e.g., "Monday", "Tuesday")
+            Calendar calendar = Calendar.getInstance();
+            String todayDayOfWeek = new SimpleDateFormat("EEEE", Locale.ENGLISH).format(calendar.getTime());
+
             // ✅ First check if reminder already sent TODAY
             dbFirestore.collection("notifications")
                     .whereEqualTo("userId", userId)
@@ -2243,19 +2257,41 @@ package com.example.signuploginrealtime;
                             return;
                         }
 
-                        // Check if user already worked out today
+                        // Check user's preferred workout days
                         dbFirestore.collection("users")
                                 .document(userId)
-                                .collection("progress")
-                                .whereEqualTo("date", todayDate)
                                 .get()
-                                .addOnSuccessListener(querySnapshot -> {
-                                    if (querySnapshot.isEmpty()) {
-                                        // No workout today, check weekly goal
-                                        dbFirestore.collection("users")
-                                                .document(userId)
-                                                .get()
-                                                .addOnSuccessListener(userDoc -> {
+                                .addOnSuccessListener(userDoc -> {
+                                    // Check if today is a preferred workout day
+                                    Object preferredDaysObj = userDoc.get("preferredWorkoutDays");
+                                    List<String> preferredDays = null;
+
+                                    if (preferredDaysObj instanceof List) {
+                                        preferredDays = (List<String>) preferredDaysObj;
+                                    }
+
+                                    if (preferredDays == null || preferredDays.isEmpty()) {
+                                        Log.d(TAG, "⚠️ No preferred workout days set, skipping reminder");
+                                        return;
+                                    }
+
+                                    // Check if today is in preferred days
+                                    if (!preferredDays.contains(todayDayOfWeek)) {
+                                        Log.d(TAG, "⚠️ Today (" + todayDayOfWeek + ") is not a preferred workout day, skipping reminder");
+                                        return;
+                                    }
+
+                                    Log.d(TAG, "✅ Today (" + todayDayOfWeek + ") is a preferred workout day, checking if workout completed");
+
+                                    // Check if user already worked out today
+                                    dbFirestore.collection("users")
+                                            .document(userId)
+                                            .collection("progress")
+                                            .whereEqualTo("date", todayDate)
+                                            .get()
+                                            .addOnSuccessListener(querySnapshot -> {
+                                                if (querySnapshot.isEmpty()) {
+                                                    // No workout today, send reminder
                                                     Long workoutGoal = userDoc.getLong("workoutDaysPerWeek");
 
                                                     if (workoutGoal != null && workoutGoal > 0) {
@@ -2273,14 +2309,14 @@ package com.example.signuploginrealtime;
                                                                         }
                                                                     }
 
-                                                                    // If not yet reached weekly goal, send reminder
-                                                                    if (completedThisWeek < workoutGoal) {
-                                                                        sendDailyWorkoutReminder(userId, workoutGoal.intValue(), completedThisWeek, todayDate);
-                                                                    }
+                                                                    // Send reminder
+                                                                    sendDailyWorkoutReminder(userId, workoutGoal.intValue(), completedThisWeek, todayDate);
                                                                 });
                                                     }
-                                                });
-                                    }
+                                                } else {
+                                                    Log.d(TAG, "✅ User already worked out today, no reminder needed");
+                                                }
+                                            });
                                 });
                     });
         }
@@ -2313,7 +2349,18 @@ package com.example.signuploginrealtime;
                     });
         }
         private void checkAndCreatePromoNotification(String userId, String imageUrl) {
-            // Use imageUrl as unique identifier to prevent duplicate notifications
+            String todayDate = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+
+            // Check SharedPreferences to see if we already notified for this promo image
+            SharedPreferences promoPrefs = getSharedPreferences("promo_notifications", MODE_PRIVATE);
+            String lastNotifiedPromo = promoPrefs.getString("last_promo_image", null);
+
+            if (imageUrl.equals(lastNotifiedPromo)) {
+                Log.d(TAG, "⚠️ Already notified for this promo image, skipping");
+                return;
+            }
+
+            // Check if notification already exists in Firestore for this promo
             dbFirestore.collection("notifications")
                     .whereEqualTo("userId", userId)
                     .whereEqualTo("type", "promo")
@@ -2331,6 +2378,7 @@ package com.example.signuploginrealtime;
                             notification.put("message", message);
                             notification.put("type", "promo");
                             notification.put("promoImageUrl", imageUrl); // Store imageUrl to prevent duplicates
+                            notification.put("notificationDate", todayDate);
                             notification.put("timestamp", System.currentTimeMillis());
                             notification.put("read", false);
 
@@ -2338,13 +2386,19 @@ package com.example.signuploginrealtime;
                                     .add(notification)
                                     .addOnSuccessListener(docRef -> {
                                         Log.d(TAG, "✅ Promo notification created: " + docRef.getId());
+
+                                        // Save to SharedPreferences so we don't notify again for this image
+                                        promoPrefs.edit().putString("last_promo_image", imageUrl).apply();
+
                                         // Show local notification
                                         NotificationHelper.showNotification(MainActivity.this, title, message);
                                     })
                                     .addOnFailureListener(ex ->
                                             Log.e(TAG, "❌ Failed to create promo notification", ex));
                         } else {
-                            Log.d(TAG, "⚠️ Promo notification already exists for this image, skipping");
+                            Log.d(TAG, "⚠️ Promo notification already exists in Firestore for this image, skipping");
+                            // Save to SharedPreferences so we don't check again
+                            promoPrefs.edit().putString("last_promo_image", imageUrl).apply();
                         }
                     })
                     .addOnFailureListener(ex ->

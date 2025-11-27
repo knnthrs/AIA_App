@@ -14,10 +14,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.signuploginrealtime.adapters.MealPlanAdapter;
 import com.example.signuploginrealtime.adapters.UserFoodAdapter;
 import com.example.signuploginrealtime.models.FoodRecommendation;
-import com.example.signuploginrealtime.models.UserMealPlan;
 import com.google.firebase.Timestamp;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
@@ -40,20 +38,13 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
     private RecyclerView recyclerViewRecommendations;
     private UserFoodAdapter recommendationsAdapter;
     private List<FoodRecommendation> foodList;
-    private List<FoodRecommendation> originalFoodList; // For search filtering
+    private List<FoodRecommendation> originalFoodList;
     private ProgressBar progressBar;
     private LinearLayout emptyState;
-    private androidx.appcompat.widget.SearchView searchView;
-
-    // Meal Plan
-    private RecyclerView recyclerViewMealPlan;
-    private MealPlanAdapter mealPlanAdapter;
-    private List<UserMealPlan> mealPlanList;
-    private LinearLayout emptyStateMealPlan;
 
     // Common
     private ImageView btnBack;
-    private TextView tvGoalInfo, tvMealPlanCount, tvRecommendationCount;
+    private TextView tvGoalInfo, tvRecommendationCount;
 
     private FirebaseFirestore db;
     private DatabaseReference realtimeDb;
@@ -70,23 +61,13 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         loadUserProfile();
         setupRecyclerViews();
         setupListeners();
-        loadMealPlan();
     }
 
     private void initializeViews() {
-        // Recommendations
         recyclerViewRecommendations = findViewById(R.id.recyclerViewFoodRecommendations);
         progressBar = findViewById(R.id.progressBar);
         emptyState = findViewById(R.id.emptyState);
         tvRecommendationCount = findViewById(R.id.tvRecommendationCount);
-        searchView = findViewById(R.id.searchView);
-
-        // Meal Plan
-        recyclerViewMealPlan = findViewById(R.id.recyclerViewMealPlan);
-        emptyStateMealPlan = findViewById(R.id.emptyStateMealPlan);
-        tvMealPlanCount = findViewById(R.id.tvMealPlanCount);
-
-        // Common
         btnBack = findViewById(R.id.btnBack);
         tvGoalInfo = findViewById(R.id.tvGoalInfo);
 
@@ -99,7 +80,6 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         }
         foodList = new ArrayList<>();
         originalFoodList = new ArrayList<>();
-        mealPlanList = new ArrayList<>();
     }
 
     private void loadUserProfile() {
@@ -109,11 +89,8 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                 .addOnSuccessListener(documentSnapshot -> {
                     if (documentSnapshot.exists()) {
                         coachId = documentSnapshot.getString("coachId");
-
-                        // Try to get fitnessGoal from the document directly
                         fitnessGoal = documentSnapshot.getString("fitnessGoal");
 
-                        // If not found, try from fitnessProfile subcollection
                         if (fitnessGoal == null) {
                             db.collection("users")
                                     .document(userId)
@@ -179,7 +156,6 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         }
 
         tvGoalInfo.setText(message);
-        android.util.Log.d("FoodRecommendations", "Updated goal info: " + fitnessGoal);
     }
 
     private void updateGoalInfoWithResults(int goalMatches, int totalFoods) {
@@ -196,17 +172,6 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerViews() {
-        // Setup Meal Plan RecyclerView
-        mealPlanAdapter = new MealPlanAdapter(mealPlanList, new MealPlanAdapter.OnMealPlanActionListener() {
-            @Override
-            public void onRemoveFromMealPlan(UserMealPlan mealPlan) {
-                removeFromMealPlan(mealPlan);
-            }
-        });
-        recyclerViewMealPlan.setLayoutManager(new LinearLayoutManager(this));
-        recyclerViewMealPlan.setAdapter(mealPlanAdapter);
-
-        // Setup Food Recommendations RecyclerView
         recommendationsAdapter = new UserFoodAdapter(foodList, new UserFoodAdapter.OnFoodActionListener() {
             @Override
             public void onAddToMealPlan(FoodRecommendation food) {
@@ -224,54 +189,9 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
     private void setupListeners() {
         btnBack.setOnClickListener(v -> finish());
-
-        // Setup search functionality
-        searchView.setOnQueryTextListener(new androidx.appcompat.widget.SearchView.OnQueryTextListener() {
-            @Override
-            public boolean onQueryTextSubmit(String query) {
-                filterFoods(query);
-                return false;
-            }
-
-            @Override
-            public boolean onQueryTextChange(String newText) {
-                filterFoods(newText);
-                return false;
-            }
-        });
-    }
-
-    private void filterFoods(String query) {
-        if (query == null || query.trim().isEmpty()) {
-            // Show all foods
-            foodList.clear();
-            foodList.addAll(originalFoodList);
-        } else {
-            // Filter based on query
-            String lowerQuery = query.toLowerCase().trim();
-            foodList.clear();
-            for (FoodRecommendation food : originalFoodList) {
-                if (food.getName().toLowerCase().contains(lowerQuery) ||
-                    (food.getTags() != null && food.getTags().toString().toLowerCase().contains(lowerQuery))) {
-                    foodList.add(food);
-                }
-            }
-        }
-        recommendationsAdapter.notifyDataSetChanged();
-        updateCounts();
-
-        if (foodList.isEmpty() && !originalFoodList.isEmpty()) {
-            // Search returned no results
-            emptyState.setVisibility(View.VISIBLE);
-        } else if (foodList.isEmpty()) {
-            emptyState.setVisibility(View.VISIBLE);
-        } else {
-            emptyState.setVisibility(View.GONE);
-        }
     }
 
     private void updateCounts() {
-        tvMealPlanCount.setText(mealPlanList.size() + " items");
         tvRecommendationCount.setText(foodList.size() + " items");
     }
 
@@ -281,17 +201,11 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         foodList.clear();
         originalFoodList.clear();
 
-        android.util.Log.d("FoodRecommendations", "Loading foods for userId: " + userId + ", coachId: " + coachId);
-
-        // Load coach-recommended foods (both personalized and general from THIS coach)
         if (coachId != null) {
-            android.util.Log.d("FoodRecommendations", "Querying coach foods...");
             db.collection("foods")
                     .whereEqualTo("coachId", coachId)
                     .get()
                     .addOnSuccessListener(queryDocumentSnapshots -> {
-                        android.util.Log.d("FoodRecommendations", "Coach query returned " + queryDocumentSnapshots.size() + " foods");
-
                         for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                             FoodRecommendation food = document.toObject(FoodRecommendation.class);
                             food.setId(document.getId());
@@ -300,46 +214,26 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                             Boolean verified = document.getBoolean("verified");
                             boolean foodIsVerified = (isVerified != null && isVerified) || (verified != null && verified);
 
-                            if (!foodIsVerified) {
-                                android.util.Log.d("FoodRecommendations", "Skipped unverified coach food: " + food.getName());
-                                continue;
-                            }
+                            if (!foodIsVerified) continue;
 
                             boolean isPersonalized = userId != null && userId.equals(food.getUserId());
                             boolean isGeneral = food.getUserId() == null;
 
-                            if (!(isPersonalized || isGeneral)) {
-                                android.util.Log.d("FoodRecommendations", "Skipped coach food for different user: " + food.getName());
-                                continue;
-                            }
-
-                            // Avoid duplicates when later loading from DB/Firestore
-                            if (isAlreadyInList(food)) {
-                                android.util.Log.d("FoodRecommendations", "Coach food already in list (skipping duplicate): " + food.getName());
-                                continue;
-                            }
+                            if (!(isPersonalized || isGeneral)) continue;
+                            if (isAlreadyInList(food)) continue;
 
                             foodList.add(food);
                             originalFoodList.add(food);
-                            String type = isPersonalized ? "personalized" : "general";
-                            android.util.Log.d("FoodRecommendations", "Added " + type + " coach food: " + food.getName());
                         }
 
                         loadGeneralRecommendations();
                     })
-                    .addOnFailureListener(e -> {
-                        android.util.Log.e("FoodRecommendations", "Failed to load coach foods", e);
-                        loadGeneralRecommendations();
-                    });
+                    .addOnFailureListener(e -> loadGeneralRecommendations());
         } else {
-            android.util.Log.d("FoodRecommendations", "No coach assigned, loading general only");
             loadGeneralRecommendations();
         }
     }
 
-    /**
-     * Helper to check if a food with the same ID or name is already in the list
-     */
     private boolean isAlreadyInList(FoodRecommendation candidate) {
         if (candidate == null || candidate.getName() == null) return false;
         String name = candidate.getName().trim().toLowerCase();
@@ -354,34 +248,26 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
     }
 
     private void loadGeneralRecommendations() {
-        android.util.Log.d("FoodRecommendations", "Loading general recommendations...");
-        
-        // First try to load from Realtime Database (where our 500 foods are)
         realtimeDb.child("foods").addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                 if (dataSnapshot.exists() && dataSnapshot.getChildrenCount() > 0) {
-                    android.util.Log.d("FoodRecommendations", "Loading from Realtime DB: " + dataSnapshot.getChildrenCount() + " foods found");
                     loadFromRealtimeDatabase(dataSnapshot);
                 } else {
-                    android.util.Log.d("FoodRecommendations", "No foods in Realtime DB, trying Firestore...");
-                    loadFromFirestore(); // Fallback to Firestore
+                    loadFromFirestore();
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError databaseError) {
-                android.util.Log.e("FoodRecommendations", "Failed to load from Realtime DB: " + databaseError.getMessage());
-                loadFromFirestore(); // Fallback to Firestore
+                loadFromFirestore();
             }
         });
     }
 
     private void loadFromRealtimeDatabase(DataSnapshot dataSnapshot) {
         int addedCount = 0;
-        int filteredCount = 0;
         int goalMatchCount = 0;
-        int duplicateCount = 0;
 
         for (DataSnapshot foodSnapshot : dataSnapshot.getChildren()) {
             try {
@@ -389,19 +275,10 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                 if (food != null) {
                     food.setId(foodSnapshot.getKey());
                     Boolean isVerified = food.isVerified();
-                    if (isVerified != null && !isVerified) {
-                        continue; // Skip unverified foods
-                    }
-
-                    // Check duplicates against anything already loaded (coach foods + others)
-                    if (isAlreadyInList(food)) {
-                        duplicateCount++;
-                        android.util.Log.d("FoodRecommendations", "Skipped duplicate (RTDB): " + food.getName());
-                        continue;
-                    }
+                    if (isVerified != null && !isVerified) continue;
+                    if (isAlreadyInList(food)) continue;
 
                     boolean isGeneral = food.getUserId() == null;
-
                     if (isGeneral) {
                         boolean matchesGoal = (fitnessGoal == null || food.isGoodForGoal(fitnessGoal));
                         boolean isFromCoach = (coachId != null && coachId.equals(food.getCoachId()));
@@ -414,41 +291,33 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                             foodList.add(food);
                             originalFoodList.add(food);
                             addedCount++;
-
                             if (matchesGoal) goalMatchCount++;
-                        } else {
-                            filteredCount++;
                         }
                     }
                 }
             } catch (Exception e) {
-                android.util.Log.e("FoodRecommendations", "Error parsing food from Realtime DB: " + e.getMessage());
+                android.util.Log.e("FoodRecommendations", "Error parsing food: " + e.getMessage());
             }
         }
 
-        android.util.Log.d("FoodRecommendations", "RTDB: added=" + addedCount + ", filtered=" + filteredCount + ", duplicates=" + duplicateCount);
         recommendationsAdapter.notifyDataSetChanged();
         progressBar.setVisibility(View.GONE);
         updateCounts();
 
         if (foodList.isEmpty()) {
             emptyState.setVisibility(View.VISIBLE);
-            android.util.Log.w("FoodRecommendations", "No foods to display!");
         } else {
             updateGoalInfoWithResults(goalMatchCount, addedCount);
         }
     }
 
     private void loadFromFirestore() {
-        android.util.Log.d("FoodRecommendations", "Loading from Firestore...");
         db.collection("foods")
                 .limit(200)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     int addedCount = 0;
-                    int filteredCount = 0;
                     int goalMatchCount = 0;
-                    int duplicateCount = 0;
 
                     for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         FoodRecommendation food = document.toObject(FoodRecommendation.class);
@@ -461,12 +330,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                         boolean isGeneral = food.getUserId() == null;
 
                         if (isGeneral && foodIsVerified) {
-                            // Check for duplicates across coach + RTDB + Firestore
-                            if (isAlreadyInList(food)) {
-                                duplicateCount++;
-                                android.util.Log.d("FoodRecommendations", "Skipped duplicate (FS): " + food.getName());
-                                continue;
-                            }
+                            if (isAlreadyInList(food)) continue;
 
                             boolean matchesGoal = (fitnessGoal == null || food.isGoodForGoal(fitnessGoal));
                             boolean isFromCoach = (coachId != null && coachId.equals(food.getCoachId()));
@@ -479,28 +343,22 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                                 foodList.add(food);
                                 originalFoodList.add(food);
                                 addedCount++;
-
                                 if (matchesGoal) goalMatchCount++;
-                            } else {
-                                filteredCount++;
                             }
                         }
                     }
 
-                    android.util.Log.d("FoodRecommendations", "FS: added=" + addedCount + ", filtered=" + filteredCount + ", duplicates=" + duplicateCount);
                     recommendationsAdapter.notifyDataSetChanged();
                     progressBar.setVisibility(View.GONE);
                     updateCounts();
 
                     if (foodList.isEmpty()) {
                         emptyState.setVisibility(View.VISIBLE);
-                        android.util.Log.w("FoodRecommendations", "No foods to display!");
                     } else {
                         updateGoalInfoWithResults(goalMatchCount, addedCount);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    android.util.Log.e("FoodRecommendations", "Failed to load from Firestore", e);
                     Toast.makeText(this, "Error loading foods", Toast.LENGTH_SHORT).show();
                     progressBar.setVisibility(View.GONE);
                     emptyState.setVisibility(View.VISIBLE);
@@ -512,150 +370,50 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
         new AlertDialog.Builder(this)
                 .setTitle("Add to Meal Plan")
-                .setItems(mealTypes, (dialog, which) -> {
-                    addToMealPlan(food, mealTypes[which]); // Keep original case (Breakfast, Lunch, Dinner, Snack)
-                })
+                .setItems(mealTypes, (dialog, which) -> addToMealPlan(food, mealTypes[which]))
                 .setNegativeButton("Cancel", null)
                 .show();
     }
 
     private void addToMealPlan(FoodRecommendation food, String mealType) {
-        // Format date as yyyy-MM-dd
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
         String today = sdf.format(new Date());
 
-        android.util.Log.d("MealPlanAdd", "=== CHECKING FOR DUPLICATES ===");
-        android.util.Log.d("MealPlanAdd", "Food: " + food.getName() + ", MealType: " + mealType + ", Date: " + today);
-
-        // Check if this food already exists in the meal plan for this date and meal type
         db.collection("users")
                 .document(userId)
                 .collection("mealPlan")
                 .whereEqualTo("date", today)
                 .whereEqualTo("mealType", mealType)
-                .whereEqualTo("foodName", food.getName()) // Check by name since foodId might be null
-                .limit(1) // Only need to know if at least one exists
+                .whereEqualTo("foodName", food.getName())
+                .limit(1)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
                     if (!queryDocumentSnapshots.isEmpty()) {
-                        // Duplicate found
-                        android.util.Log.w("MealPlanAdd", "⚠️ Duplicate found! Food already in " + mealType);
                         Toast.makeText(this, food.getName() + " is already in your " + mealType + " plan", Toast.LENGTH_LONG).show();
                         return;
                     }
 
-                    // No duplicate, proceed to add
-                    android.util.Log.d("MealPlanAdd", "✅ No duplicate, adding food...");
-
-                    UserMealPlan mealPlan = new UserMealPlan();
-                    mealPlan.setUserId(userId);
-                    mealPlan.setFoodId(food.getId());
-                    mealPlan.setFoodName(food.getName());
-                    mealPlan.setCalories(food.getCalories());
-                    mealPlan.setProtein(food.getProtein());
-                    mealPlan.setCarbs(food.getCarbs());
-                    mealPlan.setFats(food.getFats());
-                    mealPlan.setMealType(mealType);
-                    mealPlan.setServingSize(food.getServingSize());
-                    mealPlan.setAddedAt(Timestamp.now());
-                    mealPlan.setDate(today);
+                    java.util.Map<String, Object> mealPlanData = new java.util.HashMap<>();
+                    mealPlanData.put("userId", userId);
+                    mealPlanData.put("foodId", food.getId());
+                    mealPlanData.put("foodName", food.getName());
+                    mealPlanData.put("calories", food.getCalories());
+                    mealPlanData.put("protein", food.getProtein());
+                    mealPlanData.put("carbs", food.getCarbs());
+                    mealPlanData.put("fats", food.getFats());
+                    mealPlanData.put("mealType", mealType);
+                    mealPlanData.put("servingSize", food.getServingSize());
+                    mealPlanData.put("addedAt", Timestamp.now());
+                    mealPlanData.put("date", today);
 
                     db.collection("users")
                             .document(userId)
                             .collection("mealPlan")
-                            .add(mealPlan)
-                            .addOnSuccessListener(documentReference -> {
-                                android.util.Log.d("MealPlanAdd", "✅ Successfully added! Doc ID: " + documentReference.getId());
-                                Toast.makeText(this, "Added to " + mealType, Toast.LENGTH_SHORT).show();
-                                // Reload the meal plan to show the newly added item
-                                loadMealPlan();
-                            })
-                            .addOnFailureListener(e -> {
-                                android.util.Log.e("MealPlanAdd", "❌ Failed to add to meal plan", e);
-                                Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                            });
+                            .add(mealPlanData)
+                            .addOnSuccessListener(documentReference -> Toast.makeText(this, "Added to " + mealType, Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
                 })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("MealPlanAdd", "❌ Failed to check for duplicates", e);
-                    Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void loadMealPlan() {
-        // Format date as yyyy-MM-dd
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-        String today = sdf.format(new Date());
-
-        android.util.Log.d("MealPlan", "Loading meal plan for date: " + today);
-
-        db.collection("users")
-                .document(userId)
-                .collection("mealPlan")
-                .whereEqualTo("date", today)
-                .get()
-                .addOnSuccessListener(queryDocumentSnapshots -> {
-                    mealPlanList.clear();
-                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        UserMealPlan mealPlan = document.toObject(UserMealPlan.class);
-                        mealPlan.setId(document.getId());
-                        mealPlanList.add(mealPlan);
-                        android.util.Log.d("MealPlan", "Loaded meal: " + mealPlan.getFoodName() + " - " + mealPlan.getMealType());
-                    }
-
-                    mealPlanAdapter.notifyDataSetChanged();
-                    updateCounts();
-
-                    // Show/hide empty state
-                    if (mealPlanList.isEmpty()) {
-                        emptyStateMealPlan.setVisibility(View.VISIBLE);
-                        recyclerViewMealPlan.setVisibility(View.GONE);
-                    } else {
-                        emptyStateMealPlan.setVisibility(View.GONE);
-                        recyclerViewMealPlan.setVisibility(View.VISIBLE);
-                    }
-
-                    android.util.Log.d("MealPlan", "Total meals loaded: " + mealPlanList.size());
-                })
-                .addOnFailureListener(e -> {
-                    android.util.Log.e("MealPlan", "Failed to load meal plan", e);
-                    Toast.makeText(this, "Error loading meal plan: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                });
-    }
-
-    private void removeFromMealPlan(UserMealPlan mealPlan) {
-        new AlertDialog.Builder(this)
-                .setTitle("Remove from Meal Plan")
-                .setMessage("Remove " + mealPlan.getFoodName() + " from your meal plan?")
-                .setPositiveButton("Remove", (dialog, which) -> {
-                    db.collection("users")
-                            .document(userId)
-                            .collection("mealPlan")
-                            .document(mealPlan.getId())
-                            .delete()
-                            .addOnSuccessListener(aVoid -> {
-                                mealPlanList.remove(mealPlan);
-                                mealPlanAdapter.notifyDataSetChanged();
-                                updateCounts();
-
-                                // Show/hide empty state
-                                if (mealPlanList.isEmpty()) {
-                                    emptyStateMealPlan.setVisibility(View.VISIBLE);
-                                    recyclerViewMealPlan.setVisibility(View.GONE);
-                                } else {
-                                    emptyStateMealPlan.setVisibility(View.GONE);
-                                    recyclerViewMealPlan.setVisibility(View.VISIBLE);
-                                }
-
-                                Toast.makeText(this, "Removed from meal plan", Toast.LENGTH_SHORT).show();
-                                android.util.Log.d("MealPlan", "Successfully removed: " + mealPlan.getFoodName());
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
-                                android.util.Log.e("MealPlan", "Failed to remove meal", e);
-                            });
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
+                .addOnFailureListener(e -> Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 
     private void showFoodDetailsDialog(FoodRecommendation food) {
@@ -682,3 +440,4 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                 .show();
     }
 }
+

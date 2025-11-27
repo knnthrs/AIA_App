@@ -166,7 +166,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="4dp">
 
@@ -190,7 +190,7 @@
                                 android:text="Personal Information"
                                 android:textSize="18sp"
                                 android:textStyle="bold"
-                                android:textColor="#333333" />
+                                android:textColor="#FFFFFF" />
 
 
 
@@ -226,7 +226,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Email"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/profileEmail"
@@ -234,7 +234,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Loading..."
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -283,7 +283,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Phone Number"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_phone"
@@ -291,7 +291,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="+1 (555) 123-4567"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -340,7 +340,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Date of Birth"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_dob"
@@ -348,7 +348,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="January 15, 1990"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -369,7 +369,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="4dp">
 
@@ -385,7 +385,7 @@
                             android:text="Fitness Profile"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:layout_marginBottom="16dp" />
 
                         <!-- Fitness Level -->
@@ -418,7 +418,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Fitness Level"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_fitness_level"
@@ -426,7 +426,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -475,7 +475,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Fitness Goal"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_fitness_goal"
@@ -483,7 +483,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -532,7 +532,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Workout Frequency"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_workout_frequency"
@@ -540,7 +540,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -590,7 +590,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Age"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_age"
@@ -598,7 +598,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -647,7 +647,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Weight"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_weight"
@@ -655,7 +655,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -704,7 +704,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Height"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_height"
@@ -712,7 +712,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
 
                             </LinearLayout>
 
@@ -765,7 +765,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Health Issues"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_health_issues"
@@ -773,7 +773,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="None"
                                     android:textSize="16sp"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:maxLines="3"
                                     android:ellipsize="end" />
 
@@ -829,7 +829,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Body Focus"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_body_focus"
@@ -837,7 +837,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333"
+                                    android:textColor="#FFFFFF"
                                     android:maxLines="3"
                                     android:ellipsize="end" />
 
@@ -890,7 +890,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Preferred Workout Days"
                                     android:textSize="12sp"
-                                    android:textColor="#666666" />
+                                    android:textColor="#CCCCCC" />
 
                                 <TextView
                                     android:id="@+id/tv_preferred_days"
@@ -898,7 +898,7 @@
                                     android:layout_height="wrap_content"
                                     android:text="Not set"
                                     android:textSize="16sp"
-                                    android:textColor="#333333" />
+                                    android:textColor="#FFFFFF" />
                             </LinearLayout>
 
                             <ImageView
@@ -920,7 +920,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="4dp">
 
@@ -936,7 +936,7 @@
                             android:text="Security"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:layout_marginBottom="16dp" />
 
                         <!-- Change Password -->
@@ -964,7 +964,7 @@
                                 android:layout_weight="1"
                                 android:text="Change Password"
                                 android:textSize="16sp"
-                                android:textColor="#333333" />
+                                android:textColor="#FFFFFF" />
 
                             <ImageView
                                 android:layout_width="20dp"
@@ -983,7 +983,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="20dp"
-                    android:backgroundTint="#FFFFFF"
+                    android:backgroundTint="#000000"
                     app:cardCornerRadius="24dp"
                     app:cardElevation="4dp">
 
@@ -999,7 +999,7 @@
                             android:text="Support"
                             android:textSize="18sp"
                             android:textStyle="bold"
-                            android:textColor="#333333"
+                            android:textColor="#FFFFFF"
                             android:layout_marginBottom="16dp" />
 
                         <!-- Payment History -->
@@ -1027,7 +1027,7 @@
                                 android:layout_weight="1"
                                 android:text="Payment History"
                                 android:textSize="16sp"
-                                android:textColor="#333333" />
+                                android:textColor="#FFFFFF" />
 
                             <ImageView
                                 android:layout_width="20dp"
@@ -1063,7 +1063,7 @@
                                 android:layout_weight="1"
                                 android:text="Send Feedback"
                                 android:textSize="16sp"
-                                android:textColor="#333333" />
+                                android:textColor="#FFFFFF" />
 
                             <ImageView
                                 android:layout_width="20dp"
@@ -1099,7 +1099,7 @@
                                 android:layout_weight="1"
                                 android:text="About Us"
                                 android:textSize="16sp"
-                                android:textColor="#333333" />
+                                android:textColor="#FFFFFF" />
 
                             <ImageView
                                 android:layout_width="20dp"
@@ -1127,7 +1127,7 @@
                         android:id="@+id/btn_logout"
                         android:layout_width="200dp"
                         android:layout_height="wrap_content"
-                        android:backgroundTint="#FFFFFF"
+                        android:backgroundTint="#000000"
                         app:cardCornerRadius="24dp"
                         app:cardElevation="4dp"
                         android:clickable="true"

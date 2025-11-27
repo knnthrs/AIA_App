@@ -233,13 +233,7 @@ public class coach_clients extends AppCompatActivity {
             drawerLayout.closeDrawer(GravityCompat.END);
         });
 
-        findViewById(R.id.menu_food_recommendations).setOnClickListener(v -> {
-            Intent intent = new Intent(coach_clients.this, CoachFoodManagementActivity.class);
-            intent.putExtra("clientId", (String) null); // General recommendations
-            intent.putExtra("clientName", (String) null);
-            startActivity(intent);
-            drawerLayout.closeDrawer(GravityCompat.END);
-        });
+        // ✅ REMOVED: Food recommendations moved to individual client screens
 
         findViewById(R.id.menu_specializations).setOnClickListener(v -> {
             Intent intent = new Intent(coach_clients.this, CoachSpecializationsActivity.class);

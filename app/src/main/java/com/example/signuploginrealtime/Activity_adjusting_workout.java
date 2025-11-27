@@ -103,11 +103,11 @@ public class Activity_adjusting_workout extends AppCompatActivity {
     }
 
     private void startLoadingAnimation() {
-        // Rotate the loading icon continuously
+        if (imgLoading == null) return;
         ObjectAnimator rotateAnimation = ObjectAnimator.ofFloat(imgLoading, "rotation", 0f, 360f);
-        rotateAnimation.setDuration(1500);
-        rotateAnimation.setRepeatCount(ObjectAnimator.INFINITE);
+        rotateAnimation.setDuration(1000);
         rotateAnimation.setInterpolator(new LinearInterpolator());
+        rotateAnimation.setRepeatCount(ObjectAnimator.INFINITE);
         rotateAnimation.start();
     }
 

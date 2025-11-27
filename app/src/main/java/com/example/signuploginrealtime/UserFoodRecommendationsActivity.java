@@ -283,45 +283,74 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
 
         android.util.Log.d("FoodRecommendations", "Loading foods for userId: " + userId + ", coachId: " + coachId);
 
-        // Load personalized recommendations from coach
+        // Load coach-recommended foods (both personalized and general from THIS coach)
         if (coachId != null) {
-            android.util.Log.d("FoodRecommendations", "Querying personalized foods...");
+            android.util.Log.d("FoodRecommendations", "Querying coach foods...");
             db.collection("foods")
                     .whereEqualTo("coachId", coachId)
-                    .whereEqualTo("userId", userId)
-                    // Removed isVerified filter - will check in code to handle both 'verified' and 'isVerified' fields
                     .get()
                     .addOnSuccessListener(queryDocumentSnapshots -> {
-                        android.util.Log.d("FoodRecommendations", "Personalized query returned " + queryDocumentSnapshots.size() + " foods");
+                        android.util.Log.d("FoodRecommendations", "Coach query returned " + queryDocumentSnapshots.size() + " foods");
+
                         for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                             FoodRecommendation food = document.toObject(FoodRecommendation.class);
                             food.setId(document.getId());
 
-                            // Check if verified (handles both 'verified' and 'isVerified' field names)
                             Boolean isVerified = document.getBoolean("isVerified");
                             Boolean verified = document.getBoolean("verified");
                             boolean foodIsVerified = (isVerified != null && isVerified) || (verified != null && verified);
 
-                            if (foodIsVerified) {
-                                foodList.add(food);
-                                originalFoodList.add(food);
-                                android.util.Log.d("FoodRecommendations", "Added personalized food: " + food.getName());
-                            } else {
-                                android.util.Log.d("FoodRecommendations", "Skipped unverified food: " + food.getName());
+                            if (!foodIsVerified) {
+                                android.util.Log.d("FoodRecommendations", "Skipped unverified coach food: " + food.getName());
+                                continue;
                             }
+
+                            boolean isPersonalized = userId != null && userId.equals(food.getUserId());
+                            boolean isGeneral = food.getUserId() == null;
+
+                            if (!(isPersonalized || isGeneral)) {
+                                android.util.Log.d("FoodRecommendations", "Skipped coach food for different user: " + food.getName());
+                                continue;
+                            }
+
+                            // Avoid duplicates when later loading from DB/Firestore
+                            if (isAlreadyInList(food)) {
+                                android.util.Log.d("FoodRecommendations", "Coach food already in list (skipping duplicate): " + food.getName());
+                                continue;
+                            }
+
+                            foodList.add(food);
+                            originalFoodList.add(food);
+                            String type = isPersonalized ? "personalized" : "general";
+                            android.util.Log.d("FoodRecommendations", "Added " + type + " coach food: " + food.getName());
                         }
 
-                        // Then load general recommendations
                         loadGeneralRecommendations();
                     })
                     .addOnFailureListener(e -> {
-                        android.util.Log.e("FoodRecommendations", "Failed to load personalized foods", e);
+                        android.util.Log.e("FoodRecommendations", "Failed to load coach foods", e);
                         loadGeneralRecommendations();
                     });
         } else {
             android.util.Log.d("FoodRecommendations", "No coach assigned, loading general only");
             loadGeneralRecommendations();
         }
+    }
+
+    /**
+     * Helper to check if a food with the same ID or name is already in the list
+     */
+    private boolean isAlreadyInList(FoodRecommendation candidate) {
+        if (candidate == null || candidate.getName() == null) return false;
+        String name = candidate.getName().trim().toLowerCase();
+        String id = candidate.getId();
+
+        for (FoodRecommendation existing : foodList) {
+            if (existing == null) continue;
+            if (id != null && id.equals(existing.getId())) return true;
+            if (existing.getName() != null && existing.getName().trim().equalsIgnoreCase(name)) return true;
+        }
+        return false;
     }
 
     private void loadGeneralRecommendations() {
@@ -352,6 +381,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
         int addedCount = 0;
         int filteredCount = 0;
         int goalMatchCount = 0;
+        int duplicateCount = 0;
 
         for (DataSnapshot foodSnapshot : dataSnapshot.getChildren()) {
             try {
@@ -363,15 +393,19 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                         continue; // Skip unverified foods
                     }
 
-                    // Check if it's a general food (not user-specific)
+                    // Check duplicates against anything already loaded (coach foods + others)
+                    if (isAlreadyInList(food)) {
+                        duplicateCount++;
+                        android.util.Log.d("FoodRecommendations", "Skipped duplicate (RTDB): " + food.getName());
+                        continue;
+                    }
+
                     boolean isGeneral = food.getUserId() == null;
 
                     if (isGeneral) {
-                        // Apply goal-based filtering
                         boolean matchesGoal = (fitnessGoal == null || food.isGoodForGoal(fitnessGoal));
                         boolean isFromCoach = (coachId != null && coachId.equals(food.getCoachId()));
 
-                        // Include if: coach food OR matches goal OR high-quality food
                         boolean shouldInclude = isFromCoach || matchesGoal ||
                                               (food.getProtein() >= 20) ||
                                               (food.getCalories() <= 50);
@@ -382,12 +416,6 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                             addedCount++;
 
                             if (matchesGoal) goalMatchCount++;
-
-                            String goalStatus = matchesGoal ? "✅ PERFECT MATCH" :
-                                              isFromCoach ? "👨‍⚕️ COACH PRIORITY" :
-                                              "⭐ HIGH QUALITY";
-                            android.util.Log.d("FoodRecommendations", "Added: " + food.getName() +
-                                " (" + goalStatus + ", cal: " + food.getCalories() + ", protein: " + food.getProtein() + "g)");
                         } else {
                             filteredCount++;
                         }
@@ -398,12 +426,7 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
             }
         }
 
-        android.util.Log.d("FoodRecommendations", "=== REALTIME DB RESULTS ===");
-        android.util.Log.d("FoodRecommendations", "Total foods loaded: " + foodList.size());
-        android.util.Log.d("FoodRecommendations", "Goal matches: " + goalMatchCount + "/" + addedCount);
-        android.util.Log.d("FoodRecommendations", "Foods filtered out: " + filteredCount);
-        android.util.Log.d("FoodRecommendations", "User goal: " + fitnessGoal);
-
+        android.util.Log.d("FoodRecommendations", "RTDB: added=" + addedCount + ", filtered=" + filteredCount + ", duplicates=" + duplicateCount);
         recommendationsAdapter.notifyDataSetChanged();
         progressBar.setVisibility(View.GONE);
         updateCounts();
@@ -417,91 +440,54 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
     }
 
     private void loadFromFirestore() {
-        // Original Firestore loading method as fallback
         android.util.Log.d("FoodRecommendations", "Loading from Firestore...");
         db.collection("foods")
-                .limit(200) // Increased to get more variety from 500 foods database
+                .limit(200)
                 .get()
                 .addOnSuccessListener(queryDocumentSnapshots -> {
-                    android.util.Log.d("FoodRecommendations", "Firestore query returned " + queryDocumentSnapshots.size() + " total foods");
                     int addedCount = 0;
                     int filteredCount = 0;
                     int goalMatchCount = 0;
+                    int duplicateCount = 0;
 
-                    for (com.google.firebase.firestore.QueryDocumentSnapshot document : queryDocumentSnapshots) {
-                        // Log raw document data
-                        android.util.Log.d("FoodRecommendations", "=== Document ID: " + document.getId() + " ===");
-                        android.util.Log.d("FoodRecommendations", "Raw data: " + document.getData());
-
+                    for (QueryDocumentSnapshot document : queryDocumentSnapshots) {
                         FoodRecommendation food = document.toObject(FoodRecommendation.class);
                         food.setId(document.getId());
 
-                        // Check verified status (handles both 'verified' and 'isVerified' field names)
                         Boolean isVerifiedField = document.getBoolean("isVerified");
                         Boolean verifiedField = document.getBoolean("verified");
                         boolean foodIsVerified = (isVerifiedField != null && isVerifiedField) || (verifiedField != null && verifiedField);
 
-                        // Log parsed food object
-                        android.util.Log.d("FoodRecommendations", "Parsed food: name=" + food.getName() +
-                            ", coachId=" + food.getCoachId() +
-                            ", userId=" + food.getUserId() +
-                            ", isVerified=" + foodIsVerified +
-                            ", calories=" + food.getCalories());
-
-                        // Only include verified general recommendations (userId is null)
                         boolean isGeneral = food.getUserId() == null;
 
                         if (isGeneral && foodIsVerified) {
-                            // Apply enhanced fitness goal filter to ALL foods
-                            boolean matchesGoal = (fitnessGoal == null || food.isGoodForGoal(fitnessGoal));
+                            // Check for duplicates across coach + RTDB + Firestore
+                            if (isAlreadyInList(food)) {
+                                duplicateCount++;
+                                android.util.Log.d("FoodRecommendations", "Skipped duplicate (FS): " + food.getName());
+                                continue;
+                            }
 
-                            // Coach foods get priority but still show goal match status
+                            boolean matchesGoal = (fitnessGoal == null || food.isGoodForGoal(fitnessGoal));
                             boolean isFromCoach = (coachId != null && coachId.equals(food.getCoachId()));
 
-                            // Include if: coach food OR matches goal OR high-quality food
                             boolean shouldInclude = isFromCoach || matchesGoal ||
-                                                  (food.getProtein() >= 20) || // Very high protein always good
-                                                  (food.getCalories() <= 50); // Very low calorie always good
+                                                  (food.getProtein() >= 20) ||
+                                                  (food.getCalories() <= 50);
 
                             if (shouldInclude) {
-                                // Avoid duplicates from personalized query
-                                boolean alreadyAdded = false;
-                                for (FoodRecommendation existing : foodList) {
-                                    if (existing.getId().equals(food.getId())) {
-                                        alreadyAdded = true;
-                                        break;
-                                    }
-                                }
-                                if (!alreadyAdded) {
-                                    foodList.add(food);
-                                    originalFoodList.add(food);
-                                    addedCount++;
+                                foodList.add(food);
+                                originalFoodList.add(food);
+                                addedCount++;
 
-                                    if (matchesGoal) goalMatchCount++;
-
-                                    String goalStatus = matchesGoal ? "✅ PERFECT MATCH" :
-                                                      isFromCoach ? "👨‍⚕️ COACH PRIORITY" :
-                                                      "⭐ HIGH QUALITY";
-                                    android.util.Log.d("FoodRecommendations", "Added: " + food.getName() +
-                                        " (" + goalStatus + ", goal: " + fitnessGoal +
-                                        ", cal: " + food.getCalories() + ", protein: " + food.getProtein() + "g)");
-                                }
+                                if (matchesGoal) goalMatchCount++;
                             } else {
                                 filteredCount++;
-                                android.util.Log.d("FoodRecommendations", "Filtered out: " + food.getName() +
-                                    " (goal: " + fitnessGoal + ", cal: " + food.getCalories() + ", protein: " + food.getProtein() + "g)");
                             }
-                        } else {
-                            android.util.Log.d("FoodRecommendations", "Skipped non-general food: " + food.getName() + " (userId: " + food.getUserId() + ")");
                         }
                     }
 
-                    android.util.Log.d("FoodRecommendations", "=== FINAL RESULTS ===");
-                    android.util.Log.d("FoodRecommendations", "Total foods loaded: " + foodList.size());
-                    android.util.Log.d("FoodRecommendations", "Goal matches: " + goalMatchCount + "/" + addedCount);
-                    android.util.Log.d("FoodRecommendations", "Foods filtered out: " + filteredCount);
-                    android.util.Log.d("FoodRecommendations", "User goal: " + fitnessGoal);
-
+                    android.util.Log.d("FoodRecommendations", "FS: added=" + addedCount + ", filtered=" + filteredCount + ", duplicates=" + duplicateCount);
                     recommendationsAdapter.notifyDataSetChanged();
                     progressBar.setVisibility(View.GONE);
                     updateCounts();
@@ -510,15 +496,14 @@ public class UserFoodRecommendationsActivity extends AppCompatActivity {
                         emptyState.setVisibility(View.VISIBLE);
                         android.util.Log.w("FoodRecommendations", "No foods to display!");
                     } else {
-                        // Update goal info to show filtering results
                         updateGoalInfoWithResults(goalMatchCount, addedCount);
                     }
                 })
                 .addOnFailureListener(e -> {
-                    Toast.makeText(this, "Error loading recommendations: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    android.util.Log.e("FoodRecommendations", "Failed to load from Firestore", e);
+                    Toast.makeText(this, "Error loading foods", Toast.LENGTH_SHORT).show();
                     progressBar.setVisibility(View.GONE);
                     emptyState.setVisibility(View.VISIBLE);
-                    android.util.Log.e("FoodRecommendations", "Error: ", e);
                 });
     }
 

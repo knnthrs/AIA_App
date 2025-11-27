@@ -3,6 +3,7 @@ package com.example.signuploginrealtime;
 import java.io.Serializable;
 
 public class ExercisePerformanceData implements Serializable {
+
     private String exerciseName;
     private int targetReps;
     private int actualReps;
@@ -13,7 +14,13 @@ public class ExercisePerformanceData implements Serializable {
     private String exerciseType; // cardio, strength, flexibility
     private int caloriesEstimate; // estimated calories for this exercise
 
-    public ExercisePerformanceData(String exerciseName, int targetReps, int actualReps, int targetDurationSeconds, int actualDurationSeconds, String status) {
+    // Base constructor
+    public ExercisePerformanceData(String exerciseName,
+                                   int targetReps,
+                                   int actualReps,
+                                   int targetDurationSeconds,
+                                   int actualDurationSeconds,
+                                   String status) {
         this.exerciseName = exerciseName;
         this.targetReps = targetReps;
         this.actualReps = actualReps;
@@ -21,20 +28,24 @@ public class ExercisePerformanceData implements Serializable {
         this.actualDurationSeconds = actualDurationSeconds;
         this.status = status;
         this.weight = 0.0; // Default bodyweight
-        this.exerciseType = "strength"; // Default
+        this.exerciseType = "strength"; // Default type
         this.caloriesEstimate = 0;
     }
 
     // Enhanced constructor
-    public ExercisePerformanceData(String exerciseName, int targetReps, int actualReps,
-                                 int targetDurationSeconds, int actualDurationSeconds,
-                                 String status, double weight, String exerciseType) {
+    public ExercisePerformanceData(String exerciseName,
+                                   int targetReps,
+                                   int actualReps,
+                                   int targetDurationSeconds,
+                                   int actualDurationSeconds,
+                                   String status,
+                                   double weight,
+                                   String exerciseType) {
         this(exerciseName, targetReps, actualReps, targetDurationSeconds, actualDurationSeconds, status);
         this.weight = weight;
         this.exerciseType = exerciseType;
     }
 
-    // Getters
     public String getExerciseName() {
         return exerciseName;
     }
@@ -71,7 +82,7 @@ public class ExercisePerformanceData implements Serializable {
         return caloriesEstimate;
     }
 
-    // Setters (optional, but can be useful)
+    // Setters (optional but useful for updating data)
     public void setExerciseName(String exerciseName) {
         this.exerciseName = exerciseName;
     }

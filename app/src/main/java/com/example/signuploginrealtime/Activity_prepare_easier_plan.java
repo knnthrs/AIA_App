@@ -43,6 +43,7 @@ public class Activity_prepare_easier_plan extends AppCompatActivity {
 
         // Set default selection
         selectedButton = btnWayEasier;
+        selectButton(selectedButton);
     }
 
     private void initializeViews() {
@@ -88,43 +89,55 @@ public class Activity_prepare_easier_plan extends AppCompatActivity {
 
         // Done button
         btnDone.setOnClickListener(v -> {
-            if (selectedOption.equals("No, just keep everything the same")) {
-                // No adjustment needed - show workout summary
-                Intent intent = new Intent(this, WorkoutSummaryActivity.class);
+            Intent previousIntent = getIntent();
 
-                // Try to get workout data from the chain if available
-                Intent previousIntent = getIntent();
+            if ("No, just keep everything the same".equals(selectedOption)) {
+                // No adjustment needed - go straight to summary
+                Intent summaryIntent = new Intent(this, WorkoutSummaryActivity.class);
+
                 if (previousIntent.hasExtra("workoutDuration")) {
-                    intent.putExtra("workoutDuration", previousIntent.getIntExtra("workoutDuration", 0));
+                    summaryIntent.putExtra("workoutDuration",
+                            previousIntent.getIntExtra("workoutDuration", 0));
                 }
                 if (previousIntent.hasExtra("performanceData")) {
-                    intent.putExtra("performanceData", previousIntent.getSerializableExtra("performanceData"));
-                }
-
-                startActivity(intent);
-                finish();
-            } else {
-                // Proceed to adjustment
-                Intent intent = new Intent(this, Activity_adjusting_workout.class);
-                intent.putExtra("adjustment_type", selectedOption);
-                intent.putExtra("original_feedback", originalFeedback);
-
-                // Pass workout data through
-                Intent previousIntent = getIntent();
-                if (previousIntent.hasExtra("workoutDuration")) {
-                    intent.putExtra("workoutDuration", previousIntent.getIntExtra("workoutDuration", 0));
-                }
-                if (previousIntent.hasExtra("performanceData")) {
-                    intent.putExtra("performanceData", previousIntent.getSerializableExtra("performanceData"));
+                    summaryIntent.putExtra("performanceData",
+                            previousIntent.getSerializableExtra("performanceData"));
                 }
                 if (previousIntent.hasExtra("workout_name")) {
-                    intent.putExtra("workout_name", previousIntent.getStringExtra("workout_name"));
+                    summaryIntent.putExtra("workout_name",
+                            previousIntent.getStringExtra("workout_name"));
                 }
                 if (previousIntent.hasExtra("total_exercises")) {
-                    intent.putExtra("total_exercises", previousIntent.getIntExtra("total_exercises", 0));
+                    summaryIntent.putExtra("total_exercises",
+                            previousIntent.getIntExtra("total_exercises", 0));
                 }
 
-                startActivity(intent);
+                startActivity(summaryIntent);
+                finish();
+            } else {
+                // User wants an easier/harder plan -> go to adjusting screen
+                Intent adjustIntent = new Intent(this, Activity_adjusting_workout.class);
+                adjustIntent.putExtra("adjustment_type", selectedOption);
+                adjustIntent.putExtra("original_feedback", originalFeedback);
+
+                if (previousIntent.hasExtra("workoutDuration")) {
+                    adjustIntent.putExtra("workoutDuration",
+                            previousIntent.getIntExtra("workoutDuration", 0));
+                }
+                if (previousIntent.hasExtra("performanceData")) {
+                    adjustIntent.putExtra("performanceData",
+                            previousIntent.getSerializableExtra("performanceData"));
+                }
+                if (previousIntent.hasExtra("workout_name")) {
+                    adjustIntent.putExtra("workout_name",
+                            previousIntent.getStringExtra("workout_name"));
+                }
+                if (previousIntent.hasExtra("total_exercises")) {
+                    adjustIntent.putExtra("total_exercises",
+                            previousIntent.getIntExtra("total_exercises", 0));
+                }
+
+                startActivity(adjustIntent);
                 finish();
             }
         });
@@ -136,17 +149,24 @@ public class Activity_prepare_easier_plan extends AppCompatActivity {
         resetButton(btnLittleEasier);
         resetButton(btnWayEasier);
 
-        // Select the clicked button
-        button.setBackgroundResource(R.drawable.option_button_selected);
-        button.setTextColor(Color.WHITE);
-
-        // Update selected button and option
+        // Highlight selected button
         selectedButton = button;
-        selectedOption = button.getText().toString();
+        selectedButton.setBackgroundColor(Color.WHITE);
+        selectedButton.setTextColor(Color.BLACK);
+
+        // Update selectedOption based on which button is chosen
+        if (button == btnKeepSame) {
+            selectedOption = "No, just keep everything the same";
+        } else if (button == btnLittleEasier) {
+            selectedOption = btnLittleEasier.getText().toString();
+        } else if (button == btnWayEasier) {
+            selectedOption = btnWayEasier.getText().toString();
+        }
     }
 
     private void resetButton(AppCompatButton button) {
-        button.setBackgroundResource(R.drawable.option_button_unselected);
-        button.setTextColor(Color.BLACK);
+        if (button == null) return;
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setTextColor(Color.WHITE);
     }
 }

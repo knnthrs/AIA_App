@@ -114,7 +114,11 @@ package com.example.signuploginrealtime;
         TextView dailyChallengeProgressText;
         android.widget.Button btnCompleteChallenge;
         private int challengeCurrentProgress = 0;
-        private int challengeTargetProgress = 0;
+        private int challengeTargetProgress = 1; // simple 1-per-day challenge
+
+        private static final String PREFS_DAILY_CHALLENGE = "daily_challenge_prefs";
+        private static final String KEY_CHALLENGE_DATE = "challenge_date";
+        private static final String KEY_CHALLENGE_DONE = "challenge_done";
 
         FirebaseFirestore dbFirestore;
         DocumentReference userDocRefFS;
@@ -168,7 +172,6 @@ package com.example.signuploginrealtime;
 
 
             initializeViews();
-
             setupDailyChallenge();
 
             coachCache = getSharedPreferences("MainActivity_cache", MODE_PRIVATE);
@@ -253,14 +256,13 @@ package com.example.signuploginrealtime;
             membershipCardView = findViewById(R.id.membershipCard);
             membershipCtaContainer = findViewById(R.id.membership_cta_container);
 
-            // Initialize daily challenge views (may be null on some layouts)
-            // TODO: Add daily challenge UI to layout
-            // dailyChallengeCard = findViewById(R.id.daily_challenge_card);
-            // dailyChallengeEmoji = findViewById(R.id.daily_challenge_emoji);
-            // dailyChallengeDescription = findViewById(R.id.daily_challenge_description);
-            // dailyChallengeProgress = findViewById(R.id.daily_challenge_progress);
-            // dailyChallengeProgressText = findViewById(R.id.daily_challenge_progress_text);
-            // btnCompleteChallenge = findViewById(R.id.btn_complete_challenge);
+            // Initialize daily challenge views (present in activity_main.xml)
+            dailyChallengeCard = findViewById(R.id.daily_challenge_card);
+            dailyChallengeEmoji = findViewById(R.id.daily_challenge_emoji);
+            dailyChallengeDescription = findViewById(R.id.daily_challenge_description);
+            dailyChallengeProgress = findViewById(R.id.daily_challenge_progress);
+            dailyChallengeProgressText = findViewById(R.id.daily_challenge_progress_text);
+            btnCompleteChallenge = findViewById(R.id.btn_complete_challenge);
         }
 
         private void showExitDialog() {

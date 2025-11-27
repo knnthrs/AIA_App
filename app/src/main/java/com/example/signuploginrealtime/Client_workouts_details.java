@@ -1,5 +1,6 @@
 package com.example.signuploginrealtime;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -108,6 +109,10 @@ public class Client_workouts_details extends AppCompatActivity {
 
         // Setup mark session button click listener
         markSessionCompleteButton.setOnClickListener(v -> markSessionComplete(db));
+
+        // ✅ NEW: Setup Manage Food Recommendations click listener
+        androidx.cardview.widget.CardView manageFoodCard = findViewById(R.id.manage_food_card);
+        manageFoodCard.setOnClickListener(v -> openFoodManagement());
 
         // Initialize search overlay and main content
         searchOverlayContainer = findViewById(R.id.search_overlay_container);
@@ -573,5 +578,15 @@ public class Client_workouts_details extends AppCompatActivity {
             return android.text.TextUtils.join(", ", parts);
         }
         return field.toString();
+    }
+
+    /**
+     * Opens food management activity for this specific client
+     */
+    private void openFoodManagement() {
+        Intent intent = new Intent(this, CoachFoodManagementActivity.class);
+        intent.putExtra("clientId", clientUid);
+        intent.putExtra("clientName", clientName.getText().toString());
+        startActivity(intent);
     }
 }

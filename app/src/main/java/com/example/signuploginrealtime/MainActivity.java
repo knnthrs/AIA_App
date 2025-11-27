@@ -47,7 +47,14 @@ package com.example.signuploginrealtime;
     import android.widget.LinearLayout;
     import android.view.LayoutInflater;
     import android.view.View;
-    
+    import androidx.recyclerview.widget.RecyclerView;
+
+    // Import food recommendation models and adapters
+    import com.example.signuploginrealtime.models.FoodRecommendation;
+    import com.example.signuploginrealtime.models.UserMealPlan;
+    import com.example.signuploginrealtime.adapters.MainFoodRecoAdapter;
+    import com.example.signuploginrealtime.adapters.MainMealPlanAdapter;
+
     
     import com.example.signuploginrealtime.UserInfo.AgeInput;
     
@@ -542,26 +549,26 @@ package com.example.signuploginrealtime;
                 });
             }
 
-            // TODO: Add food recommendation and meal plan cards to layout
-            // Food Recommendation Card Click Listener
-            // CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
-            // if (foodRecommendationCard != null) {
-            //     foodRecommendationCard.setOnClickListener(v -> {
-            //         Intent intent = new Intent(MainActivity.this, UserFoodRecommendationsActivity.class);
-            //         startActivity(intent);
-            //         overridePendingTransition(0, 0);
-            //     });
-            // }
+            // Food Recommendation Card Click Listener - Browse coach's foods
+            CardView foodRecommendationCard = findViewById(R.id.food_recommendation_card);
+            if (foodRecommendationCard != null) {
+                foodRecommendationCard.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, CoachFoodManagementActivity.class);
+                    intent.putExtra("viewMode", "user"); // User browsing foods
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
 
-            // My Meal Plan Card Click Listener
-            // CardView mealPlanCard = findViewById(R.id.meal_plan_card);
-            // if (mealPlanCard != null) {
-            //     mealPlanCard.setOnClickListener(v -> {
-            //         Intent intent = new Intent(MainActivity.this, UserMealPlanActivity.class);
-            //         startActivity(intent);
-            //         overridePendingTransition(0, 0);
-            //     });
-            // }
+            // My Meal Plan Card Click Listener - View daily meal plan
+            CardView mealPlanCard = findViewById(R.id.meal_plan_card);
+            if (mealPlanCard != null) {
+                mealPlanCard.setOnClickListener(v -> {
+                    Intent intent = new Intent(MainActivity.this, UserMealPlanActivity.class);
+                    startActivity(intent);
+                    overridePendingTransition(0, 0);
+                });
+            }
 
             ImageView bellIcon = findViewById(R.id.bell_icon);
             if (bellIcon != null) {

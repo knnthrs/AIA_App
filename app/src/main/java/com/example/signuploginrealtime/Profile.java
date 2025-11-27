@@ -298,6 +298,7 @@ public class Profile extends AppCompatActivity {
         findViewById(R.id.btn_logout).setOnClickListener(v -> showLogoutDialog());
 
 
+        
         // ===== Setup Firestore Listener (AFTER all views are initialized) =====
         if (currentUser != null && userDocRef != null) {
             setupUserDataListener();

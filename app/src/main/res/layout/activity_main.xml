@@ -1,4 +1,4 @@
-    <androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
         xmlns:app="http://schemas.android.com/apk/res-auto"
         android:id="@+id/main"
         android:layout_width="match_parent"
@@ -414,9 +414,9 @@
 
                     </androidx.cardview.widget.CardView>
 
-                    <!-- Daily Challenge Card -->
+                    <!-- Daily Challenges Section - All 3 in 1 Card -->
                     <androidx.cardview.widget.CardView
-                        android:id="@+id/daily_challenge_card"
+                        android:id="@+id/daily_challenges_card"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="20dp"
@@ -431,91 +431,156 @@
                             android:padding="20dp">
 
                             <!-- Header -->
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="🎯 Daily Challenges"
+                                android:textColor="@color/white"
+                                android:textSize="18sp"
+                                android:textStyle="bold"
+                                android:layout_marginBottom="16dp" />
+
+                            <!-- Challenge 1 -->
                             <LinearLayout
+                                android:id="@+id/challenge_1_container"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal"
                                 android:gravity="center_vertical"
-                                android:layout_marginBottom="12dp">
+                                android:layout_marginBottom="12dp"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:background="?attr/selectableItemBackground">
 
                                 <TextView
-                                    android:id="@+id/daily_challenge_emoji"
-                                    android:layout_width="40dp"
-                                    android:layout_height="40dp"
+                                    android:id="@+id/challenge_1_emoji"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
                                     android:text="🎯"
-                                    android:textSize="28sp"
+                                    android:textSize="24sp"
                                     android:gravity="center"
                                     android:layout_marginEnd="12dp" />
 
-                                <LinearLayout
+                                <TextView
+                                    android:id="@+id/challenge_1_description"
                                     android:layout_width="0dp"
                                     android:layout_height="wrap_content"
                                     android:layout_weight="1"
-                                    android:orientation="vertical">
+                                    android:text="Complete challenge 1"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="14sp" />
 
-                                    <TextView
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Daily Challenge"
-                                        android:textColor="@color/white"
-                                        android:textSize="18sp"
-                                        android:textStyle="bold" />
-
-                                    <TextView
-                                        android:id="@+id/daily_challenge_description"
-                                        android:layout_width="wrap_content"
-                                        android:layout_height="wrap_content"
-                                        android:text="Complete 10 push-ups"
-                                        android:textColor="#CCCCCC"
-                                        android:textSize="14sp"
-                                        android:layout_marginTop="4dp" />
-
-                                </LinearLayout>
+                                <TextView
+                                    android:id="@+id/btn_complete_challenge_1"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:text="⭕"
+                                    android:textSize="24sp"
+                                    android:gravity="center"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:background="?attr/selectableItemBackgroundBorderless" />
 
                             </LinearLayout>
 
-                            <!-- Progress Bar -->
+                            <!-- Divider -->
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="#444444"
+                                android:layout_marginBottom="12dp" />
+
+                            <!-- Challenge 2 -->
                             <LinearLayout
+                                android:id="@+id/challenge_2_container"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
                                 android:orientation="horizontal"
                                 android:gravity="center_vertical"
-                                android:layout_marginBottom="12dp">
-
-                                <ProgressBar
-                                    android:id="@+id/daily_challenge_progress"
-                                    style="?android:attr/progressBarStyleHorizontal"
-                                    android:layout_width="0dp"
-                                    android:layout_height="8dp"
-                                    android:layout_weight="1"
-                                    android:progressTint="#FFC107"
-                                    android:progressBackgroundTint="#555555"
-                                    android:max="100"
-                                    android:progress="0" />
+                                android:layout_marginBottom="12dp"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:background="?attr/selectableItemBackground">
 
                                 <TextView
-                                    android:id="@+id/daily_challenge_progress_text"
-                                    android:layout_width="wrap_content"
+                                    android:id="@+id/challenge_2_emoji"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:text="🎯"
+                                    android:textSize="24sp"
+                                    android:gravity="center"
+                                    android:layout_marginEnd="12dp" />
+
+                                <TextView
+                                    android:id="@+id/challenge_2_description"
+                                    android:layout_width="0dp"
                                     android:layout_height="wrap_content"
-                                    android:text="0/1"
-                                    android:textColor="@color/white"
-                                    android:textSize="14sp"
-                                    android:textStyle="bold"
-                                    android:layout_marginStart="12dp" />
+                                    android:layout_weight="1"
+                                    android:text="Complete challenge 2"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/btn_complete_challenge_2"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:text="⭕"
+                                    android:textSize="24sp"
+                                    android:gravity="center"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:background="?attr/selectableItemBackgroundBorderless" />
 
                             </LinearLayout>
 
-                            <!-- Complete Button -->
-                            <Button
-                                android:id="@+id/btn_complete_challenge"
+                            <!-- Divider -->
+                            <View
+                                android:layout_width="match_parent"
+                                android:layout_height="1dp"
+                                android:background="#444444"
+                                android:layout_marginBottom="12dp" />
+
+                            <!-- Challenge 3 -->
+                            <LinearLayout
+                                android:id="@+id/challenge_3_container"
                                 android:layout_width="match_parent"
                                 android:layout_height="wrap_content"
-                                android:text="Complete Challenge"
-                                android:textColor="@color/white"
-                                android:textStyle="bold"
-                                android:backgroundTint="#4CAF50"
-                                android:padding="12dp"
-                                android:textSize="16sp" />
+                                android:orientation="horizontal"
+                                android:gravity="center_vertical"
+                                android:clickable="true"
+                                android:focusable="true"
+                                android:background="?attr/selectableItemBackground">
+
+                                <TextView
+                                    android:id="@+id/challenge_3_emoji"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:text="🎯"
+                                    android:textSize="24sp"
+                                    android:gravity="center"
+                                    android:layout_marginEnd="12dp" />
+
+                                <TextView
+                                    android:id="@+id/challenge_3_description"
+                                    android:layout_width="0dp"
+                                    android:layout_height="wrap_content"
+                                    android:layout_weight="1"
+                                    android:text="Complete challenge 3"
+                                    android:textColor="#CCCCCC"
+                                    android:textSize="14sp" />
+
+                                <TextView
+                                    android:id="@+id/btn_complete_challenge_3"
+                                    android:layout_width="32dp"
+                                    android:layout_height="32dp"
+                                    android:text="⭕"
+                                    android:textSize="24sp"
+                                    android:gravity="center"
+                                    android:clickable="true"
+                                    android:focusable="true"
+                                    android:background="?attr/selectableItemBackgroundBorderless" />
+
+                            </LinearLayout>
 
                         </LinearLayout>
 

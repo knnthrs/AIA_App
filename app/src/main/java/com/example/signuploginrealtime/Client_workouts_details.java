@@ -258,7 +258,7 @@ public class Client_workouts_details extends AppCompatActivity {
         DatabaseReference workoutsRef = FirebaseDatabase.getInstance().getReference();
         final String TAG = "WorkoutSearch";
 
-        // ✅ Updated search functionality with new adapter methods
+        // ✅ Updated search functionality with new adapter methods (using simple get + filter)
         searchWorkouts.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void afterTextChanged(Editable s) {}
@@ -274,11 +274,8 @@ public class Client_workouts_details extends AppCompatActivity {
 
                 String qLower = query.toLowerCase();
 
-                workoutsRef.orderByChild("name")
-                        .startAt(query)
-                        .endAt(query + "\uf8ff")
-                        .limitToFirst(50)
-                        .get()
+                // Simpler and more robust: load all, then filter by name in-memory
+                workoutsRef.get()
                         .addOnSuccessListener(snapshot -> {
                             List<Map<String, Object>> newResults = new ArrayList<>();
 
@@ -286,7 +283,10 @@ public class Client_workouts_details extends AppCompatActivity {
                                 Object val = child.getValue();
                                 if (!(val instanceof Map)) continue;
                                 Map<String, Object> exercise = (Map<String, Object>) val;
-                                String name = exercise.get("name") != null ? exercise.get("name").toString() : "";
+
+                                String name = exercise.get("name") != null
+                                        ? exercise.get("name").toString()
+                                        : "";
                                 if (!name.isEmpty() && name.toLowerCase().contains(qLower)) {
                                     newResults.add(exercise);
                                 }
@@ -296,7 +296,9 @@ public class Client_workouts_details extends AppCompatActivity {
                         })
                         .addOnFailureListener(e -> {
                             Log.e(TAG, "search error", e);
-                            Toast.makeText(Client_workouts_details.this, "Search failed", Toast.LENGTH_SHORT).show();
+                            Toast.makeText(Client_workouts_details.this,
+                                    "Search failed: " + e.getMessage(),
+                                    Toast.LENGTH_SHORT).show();
                             searchAdapter.clearResults();
                         });
             }
@@ -370,8 +372,13 @@ public class Client_workouts_details extends AppCompatActivity {
             searchAdapter.setAlreadyAdded(alreadyAddedNames);
         }
 
-        // ✅ Optional: Clear search after adding exercise
+        // ✅ Mark as changed so Save button shows up
+        onWorkoutChanged();
+
+        // ✅ Clear search after adding exercise
         clearSearch();
+
+        Toast.makeText(this, "Exercise added! Tap Save to persist changes.", Toast.LENGTH_SHORT).show();
     }
 
     // ✅ Save all changes to Firestore

@@ -85,10 +85,17 @@ public class Notification extends AppCompatActivity {
                     notificationList.clear();
                     if (snapshots != null) {
                         for (DocumentSnapshot doc : snapshots) {
-                            NotificationItem notif = doc.toObject(NotificationItem.class);
-                            if (notif != null) {
-                                notif.setId(doc.getId());
-                                notificationList.add(notif);
+                            try {
+                                NotificationItem notif = doc.toObject(NotificationItem.class);
+                                if (notif != null) {
+                                    notif.setId(doc.getId());
+                                    notificationList.add(notif);
+                                } else {
+                                    Log.w("NotificationActivity", "Null notification from doc: " + doc.getId());
+                                }
+                            } catch (Exception ex) {
+                                Log.e("NotificationActivity", "Failed to parse notification doc: " + doc.getId(), ex);
+                                // Continue to next document instead of crashing
                             }
                         }
                     }
@@ -108,6 +115,11 @@ public class Notification extends AppCompatActivity {
     }
 
     private void markNotificationAsRead(NotificationItem notification) {
+        if (notification == null || notification.getId() == null) {
+            Log.e("NotificationActivity", "Cannot mark as read: notification or ID is null");
+            return;
+        }
+
         if (!notification.isRead()) {
             db.collection("notifications")
                     .document(notification.getId())
@@ -129,6 +141,11 @@ public class Notification extends AppCompatActivity {
     }
 
     private void routeToActivity(NotificationItem notification) {
+        if (notification == null) {
+            Log.e("NotificationActivity", "Cannot route: notification is null");
+            return;
+        }
+
         String type = notification.getType();
         if (type == null) type = "";
 
@@ -178,7 +195,9 @@ public class Notification extends AppCompatActivity {
         if (!notificationList.isEmpty()) {
             WriteBatch batch = db.batch();
             for (NotificationItem notif : notificationList) {
-                batch.delete(db.collection("notifications").document(notif.getId()));
+                if (notif != null && notif.getId() != null) {
+                    batch.delete(db.collection("notifications").document(notif.getId()));
+                }
             }
 
             batch.commit().addOnSuccessListener(aVoid -> {

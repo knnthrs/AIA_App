@@ -132,13 +132,40 @@ public class WorkoutList extends AppCompatActivity {
                 return;
             }
 
-            ArrayList<String> exerciseNames = new ArrayList<>();
-            ArrayList<String> exerciseDetails = new ArrayList<>();
-            ArrayList<Integer> exerciseRests = new ArrayList<>();
-            ArrayList<Integer> exerciseTimes = new ArrayList<>();
-            ArrayList<String> exerciseImageUrls = new ArrayList<>();
+            // Show warm-up reminder dialog before starting
+            showWarmUpReminderDialog();
+        });
+    }
 
-            for (WorkoutExercise we : currentWorkoutExercises) {
+    private void showWarmUpReminderDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle("⚠️ Warm-Up Reminder")
+                .setMessage("Don't forget to warm up first!\n\n" +
+                        "• 5-10 minutes of light cardio\n" +
+                        "• Dynamic stretching\n" +
+                        "• Joint rotations\n\n" +
+                        "Warming up helps prevent injuries and improves performance.")
+                .setPositiveButton("I'm Ready!", (dialog, which) -> {
+                    startWorkoutSession();
+                })
+                .setNegativeButton("Cancel", null)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .show();
+    }
+
+    private void startWorkoutSession() {
+        if (currentWorkoutExercises == null || currentWorkoutExercises.isEmpty()) {
+            Toast.makeText(this, "No workout exercises available to start.", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        ArrayList<String> exerciseNames = new ArrayList<>();
+        ArrayList<String> exerciseDetails = new ArrayList<>();
+        ArrayList<Integer> exerciseRests = new ArrayList<>();
+        ArrayList<Integer> exerciseTimes = new ArrayList<>();
+        ArrayList<String> exerciseImageUrls = new ArrayList<>();
+
+        for (WorkoutExercise we : currentWorkoutExercises) {
                 ExerciseInfo info = we.getExerciseInfo();
                 String currentExerciseName = (info != null && info.getName() != null) ? info.getName() : "Unknown Exercise";
 
@@ -190,7 +217,6 @@ public class WorkoutList extends AppCompatActivity {
 
             startActivity(intent);
             overridePendingTransition(0, 0);
-        });
     }
 
 

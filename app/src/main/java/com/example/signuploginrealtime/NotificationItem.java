@@ -70,6 +70,9 @@ public class NotificationItem {
 
     // Get icon resource based on type
     public int getIconResource() {
+        if (type == null) {
+            return R.drawable.ic_bell;
+        }
         switch (type) {
             case "workout":
                 return R.drawable.ic_dumbell;
@@ -84,6 +87,9 @@ public class NotificationItem {
 
     // ✅ Return actual int colors instead of strings
     public int getBackgroundColorInt() {
+        if (type == null) {
+            return Color.parseColor("#F0F0FF"); // Light blue
+        }
         switch (type) {
             case "workout":
                 return Color.parseColor("#FFF0F5"); // Light pink
@@ -97,6 +103,9 @@ public class NotificationItem {
     }
 
     public int getIconColorInt() {
+        if (type == null) {
+            return Color.parseColor("#6C5CE7"); // Purple
+        }
         switch (type) {
             case "workout":
                 return Color.parseColor("#FF6B9D"); // Pink

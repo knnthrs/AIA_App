@@ -51,13 +51,22 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
     @Override
     public void onBindViewHolder(@NonNull NotificationViewHolder holder, int position) {
         NotificationItem notification = notifications.get(position);
+        if (notification == null) {
+            return; // Safeguard against unexpected nulls
+        }
 
-        // Set text content
-        holder.titleTextView.setText(notification.getTitle());
-        holder.messageTextView.setText(notification.getMessage());
-        holder.timeTextView.setText(getRelativeTime(notification.getTimestamp()));
+        // Safely get values with fallbacks
+        String title = notification.getTitle() != null ? notification.getTitle() : "";
+        String message = notification.getMessage() != null ? notification.getMessage() : "";
+        long timestamp = notification.getTimestamp();
+        if (timestamp <= 0) {
+            timestamp = System.currentTimeMillis();
+        }
 
-        // Set icon + colors
+        holder.titleTextView.setText(title);
+        holder.messageTextView.setText(message);
+        holder.timeTextView.setText(getRelativeTime(timestamp));
+
         holder.iconImageView.setImageResource(notification.getIconResource());
         holder.iconCardView.setCardBackgroundColor(notification.getBackgroundColorInt());
         holder.iconImageView.setColorFilter(notification.getIconColorInt());
@@ -93,6 +102,7 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
     // --- Helpers ---
     private String getRelativeTime(long timestamp) {
+        if (timestamp <= 0) return "Just now";
         long now = System.currentTimeMillis();
         long diff = now - timestamp;
 
@@ -119,6 +129,12 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
     // --- Efficient list updates using DiffUtil ---
     public void updateNotifications(List<NotificationItem> newList) {
+        if (newList == null) {
+            newList = new ArrayList<>();
+        }
+
+        final List<NotificationItem> safeNewList = newList;
+
         DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new DiffUtil.Callback() {
             @Override
             public int getOldListSize() {
@@ -127,29 +143,41 @@ public class NotificationAdapter extends RecyclerView.Adapter<NotificationAdapte
 
             @Override
             public int getNewListSize() {
-                return newList.size();
+                return safeNewList.size();
             }
 
             @Override
             public boolean areItemsTheSame(int oldItemPosition, int newItemPosition) {
-                return notifications.get(oldItemPosition).getId()
-                        .equals(newList.get(newItemPosition).getId());
+                NotificationItem oldItem = notifications.get(oldItemPosition);
+                NotificationItem newItem = safeNewList.get(newItemPosition);
+                if (oldItem == null || newItem == null) return false;
+                String oldId = oldItem.getId();
+                String newId = newItem.getId();
+                if (oldId == null || newId == null) return false;
+                return oldId.equals(newId);
             }
 
             @Override
             public boolean areContentsTheSame(int oldItemPosition, int newItemPosition) {
                 NotificationItem oldItem = notifications.get(oldItemPosition);
-                NotificationItem newItem = newList.get(newItemPosition);
+                NotificationItem newItem = safeNewList.get(newItemPosition);
+                if (oldItem == null || newItem == null) return false;
                 return oldItem.isRead() == newItem.isRead()
-                        && oldItem.getTitle().equals(newItem.getTitle())
-                        && oldItem.getMessage().equals(newItem.getMessage())
+                        && safeEquals(oldItem.getTitle(), newItem.getTitle())
+                        && safeEquals(oldItem.getMessage(), newItem.getMessage())
                         && oldItem.getTimestamp() == newItem.getTimestamp();
             }
         });
 
         notifications.clear();
-        notifications.addAll(newList);
+        notifications.addAll(safeNewList);
         diffResult.dispatchUpdatesTo(this);
+    }
+
+    private boolean safeEquals(String s1, String s2) {
+        if (s1 == null && s2 == null) return true;
+        if (s1 == null || s2 == null) return false;
+        return s1.equals(s2);
     }
 
     public static class NotificationViewHolder extends RecyclerView.ViewHolder {
